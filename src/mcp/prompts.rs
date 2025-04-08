@@ -1,13 +1,9 @@
-
 use pingora::{proxy::Session, Result};
 
 use crate::{
     proxy::ModelContextProtocolProxy,
     sse_event::SseEvent,
-    types::{
-        JSONRPCRequest, JSONRPCResponse, ListPromptsResult,
-        Prompt, PromptArgument, 
-    },
+    types::{JSONRPCRequest, JSONRPCResponse, ListPromptsResult, Prompt, PromptArgument},
 };
 
 pub async fn request_processing(
@@ -28,7 +24,9 @@ pub async fn request_processing(
                 prompts: vec![
                     Prompt {
                         name: "[mock data]current-time".to_string(),
-                        description: Some("[mock data]Display current time in the city".to_string()),
+                        description: Some(
+                            "[mock data]Display current time in the city".to_string(),
+                        ),
                         arguments: Some(vec![PromptArgument {
                             name: "city".to_string(),
                             description: Some("City name".to_string()),
@@ -37,7 +35,9 @@ pub async fn request_processing(
                     },
                     Prompt {
                         name: "[mock data]analyze-code".to_string(),
-                        description: Some("[mock data]Analyze code for potential improvements".to_string()),
+                        description: Some(
+                            "[mock data]Analyze code for potential improvements".to_string(),
+                        ),
                         arguments: Some(vec![PromptArgument {
                             name: "language".to_string(),
                             description: Some("Programming language".to_string()),

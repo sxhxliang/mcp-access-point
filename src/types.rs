@@ -5,16 +5,23 @@ use std::{borrow::Cow, collections::HashMap};
 pub const LATEST_PROTOCOL_VERSION: &str = "2024-11-05";
 pub const JSONRPC_VERSION: &str = "2.0";
 
-
 pub type Cursor = String;
 pub type RequestId = i32;
-
 
 pub const PARSE_ERROR: i32 = -32700;
 pub const INVALID_REQUEST: i32 = -32600;
 pub const METHOD_NOT_FOUND: i32 = -32601;
 pub const INVALID_PARAMS: i32 = -32602;
 pub const INTERNAL_ERROR: i32 = -32603;
+
+enum ErrorCode {
+    // Standard JSON-RPC error codes
+    ParseError = -32700,
+    InvalidRequest = -32600,
+    MethodNotFound = -32601,
+    InvalidParams = -32602,
+    InternalError = -32603,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -54,12 +61,12 @@ pub struct JSONRPCNotification {
     pub params: Option<Value>,
 }
 
-/// JSON-RPC 2.0 
+/// JSON-RPC 2.0
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JSONRPCResponse {
     #[serde(default = "default_jsonrpc_version")]
     pub jsonrpc: String,
-    
+
     pub id: RequestId,
 
     pub result: Value,
@@ -106,7 +113,6 @@ pub struct JSONRPCErrorDetails {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<Value>,
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -160,7 +166,6 @@ pub struct ServerCapabilities {
     pub tools: Option<ToolsCapability>,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RootsCapability {
@@ -186,14 +191,12 @@ pub struct ToolsCapability {
     pub list_changed: bool,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Implementation {
     pub name: String,
     pub version: String,
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -211,7 +214,7 @@ pub struct Resource {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ListResourcesResult {
-    pub resources: Vec<Resource>
+    pub resources: Vec<Resource>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -223,7 +226,6 @@ pub struct ReadResourceRequestParam {
 pub struct ReadResourceResult {
     pub contents: Vec<ResourceContents>,
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -256,7 +258,6 @@ pub struct TextResourceContents {
     pub text: String,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Prompt {
@@ -269,7 +270,7 @@ pub struct Prompt {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ListPromptsResult {
-    pub prompts: Vec<Prompt>
+    pub prompts: Vec<Prompt>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -303,7 +304,6 @@ pub struct PromptMessage {
     pub role: Role,
     pub content: PromptMessageContent,
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -343,7 +343,6 @@ pub struct ToolInputSchemaProperty {
     #[serde(rename = "type")]
     pub prop_type: String,
 }
-
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -430,8 +429,6 @@ pub struct ImageContent {
     pub annotations: Option<Annotations>,
 }
 
-
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Annotated {
@@ -439,21 +436,16 @@ pub struct Annotated {
     pub annotations: Option<Annotations>,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Annotations {
-
     #[serde(skip_serializing_if = "Option::is_none")]
     pub audience: Option<Vec<Role>>,
-    
+
     ///  (0.0-1.0)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub priority: Option<f64>,
 }
-
-
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -465,16 +457,15 @@ pub struct BlobResourceContents {
     pub base64_data: String,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EmbeddedResource {
     #[serde(flatten)]
     pub base: Annotated,
-    
+
     #[serde(rename = "type")]
-    pub resource_type: String,  // "resource"
-    
+    pub resource_type: String, // "resource"
+
     pub resource: ResourceContents,
 }
 
@@ -493,7 +484,6 @@ impl Default for EmbeddedResource {
 }
 
 impl EmbeddedResource {
-
     pub fn new_text(uri: String, text: String, mime_type: Option<String>) -> Self {
         Self {
             resource_type: "resource".to_string(),
@@ -505,7 +495,6 @@ impl EmbeddedResource {
             ..Default::default()
         }
     }
-
 
     pub fn new_blob(uri: String, base64_data: String, mime_type: Option<String>) -> Self {
         Self {
@@ -526,8 +515,6 @@ impl EmbeddedResource {
     }
 }
 
-
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PaginatedResult {
@@ -537,13 +524,11 @@ pub struct PaginatedResult {
     pub additional: HashMap<String, Value>,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ClientRequest {
     Ping(PingRequest),
     Initialize(InitializeRequest),
-
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -553,7 +538,99 @@ pub struct PingRequest {
     pub params: Option<Value>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SamplingRequest {
+    pub messages: Vec<Message>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model_preferences: Option<ModelPreferences>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub system_prompt: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub include_context: Option<IncludeContext>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub temperature: Option<f32>,
+    pub max_tokens: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stop_sequences: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<serde_json::Value>,
+}
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Message {
+    pub role: Role,
+    pub content: MessageContent,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MessageContent {
+    #[serde(rename = "type")]
+    pub content_type: MessageContentType,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mime_type: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum MessageContentType {
+    Text,
+    Image,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelPreferences {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hints: Option<Vec<ModelHint>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cost_priority: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub speed_priority: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub intelligence_priority: Option<f32>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelHint {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum IncludeContext {
+    None,
+    ThisServer,
+    AllServers,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SamplingResponse {
+    pub model: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stop_reason: Option<StopReason>,
+    pub role: Role,
+    pub content: MessageContent,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum StopReason {
+    EndTurn,
+    StopSequence,
+    MaxTokens,
+    #[serde(untagged)]
+    Other(String),
+}
 
 #[test]
 fn initialize_result_serialize_instructions_none() {
@@ -562,26 +639,25 @@ fn initialize_result_serialize_instructions_none() {
         capabilities: ServerCapabilities {
             experimental: Some(HashMap::new()),
             logging: None,
-            prompts: Some(PromptsCapability{
-                list_changed : false
+            prompts: Some(PromptsCapability {
+                list_changed: false,
             }),
             resources: Some(ResourcesCapability {
                 subscribe: false,
-                list_changed: false
+                list_changed: false,
             }),
             tools: Some(ToolsCapability {
-                list_changed: false
+                list_changed: false,
             }),
         },
         server_info: Implementation {
             name: "weather".to_string(),
             version: "1.5.0".to_string(),
         },
-        instructions: None
+        instructions: None,
     };
-    
 
-    let expected_json = json!({
+    let expected_json = serde_json::json!({
         "protocolVersion": "2024-11-05",
         "capabilities": {
             "experimental": {},
@@ -607,7 +683,7 @@ fn initialize_result_serialize_instructions_none() {
 
 #[test]
 fn initialize_result_serialize_all_fields_present() {
-    let expected_json = json!({
+    let expected_json = serde_json::json!({
         "resourceTemplates": [
             {
                 "uriTemplate": "greeting://{name}",
@@ -622,21 +698,21 @@ fn initialize_result_serialize_all_fields_present() {
             }
         ]
     });
-    let result = ResourceTemplateListResult{
+    let result = ResourceTemplateListResult {
         resource_templates: vec![
-            ResourceTemplate{
+            ResourceTemplate {
                 uri_template: "greeting://{name}".to_string(),
                 name: "get_greeting".to_string(),
                 description: Some("Get a personalized greeting".to_string()),
-                mime_type: Some("image/jpeg".to_string())
+                mime_type: Some("image/jpeg".to_string()),
             },
-            ResourceTemplate{
+            ResourceTemplate {
                 uri_template: "users://{user_id}/profile".to_string(),
                 name: "get_user_profile".to_string(),
                 description: Some("Dynamic user data".to_string()),
-                mime_type: None
+                mime_type: None,
             },
-        ]
+        ],
     };
 
     assert_eq!(serde_json::to_value(result).unwrap(), expected_json);
@@ -644,7 +720,7 @@ fn initialize_result_serialize_all_fields_present() {
 
 #[test]
 fn prompts_list_test() {
-    let expected_json = json!({
+    let expected_json = serde_json::json!({
         "prompts": [
             {
               "name": "current-time",
@@ -689,8 +765,8 @@ fn prompts_list_test() {
                     description: Some("Programming language".to_string()),
                     required: Some(true),
                 }]),
-            }
-        ]
+            },
+        ],
     };
     assert_eq!(serde_json::to_value(result).unwrap(), expected_json);
 }

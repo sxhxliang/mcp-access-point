@@ -1,4 +1,4 @@
-use std:: str::FromStr;
+use std::str::FromStr;
 
 use http::Uri;
 use pingora::{proxy::Session, Result};
@@ -28,10 +28,14 @@ pub async fn request_processing(
             let list_tools = global_openapi_tools_fetch();
             match list_tools {
                 Some(tools) => {
-                    let res = JSONRPCResponse::new(request_id, serde_json::to_value(tools).unwrap());
+                    let res =
+                        JSONRPCResponse::new(request_id, serde_json::to_value(tools).unwrap());
 
-                    let event =
-                        SseEvent::new_event(session_id, "message", &serde_json::to_string(&res).unwrap());
+                    let event = SseEvent::new_event(
+                        session_id,
+                        "message",
+                        &serde_json::to_string(&res).unwrap(),
+                    );
                     let _ = mcp_proxy.tx.send(event);
                     mcp_proxy.response_accepted(session).await?;
                     return Ok(true);
@@ -41,10 +45,8 @@ pub async fn request_processing(
                     return Ok(false);
                 }
             }
-
         }
         "tools/call" => {
-
             let _ = session
                 .req_header_mut()
                 .insert_header("upstream_peer", "127.0.0.1:8090");

@@ -1,30 +1,25 @@
-
 use std::fs;
 use std::path::Path;
 
 use clap::Parser;
 
-use notify::Watcher;
-use pingora::{
-    prelude::*, proxy::http_proxy_service_with_name, services::Service,
-};
-use mcp_access_point::openapi::reload_global_openapi_tools;
-use mcp_access_point::config::{UpstreamConfig, CLIENT_SSE_ENDPOINT, UPSTREAM_CONFIG};
-use mcp_access_point::proxy::ModelContextProtocolProxy;
 use mcp_access_point::cli;
+use mcp_access_point::config::{UpstreamConfig, CLIENT_SSE_ENDPOINT, UPSTREAM_CONFIG};
+use mcp_access_point::openapi::reload_global_openapi_tools;
+use mcp_access_point::proxy::ModelContextProtocolProxy;
+use notify::Watcher;
+use pingora::{prelude::*, proxy::http_proxy_service_with_name, services::Service};
 // use mcp_access_point::admin;
 use tokio::sync::broadcast;
 
-
 fn main() {
-    
     // std::env::set_var("RUST_LOG", "DEBUG");
     env_logger::init();
 
     let args = cli::Cli::parse();
-    // 
+    //
 
-    {   
+    {
         let upstream = UpstreamConfig::parse(&args.upstream);
         match upstream {
             Ok(upstream) => {
@@ -36,17 +31,18 @@ fn main() {
                 log::error!("Failed to parse upstream address: {}", e);
                 return;
             }
-            
         }
     }
     // watch the openapi file
     let filename = args.file.clone();
-    let content = fs::read_to_string(Path::new(&filename)).expect("Failed to read the openapi file");
+    let content =
+        fs::read_to_string(Path::new(&filename)).expect("Failed to read the openapi file");
     reload_global_openapi_tools(content).expect("Failed to reload openapi tools");
     let mut watcher = notify::recommended_watcher(move |res| match res {
         Ok(event) => {
             log::info!("file watcher: {event:?}");
-            let content = fs::read_to_string(Path::new(&filename)).expect("Failed to read the openapi file");
+            let content =
+                fs::read_to_string(Path::new(&filename)).expect("Failed to read the openapi file");
             reload_global_openapi_tools(content).expect("Failed to reload openapi tools");
         }
         Err(e) => panic!("watch error: {:?}", e),
@@ -56,7 +52,6 @@ fn main() {
     watcher
         .watch(Path::new(&args.file), notify::RecursiveMode::NonRecursive)
         .unwrap();
-
 
     // build the server
     let mut my_server = Server::new(Some(Opt::default())).unwrap();
@@ -77,7 +72,10 @@ fn main() {
     let addr = format!("0.0.0.0:{:?}", args.port);
     println!("parse openapi file: {}", &args.file);
     println!("Listening on: {}", &addr);
-    println!("MCP server enterpoint: {}", &format!("http://{addr}{CLIENT_SSE_ENDPOINT}"));
+    println!(
+        "MCP server enterpoint: {}",
+        &format!("http://{addr}{CLIENT_SSE_ENDPOINT}")
+    );
     lb_service.add_tcp(&addr);
 
     log::info!("The cargo manifest dir is: {}", env!("CARGO_MANIFEST_DIR"));
