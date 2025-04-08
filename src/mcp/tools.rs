@@ -10,7 +10,7 @@ use crate::{
     types::{
         CallToolRequestParam, CallToolResult, Content, JSONRPCRequest, JSONRPCResponse, TextContent,
     },
-    utils::{merge_path_query, replace_dynamic_params},
+    utils::request::{merge_path_query, replace_dynamic_params},
 };
 
 pub async fn request_processing(

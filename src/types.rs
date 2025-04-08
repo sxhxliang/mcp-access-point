@@ -16,6 +16,15 @@ pub const METHOD_NOT_FOUND: i32 = -32601;
 pub const INVALID_PARAMS: i32 = -32602;
 pub const INTERNAL_ERROR: i32 = -32603;
 
+enum ErrorCode {
+    // Standard JSON-RPC error codes
+    ParseError = -32700,
+    InvalidRequest = -32600,
+    MethodNotFound = -32601,
+    InvalidParams = -32602,
+    InternalError = -32603
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ProgressToken {
@@ -553,7 +562,100 @@ pub struct PingRequest {
     pub params: Option<Value>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SamplingRequest {
+    pub messages: Vec<Message>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model_preferences: Option<ModelPreferences>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub system_prompt: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub include_context: Option<IncludeContext>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub temperature: Option<f32>,
+    pub max_tokens: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stop_sequences: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<serde_json::Value>,
+}
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Message {
+    pub role: Role,
+    pub content: MessageContent,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MessageContent {
+    #[serde(rename = "type")]
+    pub content_type: MessageContentType,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mime_type: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum MessageContentType {
+    Text,
+    Image,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelPreferences {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hints: Option<Vec<ModelHint>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cost_priority: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub speed_priority: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub intelligence_priority: Option<f32>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelHint {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum IncludeContext {
+    None,
+    ThisServer,
+    AllServers,
+}
+
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SamplingResponse {
+    pub model: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stop_reason: Option<StopReason>,
+    pub role: Role,
+    pub content: MessageContent,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum StopReason {
+    EndTurn,
+    StopSequence,
+    MaxTokens,
+    #[serde(untagged)]
+    Other(String),
+}
 
 #[test]
 fn initialize_result_serialize_instructions_none() {
@@ -581,7 +683,7 @@ fn initialize_result_serialize_instructions_none() {
     };
     
 
-    let expected_json = json!({
+    let expected_json = serde_json::json!({
         "protocolVersion": "2024-11-05",
         "capabilities": {
             "experimental": {},
@@ -607,7 +709,7 @@ fn initialize_result_serialize_instructions_none() {
 
 #[test]
 fn initialize_result_serialize_all_fields_present() {
-    let expected_json = json!({
+    let expected_json = serde_json::json!({
         "resourceTemplates": [
             {
                 "uriTemplate": "greeting://{name}",
@@ -644,7 +746,7 @@ fn initialize_result_serialize_all_fields_present() {
 
 #[test]
 fn prompts_list_test() {
-    let expected_json = json!({
+    let expected_json = serde_json::json!({
         "prompts": [
             {
               "name": "current-time",

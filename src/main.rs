@@ -18,7 +18,7 @@ use tokio::sync::broadcast;
 
 fn main() {
     
-    // std::env::set_var("RUST_LOG", "DEBUG");
+    std::env::set_var("RUST_LOG", "DEBUG");
     env_logger::init();
 
     let args = cli::Cli::parse();

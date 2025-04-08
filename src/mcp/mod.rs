@@ -8,7 +8,7 @@ mod tools;
 use std::collections::HashMap;
 
 use crate::{
-    config::{SERVER_NAME, SERVER_VERSION}, openapi::openapi_to_tools, proxy::ModelContextProtocolProxy, sse_event::SseEvent, types::{Implementation, InitializeResult, JSONRPCRequest, JSONRPCResponse, PromptsCapability, ResourcesCapability, ServerCapabilities, ToolsCapability, LATEST_PROTOCOL_VERSION}
+    config::{SERVER_NAME, SERVER_VERSION}, openapi::{global_openapi_tools_fetch, openapi_to_tools}, proxy::ModelContextProtocolProxy, sse_event::SseEvent, types::{Implementation, InitializeResult, JSONRPCRequest, JSONRPCResponse, PromptsCapability, ResourcesCapability, ServerCapabilities, ToolsCapability, LATEST_PROTOCOL_VERSION}
 };
 
 use pingora::{proxy::Session, Result};
@@ -63,7 +63,7 @@ pub async fn request_processing(
             return notifications::request_processing(session_id, mcp_proxy, session, request).await,
 
         "tools/list" => {
-            let data = openapi_to_tools().await.unwrap();
+            let data = global_openapi_tools_fetch().unwrap();
             let res = JSONRPCResponse::new(request.id.unwrap(), serde_json::to_value(data).unwrap());
 
             let event =
@@ -82,6 +82,9 @@ pub async fn request_processing(
         "prompts/list" | "prompts/get" => 
             return prompts::request_processing(session_id, mcp_proxy, session, request).await,
 
+        "sampling/createMessage" => 
+            return sampling::request_processing(session_id, mcp_proxy, session, request).await,
+        
         _ => {
             log::info!("Unknown method called: {}", request.method);
             Ok(false) // Gracefully handle unknown methods

@@ -1,8 +1,12 @@
+pub mod etcd;
+pub mod upstream;
 use core::str;
 use std::sync::{Arc,Mutex, RwLock};
 
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+
+// use crate::proxy::upstream;
 
 pub const SERVER_NAME: &str = "mcp_proxy";
 pub const SERVER_VERSION: &str = "1.5";

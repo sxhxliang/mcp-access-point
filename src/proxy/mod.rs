@@ -1,10 +1,15 @@
 pub mod route;
 pub mod upstream;
+pub mod discovery;
+
+use std::collections::HashSet;
+use std::sync::Arc;
 
 use async_stream::stream;
 use async_trait::async_trait;
 use bytes::Bytes;
 
+use dashmap::DashMap;
 use futures::StreamExt;
 use http::{header, StatusCode};
 use pingora::http::ResponseHeader;
@@ -17,6 +22,46 @@ use crate::{mcp, utils};
 use crate::types::{CallToolResult, Content, JSONRPCRequest, JSONRPCResponse, TextContent};
 use crate::sse_event::SseEvent;
 use crate::config::{CLIENT_MESSAGE_ENDPOINT, CLIENT_SSE_ENDPOINT, ERROR_MESSAGE, SERVER_WITH_AUTH, UPSTREAM_CONFIG};
+
+pub trait Identifiable {
+    fn id(&self) -> String;
+    fn set_id(&mut self, id: String);
+}
+
+
+pub trait MapOperations<T> {
+    fn reload_resource(&self, resources: Vec<Arc<T>>);
+
+    fn insert_resource(&self, resource: Arc<T>);
+}
+
+impl<T> MapOperations<T> for DashMap<String, Arc<T>>
+where
+    T: Identifiable,
+{
+    // reload_resource：根据新的资源更新 map，删除不在 resources 中的条目
+    fn reload_resource(&self, resources: Vec<Arc<T>>) {
+        // Log the old and new resources
+        for resource in resources.iter() {
+            log::info!("Inserting/Updating resource: {}", resource.id());
+        }
+
+        let resource_ids: HashSet<String> = resources.iter().map(|r| r.id()).collect();
+        self.retain(|key, _| resource_ids.contains(key));
+
+        for resource in resources {
+            let key = resource.id();
+            log::info!("Inserting resource with id: {}", key);
+            self.insert(key, resource);
+        }
+    }
+
+    // insert_resource：插入新的资源
+    fn insert_resource(&self, resource: Arc<T>) {
+        self.insert(resource.id(), resource);
+    }
+}
+
 
 pub struct ModelContextProtocolProxy {
     pub tx: broadcast::Sender<SseEvent>,
@@ -55,7 +100,7 @@ impl ModelContextProtocolProxy {
         let session_id = uuid::Uuid::new_v4().to_string();
                 
         let message_url = if SERVER_WITH_AUTH {
-            let parsed = utils::query_to_map(&session.req_header().uri);
+            let parsed = utils::request::query_to_map(&session.req_header().uri);
             // let token = parsed.get("token");
             let token = match parsed.get("token") {
                 Some(token) => token,
@@ -125,7 +170,7 @@ impl ProxyHttp for ModelContextProtocolProxy {
             match serde_json::from_slice::<JSONRPCRequest>(&body.unwrap()) {
                 Ok(request) => {
 
-                    let parsed = utils::query_to_map(&session.req_header().uri);
+                    let parsed = utils::request::query_to_map(&session.req_header().uri);
                     let session_id = parsed.get("session_id").unwrap();
                     log::info!("session_id: {}", session_id);
                     let _ = session.req_header_mut().append_header("MCP-SESSION-ID", session_id);
