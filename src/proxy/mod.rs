@@ -9,14 +9,18 @@ use futures::StreamExt;
 use http::{header, StatusCode};
 use pingora::http::ResponseHeader;
 use pingora::prelude::HttpPeer;
-use pingora::{Result,proxy::{ProxyHttp, Session}};
+use pingora::{
+    proxy::{ProxyHttp, Session},
+    Result,
+};
 use tokio::sync::broadcast;
 
-
-use crate::{mcp, utils};
-use crate::types::{CallToolResult, Content, JSONRPCRequest, JSONRPCResponse, TextContent};
+use crate::config::{
+    CLIENT_MESSAGE_ENDPOINT, CLIENT_SSE_ENDPOINT, ERROR_MESSAGE, SERVER_WITH_AUTH, UPSTREAM_CONFIG,
+};
 use crate::sse_event::SseEvent;
-use crate::config::{CLIENT_MESSAGE_ENDPOINT, CLIENT_SSE_ENDPOINT, ERROR_MESSAGE, SERVER_WITH_AUTH, UPSTREAM_CONFIG};
+use crate::types::{CallToolResult, Content, JSONRPCRequest, JSONRPCResponse, TextContent};
+use crate::{mcp, utils};
 
 pub struct ModelContextProtocolProxy {
     pub tx: broadcast::Sender<SseEvent>,
@@ -27,7 +31,6 @@ impl ModelContextProtocolProxy {
         Self { tx }
     }
 }
-
 
 impl ModelContextProtocolProxy {
     pub async fn response_accepted(&self, session: &mut Session) -> Result<()> {
@@ -53,7 +56,7 @@ impl ModelContextProtocolProxy {
         session.write_response_header(Box::new(resp), false).await?;
 
         let session_id = uuid::Uuid::new_v4().to_string();
-                
+
         let message_url = if SERVER_WITH_AUTH {
             let parsed = utils::query_to_map(&session.req_header().uri);
             // let token = parsed.get("token");
@@ -96,8 +99,7 @@ impl ModelContextProtocolProxy {
 #[async_trait]
 impl ProxyHttp for ModelContextProtocolProxy {
     type CTX = ();
-    fn new_ctx(&self) -> () {
-    }
+    fn new_ctx(&self) -> () {}
 
     /// Handle the incoming request.
     ///
@@ -109,7 +111,10 @@ impl ProxyHttp for ModelContextProtocolProxy {
     ///
     /// By default this filter does nothing and returns `Ok(false)`.
     async fn request_filter(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<bool> {
-        log::debug!("Request path: {:?}", session.req_header().uri.path_and_query());
+        log::debug!(
+            "Request path: {:?}",
+            session.req_header().uri.path_and_query()
+        );
         let path = session.req_header().uri.path();
         if path == CLIENT_SSE_ENDPOINT {
             self.response_sse(session).await
@@ -124,13 +129,16 @@ impl ProxyHttp for ModelContextProtocolProxy {
 
             match serde_json::from_slice::<JSONRPCRequest>(&body.unwrap()) {
                 Ok(request) => {
-
                     let parsed = utils::query_to_map(&session.req_header().uri);
                     let session_id = parsed.get("session_id").unwrap();
                     log::info!("session_id: {}", session_id);
-                    let _ = session.req_header_mut().append_header("MCP-SESSION-ID", session_id);
+                    let _ = session
+                        .req_header_mut()
+                        .append_header("MCP-SESSION-ID", session_id);
                     if request.id.is_some() {
-                        let _ = session.req_header_mut().append_header("MCP-REQUEST-ID", request.id.unwrap());
+                        let _ = session
+                            .req_header_mut()
+                            .append_header("MCP-REQUEST-ID", request.id.unwrap());
                     }
 
                     return mcp::request_processing(session_id, self, session, &request).await;
@@ -158,7 +166,6 @@ impl ProxyHttp for ModelContextProtocolProxy {
         Ok(())
     }
     async fn upstream_peer(&self, session: &mut Session, _ctx: &mut ()) -> Result<Box<HttpPeer>> {
-     
         // let upstream_peer = session.req_header_mut().remove_header("upstream_peer");
         // log::debug!("upstream_peer: {upstream_peer:?}");
         let config = UPSTREAM_CONFIG.read().unwrap();
@@ -175,9 +182,10 @@ impl ProxyHttp for ModelContextProtocolProxy {
     ) {
         let path = session.req_header().uri.path();
         log::debug!("Filters upstream_response_filter, Request path: {}", path);
-        upstream_response_header.insert_header("Server", "MCPServer").unwrap();
+        upstream_response_header
+            .insert_header("Server", "MCPServer")
+            .unwrap();
         log::debug!("upstream_response header: {:?}", upstream_response_header);
-
     }
     fn upstream_response_body_filter(
         &self,
@@ -187,8 +195,11 @@ impl ProxyHttp for ModelContextProtocolProxy {
         _ctx: &mut Self::CTX,
     ) -> Result<()> {
         let path = session.req_header().uri.path();
-        log::debug!("Filters upstream_response_body_filter, Request path: {}", path);
-    
+        log::debug!(
+            "Filters upstream_response_body_filter, Request path: {}",
+            path
+        );
+
         // Log only the size of the body to avoid exposing sensitive data
         if let Some(body) = body {
             log::debug!("upstream body {:?}", body);
@@ -202,22 +213,21 @@ impl ProxyHttp for ModelContextProtocolProxy {
         let request_id_header = headers.get("MCP-REQUEST-ID");
         log::debug!("session_id_header: {:?}", session_id_header);
         log::debug!("request_id_header: {:?}", request_id_header);
-    
-        if let (Some(session_id_header), Some(request_id_header)) = (session_id_header, request_id_header) {
-            
-            if let (Ok(session_id), Ok(request_id)) = (
-                session_id_header.to_str(),
-                request_id_header.to_str(),
-                
-            ) {
 
+        if let (Some(session_id_header), Some(request_id_header)) =
+            (session_id_header, request_id_header)
+        {
+            if let (Ok(session_id), Ok(request_id)) =
+                (session_id_header.to_str(), request_id_header.to_str())
+            {
                 // Construct the result object
 
                 let result = CallToolResult {
                     content: vec![Content::Text(TextContent {
-                        text: body
-                            .as_ref()
-                            .map_or_else(|| ERROR_MESSAGE.to_string(), |b| String::from_utf8_lossy(b).to_string()),
+                        text: body.as_ref().map_or_else(
+                            || ERROR_MESSAGE.to_string(),
+                            |b| String::from_utf8_lossy(b).to_string(),
+                        ),
                         annotations: None,
                     })],
                     is_error: Some(false),
@@ -225,14 +235,17 @@ impl ProxyHttp for ModelContextProtocolProxy {
                 // Convert the result to JSON-RPC response
 
                 if let Ok(request_id) = request_id.parse::<i32>() {
-
-                    let res = JSONRPCResponse::new(request_id, serde_json::to_value(result).unwrap());
-                    let event = SseEvent::new_event(session_id, "message", &serde_json::to_string(&res).unwrap());
+                    let res =
+                        JSONRPCResponse::new(request_id, serde_json::to_value(result).unwrap());
+                    let event = SseEvent::new_event(
+                        session_id,
+                        "message",
+                        &serde_json::to_string(&res).unwrap(),
+                    );
                     // Send the event (placeholder for actual implementation)
                     if let Err(e) = self.tx.send(event) {
                         log::error!("Failed to send SSE event: {}", e);
                     }
-
                 } else {
                     log::error!("Invalid MCP-REQUEST-ID format");
                 }
