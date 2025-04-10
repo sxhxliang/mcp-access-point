@@ -39,6 +39,46 @@ npx @modelcontextprotocol/inspector@0.8.1 node build/index.js
 - **客户端赋能**：让MCP生态客户端能够直接调用标准HTTP服务  
 - **轻量级代理**：极简架构设计，协议转换高效透明  
 
+## 使用Docker运行
+
+### 构建Docker镜像（可选，如果你想本地构建）
+```bash
+# 克隆仓库
+git clone https://github.com/sxhxliang/mcp-access-point.git
+cd mcp-access-point
+
+# 构建Docker镜像
+docker build -t kames2025/mcp-access-point:latest .
+```
+
+### 拉取并运行Docker容器
+```bash
+# 使用环境变量配置（上游服务在宿主机上运行）
+# 注意：将 /path/to/your/openapi.json 替换为你本地 OpenAPI 文件的实际路径
+# 注意：upstream 地址使用了 host.docker.internal 来指向宿主机，如果无效请尝试宿主机的局域网IP
+docker run -d --name mcp-access-point --rm \
+  -p 8080:8080 \
+  -e port=8080 \
+  -e upstream=host.docker.internal:8090 \
+  -e openapi_json=/app/config/openapi.json \
+  -v /path/to/your/openapi.json:/app/config/openapi.json \
+  kames2025/mcp-access-point:latest
+
+# 或者直接指定openapi_json环境变量
+docker run -d --name mcp-access-point --rm \
+  -p 8080:8080 \
+  -e port=8080 \
+  -e upstream=host.docker.internal:8090 \
+  -e openapi_json=/app/config/openapi.json \
+  -v /path/to/your/openapi.json:/app/config/openapi.json \
+  kames2025/mcp-access-point:latest
+```
+
+### 环境变量说明
+- `port`: MCP接入网关监听端口，默认为8080
+- `upstream`: 上游服务地址，默认为localhost:8090
+- `openapi_json`: OpenAPI规范文件路径，默认为/app/config/openapi.json
+
 ## 典型应用场景  
 
 - **渐进式架构迁移**：帮助HTTP服务逐步过渡到MCP架构体系  

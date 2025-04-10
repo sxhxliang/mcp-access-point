@@ -1,0 +1,11 @@
+# 忽略Git相关文件
+.git
+.github
+.gitignore
+
+# 忽略Rust编译生成的文件
+/target
+
+# 其他不需要的文件
+*.md
+LICENSE 
