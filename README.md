@@ -41,6 +41,46 @@ Key Characteristics:
 - Client Enablement: Allows MCP clients to consume standard HTTP services
 - Lightweight Proxy: Minimal overhead with clean protocol translation
 
+## Running with Docker
+
+### Build Docker Image (Optional, if you want to build locally)
+```bash
+# Clone the repository
+git clone https://github.com/sxhxliang/mcp-access-point.git
+cd mcp-access-point
+
+# Build Docker image
+docker build -t kames2025/mcp-access-point:latest .
+```
+
+### Pull and Run Docker Container
+```bash
+# Using environment variables for configuration (upstream service running on host)
+# Note: Replace /path/to/your/openapi.json with the actual path to your local OpenAPI file
+# Note: The upstream address uses host.docker.internal to point to the host machine. If this doesn't work, try the host's LAN IP address.
+docker run -d --name mcp-access-point --rm \
+  -p 8080:8080 \
+  -e port=8080 \
+  -e upstream=host.docker.internal:8090 \
+  -e openapi_json=/app/config/openapi.json \
+  -v /path/to/your/openapi.json:/app/config/openapi.json \
+  kames2025/mcp-access-point:latest
+
+# Or specify the openapi_json environment variable directly
+docker run -d --name mcp-access-point --rm \
+  -p 8080:8080 \
+  -e port=8080 \
+  -e upstream=host.docker.internal:8090 \
+  -e openapi_json=/app/config/openapi.json \
+  -v /path/to/your/openapi.json:/app/config/openapi.json \
+  kames2025/mcp-access-point:latest
+```
+
+### Environment Variables
+- `port`: MCP access point listening port, default is 8080
+- `upstream`: Upstream service address, default is localhost:8090
+- `openapi_json`: Path to the OpenAPI specification file, default is /app/config/openapi.json
+
 The solution is particularly valuable for:
 - Gradually migrating HTTP services to MCP architecture
 - Enabling MCP-based systems to leverage existing HTTP infrastructure
