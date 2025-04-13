@@ -29,7 +29,9 @@ graph LR
 git clone https://github.com/sxhxliang/mcp-access-point.git  
 cd mcp-access-point  
 # Pass the openapi.json file path, mcp port number, and upstream service address  
-cargo run -- -f openapi_for_demo.json -p 8080 -u localhost:8090  
+cargo run -- -f openapi_for_demo.json -p 8080 -u localhost:8090
+# You can also use the openapi.json of a remote server, such as petstore.swagger.io for demonstration purposes.
+cargo run -- -f https://petstore.swagger.io/v2/swagger.json -p 8080 -u localhost:8090
 # Use inspector for debugging. First, start the service.  
 npx @modelcontextprotocol/inspector@0.8.1 node build/index.js  
 # Access http://127.0.0.1:6274/  

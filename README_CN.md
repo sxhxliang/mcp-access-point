@@ -24,6 +24,8 @@ git clone https://github.com/sxhxliang/mcp-access-point.git
 cd mcp-access-point
 # 传入openapi.json文件路径、mcp端口号、上游服务地址
 cargo run -- -f openapi_for_demo.json -p 8080 -u localhost:8090
+# 也可以使用远程服务器的openapi.json，比如petstore.swagger.io
+cargo run -- -f https://petstore.swagger.io/v2/swagger.json -p 8080 -u localhost:8090
 # 使用inspector调试，先启动服务
 npx @modelcontextprotocol/inspector@0.8.1 node build/index.js
 # 访问 http://127.0.0.1:6274/

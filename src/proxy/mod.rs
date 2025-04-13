@@ -58,7 +58,7 @@ impl ModelContextProtocolProxy {
         let session_id = uuid::Uuid::new_v4().to_string();
 
         let message_url = if SERVER_WITH_AUTH {
-            let parsed = utils::query_to_map(&session.req_header().uri);
+            let parsed = utils::request::query_to_map(&session.req_header().uri);
             // let token = parsed.get("token");
             let token = match parsed.get("token") {
                 Some(token) => token,
@@ -129,7 +129,7 @@ impl ProxyHttp for ModelContextProtocolProxy {
 
             match serde_json::from_slice::<JSONRPCRequest>(&body.unwrap()) {
                 Ok(request) => {
-                    let parsed = utils::query_to_map(&session.req_header().uri);
+                    let parsed = utils::request::query_to_map(&session.req_header().uri);
                     let session_id = parsed.get("session_id").unwrap();
                     log::info!("session_id: {}", session_id);
                     let _ = session

@@ -2,6 +2,7 @@ use std::fs;
 use std::path::Path;
 
 use clap::Parser;
+use mcp_access_point::utils::file::read_from_local_or_remote;
 
 use mcp_access_point::cli;
 use mcp_access_point::config::{UpstreamConfig, CLIENT_SSE_ENDPOINT, UPSTREAM_CONFIG};
@@ -35,24 +36,33 @@ fn main() {
     }
     // watch the openapi file
     let filename = args.file.clone();
-    let content =
-        fs::read_to_string(Path::new(&filename)).expect("Failed to read the openapi file");
-    reload_global_openapi_tools(content).expect("Failed to reload openapi tools");
-    let mut watcher = notify::recommended_watcher(move |res| match res {
-        Ok(event) => {
-            log::info!("file watcher: {event:?}");
-            let content =
-                fs::read_to_string(Path::new(&filename)).expect("Failed to read the openapi file");
-            reload_global_openapi_tools(content).expect("Failed to reload openapi tools");
+    let res = read_from_local_or_remote(&filename);
+    let (is_remote, content ) = match res {
+        Ok((is_remote, content)) => (is_remote, content),
+        Err(e) => {
+            log::error!("Failed to read the openapi file: {}", e);
+            return;
         }
-        Err(e) => panic!("watch error: {:?}", e),
-    })
-    .unwrap();
-
-    watcher
-        .watch(Path::new(&args.file), notify::RecursiveMode::NonRecursive)
+        
+    };
+    
+    reload_global_openapi_tools(content).expect("Failed to reload openapi tools");
+    if !is_remote {
+        let mut watcher = notify::recommended_watcher(move |res| match res {
+            Ok(event) => {
+                log::info!("file watcher: {event:?}");
+                let content =
+                    fs::read_to_string(Path::new(&filename)).expect("Failed to read the openapi file");
+                reload_global_openapi_tools(content).expect("Failed to reload openapi tools");
+            }
+            Err(e) => panic!("watch error: {:?}", e),
+        })
         .unwrap();
 
+        watcher
+            .watch(Path::new(&args.file), notify::RecursiveMode::NonRecursive)
+            .unwrap();
+    }
     // build the server
     let mut my_server = Server::new(Some(Opt::default())).unwrap();
     my_server.bootstrap();
