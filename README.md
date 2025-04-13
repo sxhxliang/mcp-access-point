@@ -8,6 +8,19 @@ MCP Access Point is a lightweight gateway tool designed to bridge traditional HT
 
 </p>
 
+## Http to SSE by open
+This mode allows clients like Cursor Desktop to communicate to a remote server over SSE even though it is not supported natively.
+
+```mermaid
+graph LR
+    A["Cursor Desktop"] <--> |sse| B["MCP Access Point"]
+    B <--> |http| C["Existing Http Server"]
+
+    style A fill:#ffe6f9,stroke:#333,color:black,stroke-width:2px
+    style B fill:#e6e6ff,stroke:#333,color:black,stroke-width:2px
+    style C fill:#e6ffe6,stroke:#333,color:black,stroke-width:2px
+```
+
 ## Quick Start  
 
 ### Installation Method  

@@ -2,6 +2,19 @@
 
 MCP接入网关是一款轻量级的协议转换网关工具，专门用于在传统HTTP服务与MCP（模型上下文协议）客户端之间建立通信桥梁。它使得MCP客户端无需任何服务端接口改造，即可直接与现有HTTP服务进行交互。  
 
+## Http to SSE
+此模式允许 Cursor Desktop 等客户端通过 SSE 与远程Http服务器通信，即使它本身不受支持SSE协议。
+
+```mermaid
+graph LR
+    A["Cursor Desktop"] <--> |sse| B["MCP Access Point"]
+    B <--> |http| C["Existing Http Server"]
+
+    style A fill:#ffe6f9,stroke:#333,color:black,stroke-width:2px
+    style B fill:#e6e6ff,stroke:#333,color:black,stroke-width:2px
+    style C fill:#e6ffe6,stroke:#333,color:black,stroke-width:2px
+```
+
 ## 快速开始  
 
 ### 安装方式  
