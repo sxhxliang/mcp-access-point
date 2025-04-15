@@ -2,16 +2,17 @@ use std::fs;
 use std::path::Path;
 
 use clap::Parser;
-use mcp_access_point::utils::file::read_from_local_or_remote;
+use notify::Watcher;
+use tokio::sync::broadcast;
+use pingora::{prelude::*, proxy::http_proxy_service_with_name, services::Service};
 
+
+use mcp_access_point::utils::file::read_from_local_or_remote;
 use mcp_access_point::cli;
 use mcp_access_point::config::{UpstreamConfig, CLIENT_SSE_ENDPOINT, UPSTREAM_CONFIG};
 use mcp_access_point::openapi::reload_global_openapi_tools;
 use mcp_access_point::proxy::ModelContextProtocolProxy;
-use notify::Watcher;
-use pingora::{prelude::*, proxy::http_proxy_service_with_name, services::Service};
-// use mcp_access_point::admin;
-use tokio::sync::broadcast;
+use mcp_access_point::admin;
 
 fn main() {
     // std::env::set_var("RUST_LOG", "DEBUG");
@@ -37,22 +38,21 @@ fn main() {
     // watch the openapi file
     let filename = args.file.clone();
     let res = read_from_local_or_remote(&filename);
-    let (is_remote, content ) = match res {
+    let (is_remote, content) = match res {
         Ok((is_remote, content)) => (is_remote, content),
         Err(e) => {
             log::error!("Failed to read the openapi file: {}", e);
             return;
         }
-        
     };
-    
+
     reload_global_openapi_tools(content).expect("Failed to reload openapi tools");
     if !is_remote {
         let mut watcher = notify::recommended_watcher(move |res| match res {
             Ok(event) => {
                 log::info!("file watcher: {event:?}");
-                let content =
-                    fs::read_to_string(Path::new(&filename)).expect("Failed to read the openapi file");
+                let content = fs::read_to_string(Path::new(&filename))
+                    .expect("Failed to read the openapi file");
                 reload_global_openapi_tools(content).expect("Failed to reload openapi tools");
             }
             Err(e) => panic!("watch error: {:?}", e),
@@ -67,7 +67,7 @@ fn main() {
     let mut my_server = Server::new(Some(Opt::default())).unwrap();
     my_server.bootstrap();
 
-    // let admin_service_http = admin::AdminHttpApp::admin_http_service("0.0.0.0:6145");
+    let admin_service_http = admin::admin_http_service("0.0.0.0:6345");
 
     let (tx, _) = broadcast::channel(16);
 
@@ -90,10 +90,7 @@ fn main() {
 
     log::info!("The cargo manifest dir is: {}", env!("CARGO_MANIFEST_DIR"));
 
-    let services: Vec<Box<dyn Service>> = vec![
-        Box::new(lb_service),
-        // Box::new(admin_service_http),
-    ];
+    let services: Vec<Box<dyn Service>> = vec![Box::new(lb_service), Box::new(admin_service_http)];
 
     my_server.add_services(services);
     my_server.run_forever();
