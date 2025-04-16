@@ -8,6 +8,9 @@ MCP Access Point is a lightweight gateway tool designed to bridge traditional HT
 
 </p>
 
+##  Introduction
+This project is based on Pingora, a very high-performance gateway proxy library that can proxy requests at very large scale. [Pingora](https://github.com/cloudflare/pingora) have been using to build services that power a significant portion of the traffic on Cloudflare, is battle tested as it has been serving more than 40 million Internet requests per second for more than a few years.
+
 ## Http to SSE by open
 This mode allows clients like Cursor Desktop to communicate to a remote server over SSE even though it is not supported natively.
 
