@@ -16,10 +16,13 @@ use pingora::{
 use tokio::sync::broadcast;
 
 use crate::config::{
-    CLIENT_MESSAGE_ENDPOINT, CLIENT_SSE_ENDPOINT, ERROR_MESSAGE, SERVER_WITH_AUTH, UPSTREAM_CONFIG,
+    CLIENT_MESSAGE_ENDPOINT, CLIENT_SSE_ENDPOINT, CLIENT_STREAMABLE_HTTP_ENDPOINT, ERROR_MESSAGE, SERVER_WITH_AUTH, UPSTREAM_CONFIG
 };
 use crate::sse_event::SseEvent;
-use crate::types::{CallToolResult, Content, JSONRPCRequest, JSONRPCResponse, TextContent};
+use crate::types::{
+    CallToolResult, Content, ErrorCode, JSONRPCError, JSONRPCErrorDetails, JSONRPCRequest,
+    JSONRPCResponse, TextContent,
+};
 use crate::{mcp, utils};
 
 pub struct ModelContextProtocolProxy {
@@ -46,6 +49,26 @@ impl ModelContextProtocolProxy {
             .write_response_body(Some(body.clone()), true)
             .await?;
         Ok(())
+    }
+
+    pub async fn response(
+        &self,
+        session: &mut Session,
+        code: StatusCode,
+        data: String,
+    ) -> Result<bool> {
+        let mut resp = ResponseHeader::build(code, None)?;
+
+        let body = Bytes::from(data);
+        resp.insert_header(header::CONTENT_TYPE, "application/json")?;
+        resp.insert_header(header::CONTENT_LENGTH, body.len().to_string())?;
+
+        session.write_response_header(Box::new(resp), false).await?;
+
+        session
+            .write_response_body(Some(body.clone()), true)
+            .await?;
+        Ok(true)
     }
 
     pub async fn response_sse(&self, session: &mut Session) -> Result<bool> {
@@ -116,6 +139,82 @@ impl ProxyHttp for ModelContextProtocolProxy {
             session.req_header().uri.path_and_query()
         );
         let path = session.req_header().uri.path();
+
+        // 2025-03-26 specification protocol;
+        if path == CLIENT_STREAMABLE_HTTP_ENDPOINT {
+            let mcp_session_id = session.req_header().headers.get("mcp-session-id");
+
+            // Handle GET requests for SSE streams (using built-in support from StreamableHTTP)
+            if session.req_header().method == http::Method::GET {
+                // Check for Last-Event-ID header for resumability
+                let last_event_id = session.req_header().headers.get("last-event-id");
+                if let Some(last_event_id) = last_event_id {
+                    log::info!(
+                        "Client reconnecting with Last-Event-ID: {:?}",
+                        last_event_id
+                    );
+                } else {
+                    log::info!(
+                        "Establishing new SSE stream for session {:?}",
+                        mcp_session_id
+                    );
+                }
+            } else if session.req_header().method == http::Method::POST {
+                if let Some(mcp_session_id) = mcp_session_id {
+                    // TODO Reuse existing transport
+                } else {
+                    let body = match session.downstream_session.read_request_body().await {
+                        Ok(body) => body,
+                        Err(e) => {
+                            // Handle read error gracefully
+                            log::debug!("Failed to read request body: {}", e);
+                            return Err(e); // Propagate the error or handle it as needed
+                        }
+                    };
+
+                    if let Some(ref body) = body {
+                        match serde_json::from_slice(body) {
+                            Ok(parsed_body) => {
+                                if utils::request::is_initialize_request(&parsed_body) {
+                                    // New initialization request
+                                } else {
+                                    // Invalid request - no session ID or not initialization request
+                                    let res = JSONRPCError {
+                                        jsonrpc: "2.0".to_string(),
+                                        id: 0,
+                                        error: JSONRPCErrorDetails {
+                                            code: ErrorCode::OwnErrorCode,
+                                            message: "Bad Request: No valid session ID provided"
+                                                .to_string(),
+                                            data: None,
+                                        },
+                                    };
+
+                                    return self
+                                        .response(
+                                            session,
+                                            StatusCode::BAD_REQUEST,
+                                            serde_json::to_string(&res).unwrap(),
+                                        )
+                                        .await;
+                                }
+                            }
+                            Err(e) => {
+                                // Handle JSON parsing errors gracefully
+                                log::debug!("Failed to parse request body as JSON: {}", e);
+                            }
+                        }
+                    } else {
+                        // Handle the case where the body is None
+                        log::debug!("Request body is empty");
+                    }
+                }
+
+                return Ok(false);
+            }
+        }
+
+        // 2024-11-05 specification protocol;
         if path == CLIENT_SSE_ENDPOINT {
             self.response_sse(session).await
         } else if path == CLIENT_MESSAGE_ENDPOINT {

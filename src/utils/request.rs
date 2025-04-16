@@ -4,6 +4,24 @@ use regex::Regex;
 use serde_json::{json, Value};
 use url::form_urlencoded;
 use std::collections::HashMap;
+
+// Helper function to detect initialize requests
+pub fn is_initialize_request(body: &Value) -> bool {
+    match body {
+        Value::Array(arr) => arr.iter().any(|msg| {
+            if let Value::Object(obj) = msg {
+                obj.get("method").and_then(|m| m.as_str()) == Some("initialize")
+            } else {
+                false
+            }
+        }),
+        Value::Object(obj) => {
+            obj.get("method").and_then(|m| m.as_str()) == Some("initialize")
+        }
+        _ => false,
+    }
+}
+
 pub fn query_to_map(uri: &Uri) -> HashMap<String, String> {
     let mut map = HashMap::new();
     

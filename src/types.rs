@@ -14,13 +14,16 @@ pub const METHOD_NOT_FOUND: i32 = -32601;
 pub const INVALID_PARAMS: i32 = -32602;
 pub const INTERNAL_ERROR: i32 = -32603;
 
-enum ErrorCode {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ErrorCode {
     // Standard JSON-RPC error codes
     ParseError = -32700,
     InvalidRequest = -32600,
     MethodNotFound = -32601,
     InvalidParams = -32602,
     InternalError = -32603,
+    // SDKs and applications can define their own error codes above -32000.
+    OwnErrorCode = -32000,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -108,7 +111,7 @@ pub struct JSONRPCError {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JSONRPCErrorDetails {
-    pub code: i32,
+    pub code: ErrorCode,
     pub message: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<Value>,
