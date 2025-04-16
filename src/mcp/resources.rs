@@ -9,6 +9,37 @@ use crate::{
     },
 };
 
+
+pub struct ResourceManager {
+    resources: Vec<Resource>,
+    templates: Vec<ResourceTemplate>,
+}
+
+impl ResourceManager {
+    pub fn new() -> Self {
+        ResourceManager {
+            resources: vec![],
+            templates: vec![],
+        }
+    }
+
+    fn add_resource(&mut self, resource: Resource) {
+        self.resources.push(resource);
+    }
+    fn add_template(&mut self, resource_template: ResourceTemplate) {
+        self.templates.push(resource_template);
+    }
+    fn get_resources(&self) -> &Vec<Resource> {
+        &self.resources
+    }
+    fn get_resource_by_uri(&self, uri: &str) -> Option<&Resource> {
+        self.resources.iter().find(|r| r.uri == uri)
+    }
+    fn get_templates(&self) -> &Vec<ResourceTemplate> {
+        &self.templates
+    }
+}
+
 pub async fn request_processing(
     session_id: &str,
     mcp_proxy: &ModelContextProtocolProxy,
@@ -20,6 +51,16 @@ pub async fn request_processing(
         request_id = request.id.unwrap();
     }
     match request.method.as_str() {
+        "resources/subscribe" => {
+            // Todo: handle subscription
+            log::debug!("resources/subscribe");
+            return Ok(true);
+        }
+        "resources/unsubscribe" => {
+            // Todo: handle unsubscription
+            log::debug!("resources/unsubscribe");
+            return Ok(true);
+        }
         "resources/list" => {
             let result = ListResourcesResult {
                 resources: vec![Resource {

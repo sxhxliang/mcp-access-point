@@ -45,8 +45,8 @@ impl<Arg: 'static> AsyncHandlerWithArg<Arg> {
 }
 
 // Example
-async fn list_resources(req: RequestParams) -> Result<Response<Vec<u8>>, String> {
-    log::debug!("{:?}", req);
+async fn list_resources(req: RequestData) -> Result<Response<Vec<u8>>, String> {
+    log::debug!("list_resources: {:?}", req);
     let res = Response::builder()
         .status(StatusCode::OK)
         .header(CONTENT_TYPE, "text/html; charset=utf-8")
@@ -57,7 +57,7 @@ async fn list_resources(req: RequestParams) -> Result<Response<Vec<u8>>, String>
 
 pub struct AdminHttpApp {
     config: Admin,
-    router: Router<HashMap<Method, AsyncHandlerWithArg<RequestParams>>>,
+    router: Router<HashMap<Method, AsyncHandlerWithArg<RequestData>>>,
 }
 
 impl AdminHttpApp {
@@ -77,7 +77,7 @@ impl AdminHttpApp {
         this
     }
 
-    fn route(&mut self, handler: AsyncHandlerWithArg<RequestParams>) -> &mut Self {
+    fn route(&mut self, handler: AsyncHandlerWithArg<RequestData>) -> &mut Self {
         match self.router.at_mut(&handler.path) {
             Ok(routes) => {
                 routes.value.insert(handler.method.clone(), handler);
@@ -95,10 +95,38 @@ impl AdminHttpApp {
     }
 }
 
+#[derive(Debug)]
+struct RequestData {
+    params: RequestParams,
+    body: Vec<u8>,
+}
+
+async fn read_request_body(http_session: &mut ServerSession) -> Result<Vec<u8>, String> {
+    let mut body_data = Vec::new();
+    while let Some(bytes) = http_session
+        .read_request_body()
+        .await
+        .map_err(|e| e.to_string())?
+    {
+        body_data.extend_from_slice(&bytes);
+    }
+    Ok(body_data)
+}
+
 #[async_trait]
 impl ServeHttp for AdminHttpApp {
     async fn response(&self, http_session: &mut ServerSession) -> Response<Vec<u8>> {
         http_session.set_keepalive(None);
+
+        let body_data = match read_request_body(http_session).await {
+            Ok(data) => data,
+            Err(e) => {
+                return Response::builder()
+                    .status(StatusCode::BAD_REQUEST)
+                    .body(e.as_bytes().to_vec())
+                    .unwrap();
+            }
+        };
 
         let (path, method) = {
             let req_header = http_session.req_header();
@@ -113,7 +141,11 @@ impl ServeHttp for AdminHttpApp {
                         .map(|(k, v)| (k.to_string(), v.to_string()))
                         .collect();
 
-                    match handler.call(params).await {
+                    let request_data = RequestData {
+                        params,
+                        body: body_data,
+                    };
+                    match handler.call(request_data).await {
                         Ok(resp) => resp,
                         Err(e) => {
                             log::error!("Handler execution failed: {:?}", e);
