@@ -7,7 +7,7 @@ use serde_json::Value;
 use tokio::fs;
 use std::{collections::HashMap, sync::{Arc, Mutex}};
 
-use crate::types::{ListToolsResult, Tool, ToolInputSchema, ToolInputSchemaProperty};
+use crate::{config::MCPOpenAPI, types::{ListToolsResult, Tool, ToolInputSchema, ToolInputSchemaProperty}, utils::file::read_from_local_or_remote};
 use crate::proxy::route::ProxyRoute;
 use crate::proxy::route::MCP_ROUTE_MAP;
 
@@ -32,12 +32,34 @@ pub fn reload_global_openapi_tools(openapi_content: String) -> Result<ListToolsR
     Ok(tools)
 }
 
+pub fn reload_global_openapi_tools_from_config(openapi_contents: Vec<MCPOpenAPI>) -> Result<ListToolsResult, Box<dyn std::error::Error>> {
+    let mut tools: ListToolsResult = ListToolsResult::new(vec![]);
+    for openapi_content in openapi_contents {
+        let (_, content)= read_from_local_or_remote(&openapi_content.path)?;
+        let mut spec: OpenApiSpec = OpenApiSpec::new(content)?;
+        spec.upstream = openapi_content.upstream;
+        if tools.tools.is_empty() {
+            tools = spec.load_openapi()?;
+        } else {
+            for tool in spec.load_openapi()?.tools {
+                tools.tools.push(tool);
+            }
+        }
+    }
+    // Lock the Mutex and update the global tools map
+    let mut map = MCP_TOOLS_MAP.lock().map_err(|e| e.to_string())?;
+    *map = ListToolsResult::new(tools.tools.clone());
+
+    Ok(tools)
+}
+
 
 
 #[derive(Debug, Deserialize)]
 pub struct OpenApiSpec {
     pub paths: HashMap<String, PathItem>,
     pub components: Option<Components>,
+    pub upstream: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -208,6 +230,7 @@ impl OpenApiSpec {
             operation_id: operation_id.to_string(),
             path: path.parse::<Uri>().unwrap(),
             method,
+            upstream: self.upstream.clone(),
             // request_body: params.clone(),
         };
         MCP_ROUTE_MAP.insert(operation_id.into(), Arc::new(proxy_route));

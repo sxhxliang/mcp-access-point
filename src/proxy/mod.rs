@@ -1,6 +1,8 @@
 pub mod route;
 pub mod upstream;
 
+use std::net::SocketAddr;
+
 use async_stream::stream;
 use async_trait::async_trait;
 use bytes::Bytes;
@@ -265,10 +267,22 @@ impl ProxyHttp for ModelContextProtocolProxy {
         Ok(())
     }
     async fn upstream_peer(&self, session: &mut Session, _ctx: &mut ()) -> Result<Box<HttpPeer>> {
-        // let upstream_peer = session.req_header_mut().remove_header("upstream_peer");
-        // log::debug!("upstream_peer: {upstream_peer:?}");
-        let config = UPSTREAM_CONFIG.read().unwrap();
-        let addr = (config.ip.clone(), config.port);
+        let upstream_peer = session.req_header_mut().remove_header("upstream_peer");
+        log::debug!("upstream_peer: {upstream_peer:?}");
+        let addr = match upstream_peer {
+            Some(upstream_peer) => {
+                let addr = upstream_peer.to_str().unwrap();
+                let socket_addr = addr.parse::<SocketAddr>().expect("Failed to parse upstream peer address");
+                socket_addr
+            },
+            None => {
+                let config = UPSTREAM_CONFIG.read().unwrap();
+                config.to_socket_addrs().expect("Failed to parse upstream peer address")
+            },
+        };
+        log::debug!("upstream_peer addr: {addr:?}");
+        // let config = UPSTREAM_CONFIG.read().unwrap();
+        // let addr = (config.ip.clone(), config.port);
         let peer = Box::new(HttpPeer::new(addr, false, "one.one.one.one".to_string()));
         Ok(peer)
     }

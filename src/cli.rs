@@ -4,11 +4,13 @@ use clap::Parser;
 #[command(version, about, long_about = None)]
 pub struct Cli {
     #[arg(short = 'f')]
-    pub file: String,
+    pub file: Option<String>,
+    #[arg(short = 'c')]
+    pub config: Option<String>,
     #[arg(short = 'p', default_value_t = 8080)]
     pub port: i32,
-    #[arg(short = 'u', default_value_t = String::from("http://localhost:8090"))]
-    pub upstream: String,
+    #[arg(short = 'u')]
+    pub upstream: Option<String>,
     #[arg(short = 'r', default_value_t = false)]
     pub reload: bool,
 }

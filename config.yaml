@@ -1,0 +1,15 @@
+# pingora config example from https://github.com/cloudflare/pingora/blob/main/docs/user_guide/conf.md
+pingora:
+  version: 1
+  threads: 2
+  pid_file: /run/pingora.pid
+  upgrade_sock: /tmp/pingora_upgrade.sock
+  user: nobody
+  group: mcpusers
+mcps:
+  - web-api-1:
+    upstream: 127.0.0.1:8090
+    path: openapi_for_demo_patch1.json
+  - web-api-2:
+    upstream: 127.0.0.1:8091
+    path: openapi_for_demo_patch2.json

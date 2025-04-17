@@ -18,6 +18,7 @@ use crate::{
 
 use pingora::{proxy::Session, Result};
 
+// 2024-11-05 specification protocol;
 pub async fn request_processing(
     session_id: &str,
     mcp_proxy: &ModelContextProtocolProxy,

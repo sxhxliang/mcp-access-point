@@ -10,6 +10,7 @@ pub struct ProxyRoute {
     pub operation_id: String,
     pub path: Uri,
     pub method: Method,
+    pub upstream: Option<String>,
 }
 /// Global map to store global rules, initialized lazily.
 pub static MCP_ROUTE_MAP: Lazy<DashMap<String, Arc<ProxyRoute>>> = Lazy::new(DashMap::new);
