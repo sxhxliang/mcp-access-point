@@ -77,6 +77,12 @@ path 为`openapi.json`的路径，可以使用相对路径或者绝对路径，�
 mcps:
   - service-1:  # 服务标识符
       upstream: 127.0.0.1:8090  # 后端服务地址
+      upstream_config: # 可选，支持配置请求头
+         headers: 
+            X-API-Key: "12345-abcdef"
+            Authorization: "Bearer token123"
+            User-Agent: "MyApp/1.0"
+            Accept: "application/json"
       path: local_openapi.json  # 本地OpenAPI文件路径
   - service-2:
       upstream: api.example.com 

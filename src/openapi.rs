@@ -7,7 +7,7 @@ use serde_json::Value;
 use tokio::fs;
 use std::{collections::HashMap, sync::{Arc, Mutex}};
 
-use crate::{config::MCPOpenAPI, types::{ListToolsResult, Tool, ToolInputSchema, ToolInputSchemaProperty}, utils::file::read_from_local_or_remote};
+use crate::{config::{MCPOpenAPI, UpstreamConfig}, types::{ListToolsResult, Tool, ToolInputSchema, ToolInputSchemaProperty}, utils::file::read_from_local_or_remote};
 use crate::proxy::route::ProxyRoute;
 use crate::proxy::route::MCP_ROUTE_MAP;
 
@@ -37,7 +37,11 @@ pub fn reload_global_openapi_tools_from_config(openapi_contents: Vec<MCPOpenAPI>
     for openapi_content in openapi_contents {
         let (_, content)= read_from_local_or_remote(&openapi_content.path)?;
         let mut spec: OpenApiSpec = OpenApiSpec::new(content)?;
-        spec.upstream = openapi_content.upstream;
+        
+        if let Ok(upstream_config) = openapi_content.parse_to_upstream_config(){
+            spec.upstream = Some(upstream_config);
+        }
+
         if tools.tools.is_empty() {
             tools = spec.load_openapi()?;
         } else {
@@ -59,7 +63,7 @@ pub fn reload_global_openapi_tools_from_config(openapi_contents: Vec<MCPOpenAPI>
 pub struct OpenApiSpec {
     pub paths: HashMap<String, PathItem>,
     pub components: Option<Components>,
-    pub upstream: Option<String>,
+    pub upstream: Option<UpstreamConfig>,
 }
 
 #[derive(Debug, Deserialize)]

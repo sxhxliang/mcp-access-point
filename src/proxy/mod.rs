@@ -18,7 +18,7 @@ use pingora::{
 use tokio::sync::broadcast;
 
 use crate::config::{
-    CLIENT_MESSAGE_ENDPOINT, CLIENT_SSE_ENDPOINT, CLIENT_STREAMABLE_HTTP_ENDPOINT, ERROR_MESSAGE, SERVER_WITH_AUTH, UPSTREAM_CONFIG
+    CLIENT_MESSAGE_ENDPOINT, CLIENT_SSE_ENDPOINT, CLIENT_STREAMABLE_HTTP_ENDPOINT, ERROR_MESSAGE, SERVER_WITH_AUTH, DEFAULT_UPSTREAM_CONFIG
 };
 use crate::sse_event::SseEvent;
 use crate::types::{
@@ -276,12 +276,12 @@ impl ProxyHttp for ModelContextProtocolProxy {
                 socket_addr
             },
             None => {
-                let config = UPSTREAM_CONFIG.read().unwrap();
+                let config = DEFAULT_UPSTREAM_CONFIG.read().unwrap();
                 config.to_socket_addrs().expect("Failed to parse upstream peer address")
             },
         };
         log::debug!("upstream_peer addr: {addr:?}");
-        // let config = UPSTREAM_CONFIG.read().unwrap();
+        // let config = DEFAULT_UPSTREAM_CONFIG.read().unwrap();
         // let addr = (config.ip.clone(), config.port);
         let peer = Box::new(HttpPeer::new(addr, false, "one.one.one.one".to_string()));
         Ok(peer)

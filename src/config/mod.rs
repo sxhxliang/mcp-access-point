@@ -1,9 +1,10 @@
 use core::str;
-use std::{fs, sync::RwLock};
-use std::net::SocketAddr;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::{fs, sync::RwLock};
 // use serde_yaml::Value as YamlValue;
+use std::net::SocketAddr;
 
 use pingora::server::configuration::{Opt, ServerConf};
 use pingora::{Error, ErrorType::*, OrErr, Result};
@@ -21,12 +22,11 @@ pub const CLIENT_STREAMABLE_HTTP_ENDPOINT: &str = "/mcp";
 pub const ERROR_MESSAGE: &str = "Unable to fetch data for this mcp server.";
 pub const SERVER_WITH_AUTH: bool = false;
 
-
 #[derive(Default, Debug, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default)]
     pub pingora: ServerConf,
-    pub mcps: Vec<MCPOpenAPI>
+    pub mcps: Vec<MCPOpenAPI>,
 }
 
 // Config file load and validation
@@ -70,36 +70,56 @@ impl Config {
 #[derive(Default, Debug, Serialize, Deserialize)]
 pub struct MCPOpenAPI {
     pub upstream: Option<String>,
+    pub upstream_config: Option<UpstreamConfig>,
     pub path: String,
+}
+impl MCPOpenAPI {
+    pub fn parse_to_upstream_config(&self) -> Result<UpstreamConfig, String> {
+        // If upstream is None, return the default configuration immediately
+        if self.upstream.is_none() {
+            return Ok(DEFAULT_UPSTREAM_CONFIG.read().unwrap().clone());
+        }
+    
+        // Parse the upstream address safely
+        // only if upstream_config is provided
+        let upstream = self.upstream.as_ref().ok_or_else(|| "Missing upstream configuration".to_string())?;
+        let mut upstream_config = UpstreamConfig::parse_addr(upstream)?;
+    
+        // Apply headers if upstream_config is provided
+        if let Some(config) = &self.upstream_config {
+            upstream_config = upstream_config.with_headers(config.get_headers());
+        }
+
+        Ok(upstream_config)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpstreamConfig {
-    pub ip: String,
-    pub port: u16,
+    pub upstream: Option<String>,
+    pub ip: Option<String>,
+    pub port: Option<u16>,
+    #[serde(default)]
+    pub headers: Option<HashMap<String, String>>,
 }
 
 impl UpstreamConfig {
     pub fn to_socket_addrs(&self) -> Result<SocketAddr> {
         Ok(SocketAddr::new(
-            self.ip.parse().or_err_with(ReadError, || {
-                format!("Invalid ip address: {}", self.ip)
-            })?,
-            self.port,
+            self.ip.clone().unwrap()
+                .parse()
+                .or_err_with(ReadError, || format!("Invalid ip address: {}", self.ip.clone().unwrap()))?,
+            self.port.unwrap(),
         ))
     }
-}
-
-impl Default for UpstreamConfig {
-    fn default() -> Self {
-        Self {
-            ip: "127.0.0.1".to_string(),
-            port: 8090,
-        }
+    pub fn get_addr(&self) -> String {
+        self.upstream.as_ref().map_or_else(
+            || format!("{}:{}", self.ip.clone().unwrap(), self.port.unwrap()),
+            |addr| addr.to_string()
+        )
     }
-}
-impl UpstreamConfig {
-    pub fn parse(addr: &str) -> Result<Self, String> {
+
+    pub fn parse_addr(addr: &str) -> Result<Self, String> {
         let binding = addr.replace("http://", "").replace("https://", "");
         let parts: Vec<&str> = binding.split(':').collect();
 
@@ -112,11 +132,36 @@ impl UpstreamConfig {
             .parse::<u16>()
             .map_err(|_| format!("Invalid port number: {}", parts[1]))?;
 
-        Ok(UpstreamConfig { ip, port })
+        Ok(UpstreamConfig {
+            upstream: Some(addr.to_string()),
+            ip: Some(ip),
+            port: Some(port),
+            headers: None,
+        })
+    }
+    pub fn get_headers(&self) -> HashMap<String, String> {
+        self.headers.clone().unwrap_or_default()
+    }
+    pub fn with_headers(self, headers: HashMap<String, String>) -> Self {
+        Self {
+            headers: Some(headers),
+            ..self
+        }
     }
 }
 
-pub static UPSTREAM_CONFIG: Lazy<RwLock<UpstreamConfig>> =
+impl Default for UpstreamConfig {
+    fn default() -> Self {
+        Self {
+            upstream: Some("127.0.0.1:8090".to_string()),
+            ip: Some("127.0.0.1".to_string()),
+            port: Some(8090),
+            headers: None,
+        }
+    }
+}
+
+pub static DEFAULT_UPSTREAM_CONFIG: Lazy<RwLock<UpstreamConfig>> =
     Lazy::new(|| RwLock::new(UpstreamConfig::default()));
 
 #[derive(Debug, Clone, Default)]

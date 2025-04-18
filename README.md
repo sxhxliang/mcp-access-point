@@ -72,6 +72,12 @@ npx @modelcontextprotocol/inspector@0.8.1 node build/index.js
 mcps:
   - service-1:  # Service identifier
       upstream: 127.0.0.1:8090  # Backend service address
+      upstream_config: # Upstream service configuration (optional)
+         headers: 
+            X-API-Key: "12345-abcdef"
+            Authorization: "Bearer token123"
+            User-Agent: "MyApp/1.0"
+            Accept: "application/json"
       path: local_openapi.json  # Local OpenAPI file path
   - service-2:
       upstream: api.example.com 

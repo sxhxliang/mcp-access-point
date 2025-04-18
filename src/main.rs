@@ -9,7 +9,7 @@ use pingora::{prelude::*, proxy::http_proxy_service_with_name, services::Service
 
 use mcp_access_point::utils::file::read_from_local_or_remote;
 use mcp_access_point::cli;
-use mcp_access_point::config::{Config, UpstreamConfig, CLIENT_SSE_ENDPOINT, UPSTREAM_CONFIG};
+use mcp_access_point::config::{Config, UpstreamConfig, CLIENT_SSE_ENDPOINT, DEFAULT_UPSTREAM_CONFIG};
 use mcp_access_point::openapi::{reload_global_openapi_tools, reload_global_openapi_tools_from_config};
 use mcp_access_point::proxy::ModelContextProtocolProxy;
 use mcp_access_point::admin;
@@ -31,10 +31,10 @@ fn main() {
     } else {
 
         if let Some(upstream) = args.upstream  {
-            let upstream = UpstreamConfig::parse(&upstream);
+            let upstream = UpstreamConfig::parse_addr(&upstream);
             match upstream {
                 Ok(upstream) => {
-                    let mut proxy_config = UPSTREAM_CONFIG.write().unwrap();
+                    let mut proxy_config = DEFAULT_UPSTREAM_CONFIG.write().unwrap();
                     proxy_config.ip = upstream.ip;
                     proxy_config.port = upstream.port;
                 }

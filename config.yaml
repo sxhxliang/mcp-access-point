@@ -9,6 +9,12 @@ pingora:
 mcps:
   - web-api-1:
     upstream: 127.0.0.1:8090
+    upstream_config:
+      headers:
+        X-API-Key: "12345-abcdef"
+        Authorization: "Bearer token123"
+        User-Agent: "MyApp/1.0"
+        Accept: "application/json"
     path: openapi_for_demo_patch1.json
   - web-api-2:
     upstream: 127.0.0.1:8091

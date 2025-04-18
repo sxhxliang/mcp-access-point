@@ -66,7 +66,17 @@ pub async fn request_processing(
                     // let query_params = json_to_uri_query(arguments);
                     let path_and_query = merge_path_query(&new_path, "");
                     log::debug!("new_path_and_query {:?}", path_and_query);
-                    let _= session.req_header_mut().insert_header("upstream_peer", route.upstream.clone().unwrap());
+
+                    // add headers from upstream config
+                    if let Some(upstream_config) = &route.upstream {
+                        // println!("route upstream: {:?}", route.upstream);
+                        let _ = session
+                            .req_header_mut()
+                            .insert_header("upstream_peer", upstream_config.get_addr());
+                        for (key, value) in upstream_config.get_headers() {
+                            let _ = session.req_header_mut().insert_header(key, value);
+                        }
+                    }
 
                     session.req_header_mut().set_method(route.method.clone());
                     session
@@ -106,5 +116,5 @@ pub async fn request_processing(
             return Ok(true);
         }
     }
-    Ok(false)
+    // Ok(false)
 }
