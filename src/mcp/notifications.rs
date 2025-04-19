@@ -1,6 +1,6 @@
 use pingora::{proxy::Session, Result};
 
-use crate::{proxy::ModelContextProtocolProxy, sse_event::SseEvent, types::JSONRPCRequest};
+use crate::{service::ModelContextProtocolProxy, sse_event::SseEvent, types::JSONRPCRequest};
 
 // Helper function to send an SseEvent and mark the response as accepted
 async fn process_response(

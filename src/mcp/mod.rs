@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 use crate::{
     config::{SERVER_NAME, SERVER_VERSION},
-    proxy::ModelContextProtocolProxy,
+    service::ModelContextProtocolProxy,
     sse_event::SseEvent,
     types::{
         Implementation, InitializeResult, JSONRPCRequest, JSONRPCResponse, PromptsCapability,

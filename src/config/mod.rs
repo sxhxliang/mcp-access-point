@@ -1,10 +1,12 @@
+pub mod upstream;
+pub use upstream::*;
+use validator::Validate;
+
 use core::str;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::{fs, sync::RwLock};
 // use serde_yaml::Value as YamlValue;
-use std::net::SocketAddr;
 
 use pingora::server::configuration::{Opt, ServerConf};
 use pingora::{Error, ErrorType::*, OrErr, Result};
@@ -22,11 +24,14 @@ pub const CLIENT_STREAMABLE_HTTP_ENDPOINT: &str = "/mcp";
 pub const ERROR_MESSAGE: &str = "Unable to fetch data for this mcp server.";
 pub const SERVER_WITH_AUTH: bool = false;
 
-#[derive(Default, Debug, Serialize, Deserialize)]
+#[derive(Default, Debug, Serialize, Deserialize, Validate)]
 pub struct Config {
     #[serde(default)]
     pub pingora: ServerConf,
     pub mcps: Vec<MCPOpenAPI>,
+    #[validate(nested)]
+    #[serde(default)]
+    pub upstreams: Vec<Upstream>,
 }
 
 // Config file load and validation
@@ -91,73 +96,6 @@ impl MCPOpenAPI {
         }
 
         Ok(upstream_config)
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UpstreamConfig {
-    pub upstream: Option<String>,
-    pub ip: Option<String>,
-    pub port: Option<u16>,
-    #[serde(default)]
-    pub headers: Option<HashMap<String, String>>,
-}
-
-impl UpstreamConfig {
-    pub fn to_socket_addrs(&self) -> Result<SocketAddr> {
-        Ok(SocketAddr::new(
-            self.ip.clone().unwrap()
-                .parse()
-                .or_err_with(ReadError, || format!("Invalid ip address: {}", self.ip.clone().unwrap()))?,
-            self.port.unwrap(),
-        ))
-    }
-    pub fn get_addr(&self) -> String {
-        self.upstream.as_ref().map_or_else(
-            || format!("{}:{}", self.ip.clone().unwrap(), self.port.unwrap()),
-            |addr| addr.to_string()
-        )
-    }
-
-    pub fn parse_addr(addr: &str) -> Result<Self, String> {
-        let binding = addr.replace("http://", "").replace("https://", "");
-        let parts: Vec<&str> = binding.split(':').collect();
-
-        if parts.len() != 2 {
-            return Err(format!("Invalid address format: {}", addr));
-        }
-
-        let ip = parts[0].to_string();
-        let port = parts[1]
-            .parse::<u16>()
-            .map_err(|_| format!("Invalid port number: {}", parts[1]))?;
-
-        Ok(UpstreamConfig {
-            upstream: Some(addr.to_string()),
-            ip: Some(ip),
-            port: Some(port),
-            headers: None,
-        })
-    }
-    pub fn get_headers(&self) -> HashMap<String, String> {
-        self.headers.clone().unwrap_or_default()
-    }
-    pub fn with_headers(self, headers: HashMap<String, String>) -> Self {
-        Self {
-            headers: Some(headers),
-            ..self
-        }
-    }
-}
-
-impl Default for UpstreamConfig {
-    fn default() -> Self {
-        Self {
-            upstream: Some("127.0.0.1:8090".to_string()),
-            ip: Some("127.0.0.1".to_string()),
-            port: Some(8090),
-            headers: None,
-        }
     }
 }
 

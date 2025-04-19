@@ -11,7 +11,7 @@ use mcp_access_point::utils::file::read_from_local_or_remote;
 use mcp_access_point::cli;
 use mcp_access_point::config::{Config, UpstreamConfig, CLIENT_SSE_ENDPOINT, DEFAULT_UPSTREAM_CONFIG};
 use mcp_access_point::openapi::{reload_global_openapi_tools, reload_global_openapi_tools_from_config};
-use mcp_access_point::proxy::ModelContextProtocolProxy;
+use mcp_access_point::service::ModelContextProtocolProxy;
 use mcp_access_point::admin;
 
 fn main() {

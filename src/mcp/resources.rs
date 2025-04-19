@@ -1,7 +1,7 @@
 use pingora::{proxy::Session, Result};
 
 use crate::{
-    proxy::ModelContextProtocolProxy,
+    service::ModelContextProtocolProxy,
     sse_event::SseEvent,
     types::{
         JSONRPCRequest, JSONRPCResponse, ListResourcesResult, ReadResourceResult, Resource,

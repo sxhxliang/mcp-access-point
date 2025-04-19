@@ -5,7 +5,8 @@ use pingora::{proxy::Session, Result};
 
 use crate::{
     openapi::global_openapi_tools_fetch,
-    proxy::{route::global_openapi_route_fetch, ModelContextProtocolProxy},
+    proxy::route::global_openapi_route_fetch,
+    service::ModelContextProtocolProxy,
     sse_event::SseEvent,
     types::{
         CallToolRequestParam, CallToolResult, Content, JSONRPCRequest, JSONRPCResponse, TextContent,
