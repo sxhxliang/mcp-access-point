@@ -16,7 +16,26 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+
+    - name: Cache Cargo dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          cargo-${{ runner.os }}-
+
+    - name: Install Protoc
+      uses: arduino/setup-protoc@v3
+
     - name: Build
       run: cargo build --verbose
+
+    - name: Run Clippy
+      run: cargo clippy --all-features
+
     - name: Run tests
       run: cargo test --verbose
