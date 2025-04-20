@@ -12,15 +12,14 @@ serde_json = "1.0.133"
 serde_yaml = "0.9.34"
 serde-transcode = "1.1.1"
 async-trait="0.1.88"
-# pingora = { git="https://github.com/sxhxliang/pingora.git", branch = "request_body_processing", features = ["lb"] }
-pingora = { path = "../pingora/pingora", features = ["openssl", "sentry", "lb"] }
-pingora-core = { path = "../pingora/pingora-core"}
-pingora-error = { path = "../pingora/pingora-error"}
-pingora-http = { path = "../pingora/pingora-http"}
-pingora-limits = { path = "../pingora/pingora-limits"}
-pingora-load-balancing = { path = "../pingora/pingora-load-balancing"}
-pingora-proxy = { path = "../pingora/pingora-proxy"}
-pingora-runtime = { path = "../pingora/pingora-runtime"}
+pingora = { git="https://github.com/sxhxliang/pingora.git", branch = "main", features = ["openssl", "sentry", "lb"] }
+pingora-core = { git="https://github.com/sxhxliang/pingora.git", branch = "main"}
+pingora-error = { git="https://github.com/sxhxliang/pingora.git", branch = "main"}
+pingora-http = { git="https://github.com/sxhxliang/pingora.git", branch = "main"}
+pingora-limits = { git="https://github.com/sxhxliang/pingora.git", branch = "main"}
+pingora-load-balancing = { git="https://github.com/sxhxliang/pingora.git", branch = "main"}
+pingora-proxy = { git="https://github.com/sxhxliang/pingora.git", branch = "main"}
+pingora-runtime = { git="https://github.com/sxhxliang/pingora.git", branch = "main"}
 
 hickory-resolver = "0.24.1"
 http = "1.3.1"
