@@ -38,11 +38,7 @@ graph LR
 # 从源码安装
 git clone https://github.com/sxhxliang/mcp-access-point.git
 cd mcp-access-point
-# 传入openapi.json文件路径、mcp端口号、上游服务地址
-cargo run -- -f openapi_for_demo.json -p 8080 -u localhost:8090
-# 也可以使用远程服务器的openapi.json，比如petstore.swagger.io
-cargo run -- -f https://petstore.swagger.io/v2/swagger.json -p 8080 -u localhost:8090
-# 也可以使用 config.yaml 文件，参考config.yaml示例
+# 使用 config.yaml 文件，参考config.yaml示例
 cargo run -- -c config.yaml
 
 # 使用inspector调试，先启动服务
@@ -74,19 +70,32 @@ path 为`openapi.json`的路径，可以使用相对路径或者绝对路径，�
 
 ```yaml
 # config.yaml 示例 (支持多服务配置)
+
 mcps:
   - service-1:  # 服务标识符
-      upstream: 127.0.0.1:8090  # 后端服务地址
-      upstream_config: # 可选，支持配置请求头
-         headers: 
-            X-API-Key: "12345-abcdef"
-            Authorization: "Bearer token123"
-            User-Agent: "MyApp/1.0"
-            Accept: "application/json"
-      path: local_openapi.json  # 本地OpenAPI文件路径
-  - service-2:
-      upstream: api.example.com 
-      path: https://petstore.swagger.io/v2/swagger.json  # 支持网络路径
+    upstream_id: 1
+    upstream_config: # 上游服务配置（可选）
+      headers:
+        X-API-Key: "12345-abcdef"
+        Authorization: "Bearer token123"
+        User-Agent: "MyApp/1.0"
+        Accept: "application/json"
+      nodes:
+        "127.0.0.1:8090": 1 # 必须与upstreams中的上游ID一致
+    path: openapi_for_demo_patch1.json # 本地OpenAPI文件路径
+
+  - web-api-2:
+    upstream_id: 2
+    path: https://petstore.swagger.io/v2/swagger.json  # 支持网络路径
+
+upstreams: # 必须定义上游服务配置
+  - id: 1
+    nodes: #（例如：web服务器或API服务器）
+      "127.0.0.1:8090": 1 # 地址及权重
+
+  - id: 2 # 另一个上游服务 
+    nodes:
+      "127.0.0.1:8091": 1
 ```
 
 要使用配置文件运行 MCP 接入网关，请按运行以下命令:
@@ -110,10 +119,10 @@ git clone https://github.com/sxhxliang/mcp-access-point.git
 cd mcp-access-point
 
 # 构建Docker镜像
-docker build -t kames2025/mcp-access-point:latest .
+docker build -t sxhxliang/mcp-access-point:latest .
 ```
 
-### 拉取并运行Docker容器
+### 拉取并运行Docker容器(旧版本)
 ```bash
 # 使用环境变量配置（上游服务在宿主机上运行）
 # 注意：将 /path/to/your/openapi.json 替换为你本地 OpenAPI 文件的实际路径

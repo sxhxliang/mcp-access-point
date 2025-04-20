@@ -1,27 +1,33 @@
-
+use hickory_resolver::proto::op::header;
 use once_cell::sync::Lazy;
 
-use http::{Uri, Method};
+use http::{Method, Uri};
 use serde::Deserialize;
 use serde_json::Value;
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 use tokio::fs;
-use std::{collections::HashMap, sync::{Arc, Mutex}};
 
-use crate::{config::{MCPOpenAPI, UpstreamConfig}, types::{ListToolsResult, Tool, ToolInputSchema, ToolInputSchemaProperty}, utils::file::read_from_local_or_remote};
-use crate::proxy::route::ProxyRoute;
-use crate::proxy::route::MCP_ROUTE_MAP;
+use crate::{
+    config::{MCPOpenAPIConfig, MCPRouteMetaInfo, MCP_ROUTE_META_INFO_MAP},
+    types::{ListToolsResult, Tool, ToolInputSchema, ToolInputSchemaProperty},
+    utils::file::read_from_local_or_remote,
+};
 
 /// Global map to store global rules, initialized lazily.
-pub static MCP_TOOLS_MAP: Lazy<Arc<Mutex<ListToolsResult>>> = Lazy::new(|| {
-    Arc::new(Mutex::new(ListToolsResult::new(vec![])))
-});
+pub static MCP_TOOLS_MAP: Lazy<Arc<Mutex<ListToolsResult>>> =
+    Lazy::new(|| Arc::new(Mutex::new(ListToolsResult::new(vec![]))));
 
 pub fn global_openapi_tools_fetch() -> Option<ListToolsResult> {
     // Lock the Mutex and clone the inner value to return as Arc
     MCP_TOOLS_MAP.lock().ok().map(|tools| tools.clone())
 }
 
-pub fn reload_global_openapi_tools(openapi_content: String) -> Result<ListToolsResult, Box<dyn std::error::Error>> {
+pub fn reload_global_openapi_tools(
+    openapi_content: String,
+) -> Result<ListToolsResult, Box<dyn std::error::Error>> {
     let spec: OpenApiSpec = OpenApiSpec::new(openapi_content)?;
     let tools = spec.load_openapi()?;
 
@@ -32,15 +38,21 @@ pub fn reload_global_openapi_tools(openapi_content: String) -> Result<ListToolsR
     Ok(tools)
 }
 
-pub fn reload_global_openapi_tools_from_config(openapi_contents: Vec<MCPOpenAPI>) -> Result<ListToolsResult, Box<dyn std::error::Error>> {
+pub fn reload_global_openapi_tools_from_config(
+    mcp_cfgs: Vec<MCPOpenAPIConfig>,
+) -> Result<ListToolsResult, Box<dyn std::error::Error>> {
     let mut tools: ListToolsResult = ListToolsResult::new(vec![]);
-    for openapi_content in openapi_contents {
-        let (_, content)= read_from_local_or_remote(&openapi_content.path)?;
+    for mcp_cfg in mcp_cfgs {
+        let (_, content) = read_from_local_or_remote(&mcp_cfg.path)?;
         let mut spec: OpenApiSpec = OpenApiSpec::new(content)?;
-        
-        if let Ok(upstream_config) = openapi_content.parse_to_upstream_config(){
-            spec.upstream = Some(upstream_config);
+
+        if let Some(upstream_id) = mcp_cfg.upstream_id.clone() {
+            spec.upstream_id = Some(upstream_id);
+        } else {
+            log::warn!("No upstream_id found in openapi content");
         }
+
+        spec.mcp_config = Some(mcp_cfg);
 
         if tools.tools.is_empty() {
             tools = spec.load_openapi()?;
@@ -57,21 +69,20 @@ pub fn reload_global_openapi_tools_from_config(openapi_contents: Vec<MCPOpenAPI>
     Ok(tools)
 }
 
-
-
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct OpenApiSpec {
     pub paths: HashMap<String, PathItem>,
     pub components: Option<Components>,
-    pub upstream: Option<UpstreamConfig>,
+    pub upstream_id: Option<String>,
+    pub mcp_config: Option<MCPOpenAPIConfig>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Components {
     pub schemas: HashMap<String, Value>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct PathItem {
     pub get: Option<Operation>,
     pub post: Option<Operation>,
@@ -80,7 +91,7 @@ pub struct PathItem {
     pub patch: Option<Operation>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Operation {
     #[serde(rename = "operationId")]
     operation_id: Option<String>,
@@ -92,7 +103,7 @@ pub struct Operation {
     tags: Option<Vec<String>>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 struct Parameter {
     name: String,
     #[serde(rename = "in")]
@@ -102,19 +113,19 @@ struct Parameter {
     schema: Option<Schema>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 struct RequestBody {
     description: Option<String>,
     content: HashMap<String, MediaType>,
     required: Option<bool>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 struct MediaType {
     schema: Option<Schema>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 struct Schema {
     #[serde(rename = "$ref")]
     ref_path: Option<String>,
@@ -123,7 +134,7 @@ struct Schema {
     #[serde(rename = "type")]
     schema_type: Option<String>,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 struct RequestBodySchema {
     format: Option<String>,
     #[serde(rename = "type")]
@@ -139,7 +150,6 @@ struct ParamInfo {
 }
 
 pub async fn openapi_to_tools() -> Result<ListToolsResult, Box<dyn std::error::Error>> {
-
     let content = fs::read_to_string("openapi.json").await?;
     // Deserialize JSON
     let spec: OpenApiSpec = OpenApiSpec::new(content)?;
@@ -152,7 +162,6 @@ impl OpenApiSpec {
         Ok(spec)
     }
     pub fn load_openapi(&self) -> Result<ListToolsResult, Box<dyn std::error::Error>> {
-
         let mut tools: Vec<Tool> = Vec::new();
 
         for (path, item) in &self.paths {
@@ -163,9 +172,7 @@ impl OpenApiSpec {
             self.process_method(&item.delete, path, Method::DELETE, &mut tools);
             self.process_method(&item.patch, path, Method::PATCH, &mut tools);
         }
-        Ok(ListToolsResult{
-            tools
-        })
+        Ok(ListToolsResult { tools })
     }
 
     pub fn process_method(
@@ -176,14 +183,16 @@ impl OpenApiSpec {
         tools: &mut Vec<Tool>,
     ) {
         let Some(op) = operation else { return };
-        let Some(operation_id) = &op.operation_id else { return };
+        let Some(operation_id) = &op.operation_id else {
+            return;
+        };
 
         let mut params = Vec::new();
 
-        
         if let Some(parameters) = &op.parameters {
             for param in parameters {
-                let param_type = param.schema
+                let param_type = param
+                    .schema
                     .as_ref()
                     .and_then(|s| s.schema_type.clone())
                     .unwrap_or_else(|| "string".to_string());
@@ -196,7 +205,6 @@ impl OpenApiSpec {
                 });
             }
         }
-        
 
         if let Some(body) = &op.request_body {
             if let Some(media_type) = body.content.values().next() {
@@ -205,16 +213,17 @@ impl OpenApiSpec {
                     let schema_ref = schema.ref_path.as_deref().unwrap_or("");
                     if !schema_ref.is_empty() {
                         // 处理引用的 schema
-                        let schema_ref = schema_ref.trim_start_matches("#/components/schemas/"); 
+                        let schema_ref = schema_ref.trim_start_matches("#/components/schemas/");
                         // println!("schema_ref: {:?}", schema_ref);
-                        
+
                         if let Some(components) = &self.components {
                             // println!("components: {:?}", components);
                             if let Some(ref_schema) = components.schemas.get(schema_ref) {
                                 // 处理引用的 schema
                                 // println!("ref_schema:\n {:?}", ref_schema);
                                 // 这里需要将 ref_schema 转换为 Schema 类型
-                                let schema: Schema = serde_json::from_value(ref_schema.clone()).unwrap();
+                                let schema: Schema =
+                                    serde_json::from_value(ref_schema.clone()).unwrap();
                                 // println!("schema: \n {:?}", schema);
                                 self.extract_schema_params(&schema, &mut params);
                             }
@@ -230,19 +239,32 @@ impl OpenApiSpec {
             }
         }
 
-        let proxy_route = ProxyRoute {
+        // Safely extract headers with proper error handling
+        let mcp_config = self.mcp_config.clone().unwrap();
+
+        let headers = if let Some(headers) = &mcp_config.upstream_config {
+            headers.headers.clone()
+        } else {
+            Some(HashMap::new())
+        };
+
+        // Construct MCPRouteMetaInfo with improved readability
+        let mcp_route_meta_info = MCPRouteMetaInfo {
             operation_id: operation_id.to_string(),
             path: path.parse::<Uri>().unwrap(),
             method,
-            upstream: self.upstream.clone(),
+            upstream_id: self.upstream_id.clone(), // Consider avoiding clone if possible
+            headers,
             // request_body: params.clone(),
         };
-        MCP_ROUTE_MAP.insert(operation_id.into(), Arc::new(proxy_route));
-    
+        MCP_ROUTE_META_INFO_MAP.insert(operation_id.into(), Arc::new(mcp_route_meta_info));
 
         let mut description = op.summary.clone().unwrap_or_default();
         if op.description.is_some() && op.summary != op.description {
-            description.push_str(&format!("  Description: {}", op.description.clone().unwrap_or_default()));
+            description.push_str(&format!(
+                "  Description: {}",
+                op.description.clone().unwrap_or_default()
+            ));
         }
         // if !params.is_empty() {
         //     description.push_str("\n\nArgs:");
@@ -251,7 +273,6 @@ impl OpenApiSpec {
         //     }
         // }
 
-      
         let mut properties = HashMap::new();
         let mut required = Vec::new();
 
@@ -268,7 +289,6 @@ impl OpenApiSpec {
                 required.push(param.name.clone());
             }
         }
-        
 
         tools.push(Tool {
             name: operation_id.clone(),
@@ -281,7 +301,6 @@ impl OpenApiSpec {
         });
     }
 
-
     fn extract_schema_params(&self, schema: &Schema, params: &mut Vec<ParamInfo>) {
         let properties = match &schema.properties {
             Some(props) => props,
@@ -291,7 +310,8 @@ impl OpenApiSpec {
         let required_fields = schema.required.as_deref().unwrap_or(&[]);
 
         for (name, subschema) in properties {
-            let param_type = subschema.schema_type
+            let param_type = subschema
+                .schema_type
                 .as_deref()
                 .unwrap_or("string")
                 .to_string();

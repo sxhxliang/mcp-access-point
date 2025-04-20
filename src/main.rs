@@ -1,115 +1,170 @@
-use std::fs;
-use std::path::Path;
+#![allow(clippy::upper_case_acronyms)]
 
-use clap::Parser;
-use notify::Watcher;
+use std::ops::DerefMut;
+
+use pingora::services::listening::Service;
+use pingora_core::{
+    apps::HttpServerOptions,
+    listeners::tls::TlsSettings,
+    server::{configuration::Opt, Server},
+};
+use pingora_proxy::{http_proxy_service_with_name, HttpProxy};
+use sentry::IntoDsn;
+
+use access_point::{admin::http_admin::AdminHttpApp, openapi::reload_global_openapi_tools_from_config};
+use access_point::config;
+use access_point::config::{etcd::EtcdConfigSync, Config};
+use access_point::logging::Logger;
+use access_point::proxy::{
+    event::ProxyEventHandler,
+    global_rule::load_static_global_rules,
+    route::load_static_routes,
+    service::load_static_services,
+    ssl::{load_static_ssls, DynamicCert},
+    upstream::load_static_upstreams,
+};
+// use access_point::service::http::HttpService;
+use access_point::service::mcp::MCPProxyService;
 use tokio::sync::broadcast;
-use pingora::{prelude::*, proxy::http_proxy_service_with_name, services::Service};
-
-
-use mcp_access_point::utils::file::read_from_local_or_remote;
-use mcp_access_point::cli;
-use mcp_access_point::config::{Config, UpstreamConfig, CLIENT_SSE_ENDPOINT, DEFAULT_UPSTREAM_CONFIG};
-use mcp_access_point::openapi::{reload_global_openapi_tools, reload_global_openapi_tools_from_config};
-use mcp_access_point::proxy::ModelContextProtocolProxy;
-use mcp_access_point::admin;
 
 fn main() {
-    // std::env::set_var("RUST_LOG", "DEBUG");
-    env_logger::init();
+    // 加载配置和命令行参数
+    std::env::set_var("RUST_LOG", "debug");
+    let cli_options = Opt::parse_args();
+    let config =
+        Config::load_yaml_with_opt_override(&cli_options).expect("Failed to load configuration");
 
-    let args = cli::Cli::parse();
-    //
-
-    if let Some(_) = args.config {
-        let cli_options = Opt::parse_args();
-        let mcp_config =
-            Config::load_yaml_with_opt_override(&cli_options).expect("Failed to load configuration");
-        let tools = reload_global_openapi_tools_from_config(mcp_config.mcps).expect("Failed to reload openapi tools");
-        println!("total tools : {:#?}", tools.tools.len());
-    
+    // 初始化日志
+    let logger = if let Some(log_cfg) = &config.access_point.log {
+        let logger = Logger::new(log_cfg.clone());
+        logger.init_env_logger();
+        Some(logger)
     } else {
+        env_logger::init();
+        None
+    };
 
-        if let Some(upstream) = args.upstream  {
-            let upstream = UpstreamConfig::parse_addr(&upstream);
-            match upstream {
-                Ok(upstream) => {
-                    let mut proxy_config = DEFAULT_UPSTREAM_CONFIG.write().unwrap();
-                    proxy_config.ip = upstream.ip;
-                    proxy_config.port = upstream.port;
-                }
-                Err(e) => {
-                    log::error!("Failed to parse upstream address: {}", e);
-                    return;
-                }
-            }
-        }
-        // watch the openapi file
-        if let Some(filename) = args.file.clone() {
-            // let filename = args.file.clone();
-            println!("parse openapi file: {:?}", &filename);
-            let res = read_from_local_or_remote(&filename);
-            let (is_remote, content) = match res {
-                Ok((is_remote, content)) => (is_remote, content),
-                Err(e) => {
-                    log::error!("Failed to read the openapi file: {}", e);
-                    return;
-                }
-            };
-    
+    // 配置同步
+    let etcd_sync = if let Some(etcd_cfg) = &config.access_point.etcd {
+        log::info!("Adding etcd config sync...");
+        let event_handler = ProxyEventHandler::new(config.pingora.work_stealing);
+        Some(EtcdConfigSync::new(
+            etcd_cfg.clone(),
+            Box::new(event_handler),
+        ))
+    } else {
+        log::info!("Loading services, upstreams, and routes...");
+        load_static_upstreams(&config).expect("Failed to load static upstreams");
+        load_static_services(&config).expect("Failed to load static services");
+        load_static_global_rules(&config).expect("Failed to load static global rules");
+        load_static_routes(&config).expect("Failed to load  static routes");
+        load_static_ssls(&config).expect("Failed to load  static ssls");
+        None
+    };
 
-            let tools =reload_global_openapi_tools(content).expect("Failed to reload openapi tools");
-            println!("total tools : {:#?}", tools.tools.len());
-            // watch the local file
-            if !is_remote {
-                let mut watcher = notify::recommended_watcher(move |res| match res {
-                    Ok(event) => {
-                        log::info!("file watcher: {event:?}");
-                        let content = fs::read_to_string(Path::new(&filename))
-                            .expect("Failed to read the openapi file");
-                        reload_global_openapi_tools(content).expect("Failed to reload openapi tools");
-                    }
-                    Err(e) => panic!("watch error: {:?}", e),
-                })
-                .unwrap();
+    // 创建服务器实例
+    let mut access_point_server = Server::new_with_opt_and_conf(Some(cli_options), config.pingora);
 
-                watcher
-                    .watch(Path::new(&args.file.unwrap()), notify::RecursiveMode::NonRecursive)
-                    .unwrap();
-            }
-        }
-
+    // 添加日志服务
+    if let Some(log_service) = logger {
+        log::info!("Adding log sync service...");
+        access_point_server.add_service(log_service);
     }
 
-    // build the server
-    let mut my_server = Server::new(Some(Opt::default())).unwrap();
-    my_server.bootstrap();
+    // 添加 Etcd 配置同步服务
+    if let Some(etcd_service) = etcd_sync {
+        log::info!("Adding etcd config sync service...");
+        access_point_server.add_service(etcd_service);
+    }
 
-    let admin_service_http = admin::admin_http_service("0.0.0.0:6345");
+    // 初始化 HTTP 服务
+
+    // let mcp_config =
+    //         Config::load_yaml_with_opt_override(&cli_options).expect("Failed to load configuration");
+    if let Some(mcps) = config.mcps {
+        let _tools = reload_global_openapi_tools_from_config(mcps).expect("Failed to reload openapi tools");
+    }
+      // println!("total tools : {:#?}", tools.tools.len());
 
     let (tx, _) = broadcast::channel(16);
+    
+    let mut http_service: Service<HttpProxy<MCPProxyService>> =
+        http_proxy_service_with_name(&access_point_server.configuration, MCPProxyService::new(tx), "access_point");
 
-    let mut lb_service: pingora::services::listening::Service<
-        pingora::proxy::HttpProxy<ModelContextProtocolProxy>,
-    > = http_proxy_service_with_name(
-        &my_server.configuration,
-        ModelContextProtocolProxy::new(tx),
-        "mcprouter",
-    );
+    // 添加监听器
+    log::info!("Adding listeners...");
+    add_listeners(&mut http_service, &config.access_point);
 
-    let addr = format!("0.0.0.0:{:?}", args.port);
+    // 添加扩展服务（如 Sentry 和 Prometheus, Admin）
+    add_optional_services(&mut access_point_server, &config.access_point);
 
-    println!("Listening on: {}", &addr);
-    println!(
-        "MCP server enterpoint: {}",
-        &format!("http://{addr}{CLIENT_SSE_ENDPOINT}")
-    );
-    lb_service.add_tcp(&addr);
+    // 启动服务器
+    log::info!("Bootstrapping...");
+    access_point_server.bootstrap();
+    log::info!("Bootstrapped. Adding Services...");
+    access_point_server.add_service(http_service);
 
-    log::info!("The cargo manifest dir is: {}", env!("CARGO_MANIFEST_DIR"));
+    log::info!("Starting Server...");
+    access_point_server.run_forever();
+}
 
-    let services: Vec<Box<dyn Service>> = vec![Box::new(lb_service), Box::new(admin_service_http)];
+// 添加监听器的辅助函数
+fn add_listeners(http_service: &mut Service<HttpProxy<MCPProxyService>>, cfg: &config::AccessPointConfig) {
+    for list_cfg in cfg.listeners.iter() {
+        if let Some(tls) = &list_cfg.tls {
+            // ... TLS 配置
+            let dynamic_cert = DynamicCert::new(tls);
+            let mut tls_settings = TlsSettings::with_callbacks(dynamic_cert)
+                .expect("Init dynamic cert shouldn't fail");
 
-    my_server.add_services(services);
-    my_server.run_forever();
+            tls_settings
+                .deref_mut()
+                .deref_mut()
+                .set_max_proto_version(Some(pingora::tls::ssl::SslVersion::TLS1_3))
+                .expect("Init dynamic cert shouldn't fail");
+
+            if list_cfg.offer_h2 {
+                tls_settings.enable_h2();
+            }
+            http_service.add_tls_with_settings(&list_cfg.address.to_string(), None, tls_settings);
+        } else {
+            // 无 TLS
+            if list_cfg.offer_h2c {
+                //... H2C 配置
+                let http_logic = http_service.app_logic_mut().unwrap();
+                let mut http_server_options = HttpServerOptions::default();
+                http_server_options.h2c = true;
+                http_logic.server_options = Some(http_server_options);
+            }
+            http_service.add_tcp(&list_cfg.address.to_string());
+        }
+    }
+}
+
+// 添加可选服务（如 Sentry 和 Prometheus, Admin）的辅助函数
+fn add_optional_services(server: &mut Server, cfg: &config::AccessPointConfig) {
+    if let Some(sentry_cfg) = &cfg.sentry {
+        log::info!("Adding Sentry config...");
+        server.sentry = Some(sentry::ClientOptions {
+            dsn: sentry_cfg
+                .dsn
+                .clone()
+                .into_dsn()
+                .expect("Invalid Sentry DSN"),
+            ..Default::default()
+        });
+    }
+
+    if cfg.etcd.is_some() && cfg.admin.is_some() {
+        log::info!("Adding Admin Service...");
+        let admin_service_http = AdminHttpApp::admin_http_service(cfg);
+        server.add_service(admin_service_http);
+    }
+
+    if let Some(prometheus_cfg) = &cfg.prometheus {
+        log::info!("Adding Prometheus Service...");
+        let mut prometheus_service_http = Service::prometheus_http_service();
+        prometheus_service_http.add_tcp(&prometheus_cfg.address.to_string());
+        server.add_service(prometheus_service_http);
+    }
 }

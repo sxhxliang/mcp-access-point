@@ -6,6 +6,9 @@
 # 忽略Rust编译生成的文件
 /target
 
+# examples
+*.json
+
 # 其他不需要的文件
 *.md
 LICENSE 

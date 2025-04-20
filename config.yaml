@@ -6,16 +6,34 @@ pingora:
   upgrade_sock: /tmp/pingora_upgrade.sock
   user: nobody
   group: mcpusers
+
+access_point:
+  # listener on TCP or TLS
+  listeners:
+    - address: 0.0.0.0:8080 # listen on all interfaces
+
 mcps:
-  - web-api-1:
-    upstream: 127.0.0.1:8090
-    upstream_config:
+  - service-1:  # Service identifier
+    upstream_id: 1
+    upstream_config: # Upstream service configuration (optional)
       headers:
         X-API-Key: "12345-abcdef"
         Authorization: "Bearer token123"
         User-Agent: "MyApp/1.0"
         Accept: "application/json"
-    path: openapi_for_demo_patch1.json
+      nodes:
+        "127.0.0.1:8090": 1 # must be the same as upstream id in upstreams
+    path: openapi_for_demo_patch1.json # Local OpenAPI file path
+
   - web-api-2:
-    upstream: 127.0.0.1:8091
-    path: openapi_for_demo_patch2.json
+    upstream_id: 2
+    path: https://petstore.swagger.io/v2/swagger.json  # Supports network paths
+
+upstreams: # Upstream service configuration must be defined
+  - id: 1
+    nodes: #（e.g., a web server or API server)）
+      "127.0.0.1:8090": 1 # address with weight
+
+  - id: 2 # another upstream service 
+    nodes:
+      "127.0.0.1:8091": 1

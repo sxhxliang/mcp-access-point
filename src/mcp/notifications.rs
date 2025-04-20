@@ -1,12 +1,18 @@
 use pingora::{proxy::Session, Result};
+use pingora_proxy::ProxyHttp;
 
-use crate::{proxy::ModelContextProtocolProxy, sse_event::SseEvent, types::JSONRPCRequest};
+use crate::{
+    service::mcp::MCPProxyService,
+    sse_event::SseEvent,
+    types::JSONRPCRequest,
+};
 
 // Helper function to send an SseEvent and mark the response as accepted
 async fn process_response(
+    ctx: &mut <MCPProxyService as ProxyHttp>::CTX,
     session_id: &str,
     event_message: &str,
-    mcp_proxy: &ModelContextProtocolProxy,
+    mcp_proxy: &MCPProxyService,
     session: &mut Session,
 ) -> Result<()> {
     let _ = mcp_proxy.tx.send(SseEvent::new(session_id, event_message));
@@ -15,8 +21,9 @@ async fn process_response(
 }
 
 pub async fn request_processing(
+    ctx: &mut <MCPProxyService as ProxyHttp>::CTX,
     session_id: &str,
-    mcp_proxy: &ModelContextProtocolProxy,
+    mcp_proxy: &MCPProxyService,
     session: &mut Session,
     request: &JSONRPCRequest,
 ) -> Result<bool> {
@@ -26,12 +33,12 @@ pub async fn request_processing(
     match request.method.as_str() {
         "ping" => {
             log::debug!("ping...");
-            process_response(session_id, "{}", mcp_proxy, session).await?;
+            process_response(ctx, session_id, "{}", mcp_proxy, session).await?;
             Ok(true)
         }
         "notifications/initialized" | "notifications/cancelled" => {
             log::debug!("notifications/initialized or notifications/cancelled");
-            process_response(session_id, "Accepted", mcp_proxy, session).await?;
+            process_response(ctx, session_id, "Accepted", mcp_proxy, session).await?;
             Ok(true)
         }
         "notifications/roots/list_changed" => {
@@ -46,7 +53,7 @@ pub async fn request_processing(
             Ok(true)
         }
         _ => {
-            process_response(session_id, "Accepted", mcp_proxy, session).await?;
+            process_response(ctx, session_id, "Accepted", mcp_proxy, session).await?;
             Ok(true)
         }
     }

@@ -1,6 +1,6 @@
-# MCP Access Gateway  
+# MCP Access Point  
 
-`MCP` Access Gateway is a lightweight protocol conversion gateway tool designed to establish a communication bridge between traditional `HTTP` services and `MCP` (Model Context Protocol) clients. It enables MCP clients to interact directly with existing HTTP services without requiring any server-side interface modifications.  
+`MCP` Access Point is a lightweight protocol conversion gateway tool designed to establish a communication bridge between traditional `HTTP` services and `MCP` (Model Context Protocol) clients. It enables MCP clients to interact directly with existing HTTP services without requiring any server-side interface modifications.  
 <p align="center">
   <a href="./README.md"><img alt="README in English" src="https://img.shields.io/badge/English-d9d9d9"></a>
   <a href="./README_CN.md"><img alt="简体中文版" src="https://img.shields.io/badge/简体中文-d9d9d9"></a>
@@ -37,11 +37,6 @@ graph LR
 # Install from source
 git clone https://github.com/sxhxliang/mcp-access-point.git
 cd mcp-access-point
-# Specify OpenAPI.json path, MCP port, and upstream service address
-cargo run -- -f openapi_for_demo.json -p 8080 -u localhost:8090
-# Use remote OpenAPI spec (e.g., petstore.swagger.io)
-cargo run -- -f https://petstore.swagger.io/v2/swagger.json -p 8080 -u localhost:8090
-# Use config.yaml (see example below)
 cargo run -- -c config.yaml
 
 # Use inspector for debugging (start service first)
@@ -71,17 +66,29 @@ npx @modelcontextprotocol/inspector@0.8.1 node build/index.js
 # config.yaml example (supports multiple services)
 mcps:
   - service-1:  # Service identifier
-      upstream: 127.0.0.1:8090  # Backend service address
-      upstream_config: # Upstream service configuration (optional)
-         headers: 
-            X-API-Key: "12345-abcdef"
-            Authorization: "Bearer token123"
-            User-Agent: "MyApp/1.0"
-            Accept: "application/json"
-      path: local_openapi.json  # Local OpenAPI file path
-  - service-2:
-      upstream: api.example.com 
-      path: https://petstore.swagger.io/v2/swagger.json  # Supports network paths
+    upstream_id: 1
+    upstream_config: # Upstream service configuration (optional)
+      headers:
+        X-API-Key: "12345-abcdef"
+        Authorization: "Bearer token123"
+        User-Agent: "MyApp/1.0"
+        Accept: "application/json"
+      nodes:
+        "127.0.0.1:8090": 1 # must be the same as upstream id in upstreams
+    path: openapi_for_demo_patch1.json # Local OpenAPI file path
+
+  - web-api-2:
+    upstream_id: 2
+    path: https://petstore.swagger.io/v2/swagger.json  # Supports network paths
+
+upstreams: # Upstream service configuration must be defined
+  - id: 1
+    nodes: #（e.g., a web server or API server)）
+      "127.0.0.1:8090": 1 # address with weight
+
+  - id: 2 # another upstream service 
+    nodes:
+      "127.0.0.1:8091": 1
 ```
 
 To run the MCP Access Point using the configuration file, use the following command:

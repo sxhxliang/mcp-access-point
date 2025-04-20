@@ -1,7 +1,9 @@
+#[warn(dead_code)]
 use pingora::{proxy::Session, Result};
+use pingora_proxy::ProxyHttp;
 
 use crate::{
-    proxy::ModelContextProtocolProxy,
+    service::mcp::MCPProxyService,
     sse_event::SseEvent,
     types::{
         JSONRPCRequest, JSONRPCResponse, ListResourcesResult, ReadResourceResult, Resource,
@@ -41,8 +43,9 @@ impl ResourceManager {
 }
 
 pub async fn request_processing(
+    ctx: &mut <MCPProxyService as ProxyHttp>::CTX,
     session_id: &str,
-    mcp_proxy: &ModelContextProtocolProxy,
+    mcp_proxy: &MCPProxyService,
     session: &mut Session,
     request: &JSONRPCRequest,
 ) -> Result<bool> {

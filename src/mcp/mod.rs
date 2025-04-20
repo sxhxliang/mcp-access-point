@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 use crate::{
     config::{SERVER_NAME, SERVER_VERSION},
-    proxy::ModelContextProtocolProxy,
+    service::mcp::MCPProxyService,
     sse_event::SseEvent,
     types::{
         Implementation, InitializeResult, JSONRPCRequest, JSONRPCResponse, PromptsCapability,
@@ -17,11 +17,13 @@ use crate::{
 };
 
 use pingora::{proxy::Session, Result};
+use pingora_proxy::ProxyHttp;
 
 // 2024-11-05 specification protocol;
 pub async fn request_processing(
+    ctx: &mut <MCPProxyService as ProxyHttp>::CTX,
     session_id: &str,
-    mcp_proxy: &ModelContextProtocolProxy,
+    mcp_proxy: &MCPProxyService,
     session: &mut Session,
     request: &JSONRPCRequest,
 ) -> Result<bool> {
@@ -68,19 +70,19 @@ pub async fn request_processing(
         | "notifications/cancelled"
         | "notifications/roots/list_changed"
         | "completion/complete" => {
-            return notifications::request_processing(session_id, mcp_proxy, session, request).await
+            return notifications::request_processing(ctx, session_id, mcp_proxy, session, request).await
         }
 
         "tools/list" | "tools/call" => {
-            return tools::request_processing(session_id, mcp_proxy, session, request).await
+            return tools::request_processing(ctx, session_id, mcp_proxy, session, request).await
         }
 
         "resources/list" | "resources/read" | "resources/templates/list" => {
-            return resources::request_processing(session_id, mcp_proxy, session, request).await
+            return resources::request_processing(ctx, session_id, mcp_proxy, session, request).await
         }
 
         "prompts/list" | "prompts/get" => {
-            return prompts::request_processing(session_id, mcp_proxy, session, request).await
+            return prompts::request_processing(ctx, session_id, mcp_proxy, session, request).await
         }
 
         _ => {

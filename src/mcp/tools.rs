@@ -1,21 +1,24 @@
-use std::str::FromStr;
+use std::{str::FromStr, sync::Arc};
 
 use http::Uri;
 use pingora::{proxy::Session, Result};
+use pingora_proxy::ProxyHttp;
 
 use crate::{
-    openapi::global_openapi_tools_fetch,
-    proxy::{route::global_openapi_route_fetch, ModelContextProtocolProxy},
+    config::{global_mcp_route_meta_info_fetch, self}, openapi::global_openapi_tools_fetch,
+    proxy::route,
+    service::mcp::MCPProxyService, 
     sse_event::SseEvent,
     types::{
         CallToolRequestParam, CallToolResult, Content, JSONRPCRequest, JSONRPCResponse, TextContent,
-    },
-    utils::request::{merge_path_query, replace_dynamic_params},
+    }, 
+    utils::request::{merge_path_query, replace_dynamic_params}
 };
 
 pub async fn request_processing(
+    ctx: &mut <MCPProxyService as ProxyHttp>::CTX,
     session_id: &str,
-    mcp_proxy: &ModelContextProtocolProxy,
+    mcp_proxy: &MCPProxyService,
     session: &mut Session,
     request: &JSONRPCRequest,
 ) -> Result<bool> {
@@ -55,30 +58,45 @@ pub async fn request_processing(
             let req_params = request.params.clone().unwrap();
             let params: CallToolRequestParam = serde_json::from_value(req_params).unwrap();
             log::debug!("params {:?}", params);
-            let route_proxy = global_openapi_route_fetch(&params.name);
-            log::debug!("route_proxy {:?}", route_proxy);
+            // match route_proxy 
+            let route_meta_info = global_mcp_route_meta_info_fetch(&params.name);
+
+
+            log::debug!("route_meta_info {:?}", route_meta_info);
             log::debug!("tools/call");
-            match route_proxy {
-                Some(route) => {
+            match route_meta_info {
+                Some(route_meta_info) => {
                     let arguments = &params.arguments.unwrap();
-                    let new_path = replace_dynamic_params(route.path.path(), arguments);
+                    let new_path = replace_dynamic_params(route_meta_info.path.path(), arguments);
                     log::debug!("new_path {:?}", new_path);
                     // let query_params = json_to_uri_query(arguments);
                     let path_and_query = merge_path_query(&new_path, "");
                     log::debug!("new_path_and_query {:?}", path_and_query);
 
                     // add headers from upstream config
-                    if let Some(upstream_config) = &route.upstream {
-                        // println!("route upstream: {:?}", route.upstream);
+                    if let Some(upstream_id) = &route_meta_info.upstream_id {
+                        log::info!("route_meta_info upstream: {:#?}", route_meta_info);
+
+                        let route_cfg = config::Route {
+                            id: String::new(),
+                            upstream_id: Some(upstream_id.clone()),
+                            uri: Some(route_meta_info.path.path().to_string()),
+                            methods: vec![config::HttpMethod::from_http_method(&route_meta_info.method).unwrap()],
+                            ..Default::default()
+                        };
+
+                        log::info!("route upstream route_cfg: {:#?}", route_cfg);
+                        ctx.route_mcp = Some(Arc::new(route::ProxyRoute::from(route_cfg)));
+                        // add headers from upstream config
                         let _ = session
                             .req_header_mut()
-                            .insert_header("upstream_peer", upstream_config.get_addr());
-                        for (key, value) in upstream_config.get_headers() {
+                            .insert_header("upstream_id", upstream_id);
+                        for (key, value) in route_meta_info.get_headers() {
                             let _ = session.req_header_mut().insert_header(key, value);
                         }
                     }
 
-                    session.req_header_mut().set_method(route.method.clone());
+                    session.req_header_mut().set_method(route_meta_info.method.clone());
                     session
                         .req_header_mut()
                         .set_uri(Uri::from_str(&path_and_query).unwrap());

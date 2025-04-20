@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # 复制编译好的可执行文件
-COPY --from=builder /app/target/release/mcp-access-point /app/mcp-access-point
+COPY --from=builder /app/target/release/access-point /app/access-point
 # 创建配置目录
 RUN mkdir -p /app/config
 

@@ -1,179 +1,41 @@
-use async_trait::async_trait;
-use http::{header::CONTENT_TYPE, Method, Response, StatusCode};
-use matchit::{Match, Router};
-use pingora::{
-    apps::http_app::ServeHttp, protocols::http::ServerSession, services::listening::Service,
-};
-use std::future::Future;
-use std::pin::Pin;
-use std::{
-    collections::{BTreeMap, HashMap},
-    sync::{Arc, Mutex},
+#[warn(dead_code)]
+pub mod http_admin;
+pub mod validate;
+use std::error::Error;
+
+use crate::{
+    config,
+    plugin::build_plugin,
 };
 
-use crate::config::Admin;
 
-type RequestParams = BTreeMap<String, String>;
-type ResponseResult = Result<Response<Vec<u8>>, String>;
-type HttpRouterHandler = Pin<Box<dyn Future<Output = ResponseResult> + Send + 'static>>;
-
-struct AsyncHandlerWithArg<Arg> {
-    method: Method,
-    path: String,
-    handler: Arc<Mutex<dyn Fn(Arg) -> HttpRouterHandler + Send + Sync>>,
+trait PluginValidatable {
+    fn validate_plugins(&self) -> Result<(), Box<dyn Error>>;
 }
 
-impl<Arg: 'static> AsyncHandlerWithArg<Arg> {
-    fn new<F, Fut>(method: Method, path: String, handler: F) -> Self
-    where
-        F: Fn(Arg) -> Fut + Send + Sync + 'static,
-        Fut: Future<Output = ResponseResult> + Send + 'static,
-    {
-        AsyncHandlerWithArg {
-            method,
-            path,
-            handler: Arc::new(Mutex::new(move |arg| -> HttpRouterHandler {
-                Box::pin(handler(arg)) as HttpRouterHandler
-            })),
+impl PluginValidatable for config::Route {
+    fn validate_plugins(&self) -> Result<(), Box<dyn Error>> {
+        for (name, value) in &self.plugins {
+            build_plugin(name, value.clone())?;
         }
-    }
-
-    async fn call(&self, arg: Arg) -> Result<Response<Vec<u8>>, String> {
-        let future = self.handler.lock().unwrap()(arg);
-        future.await
+        Ok(())
     }
 }
 
-// Example
-async fn list_resources(req: RequestData) -> Result<Response<Vec<u8>>, String> {
-    log::debug!("list_resources: {:?}", req);
-    let res = Response::builder()
-        .status(StatusCode::OK)
-        .header(CONTENT_TYPE, "text/html; charset=utf-8")
-        .body("Method allowed".as_bytes().to_vec())
-        .unwrap();
-    Ok(res)
-}
-
-pub struct AdminHttpApp {
-    config: Admin,
-    router: Router<HashMap<Method, AsyncHandlerWithArg<RequestData>>>,
-}
-
-impl AdminHttpApp {
-    pub fn new(config: Admin) -> Self {
-        let mut this = Self {
-            config: config.clone(),
-            router: Router::new(),
-        };
-
-        let get_handler = AsyncHandlerWithArg::new(
-            Method::GET,
-            "/admin/{resource}/{id}".to_string(),
-            list_resources,
-        );
-
-        this.route(get_handler);
-        this
-    }
-
-    fn route(&mut self, handler: AsyncHandlerWithArg<RequestData>) -> &mut Self {
-        match self.router.at_mut(&handler.path) {
-            Ok(routes) => {
-                routes.value.insert(handler.method.clone(), handler);
-            }
-            Err(_) => {
-                let mut handlers = HashMap::new();
-                let path = handler.path.clone();
-                handlers.insert(handler.method.clone(), handler);
-                if let Err(err) = self.router.insert(path.clone(), handlers) {
-                    panic!("Failed to insert path {}: {}", path, err);
-                }
-            }
+impl PluginValidatable for config::Service {
+    fn validate_plugins(&self) -> Result<(), Box<dyn Error>> {
+        for (name, value) in &self.plugins {
+            build_plugin(name, value.clone())?;
         }
-        self
+        Ok(())
     }
 }
 
-#[derive(Debug)]
-struct RequestData {
-    params: RequestParams,
-    body: Vec<u8>,
-}
-
-async fn read_request_body(http_session: &mut ServerSession) -> Result<Vec<u8>, String> {
-    let mut body_data = Vec::new();
-    while let Some(bytes) = http_session
-        .read_request_body()
-        .await
-        .map_err(|e| e.to_string())?
-    {
-        body_data.extend_from_slice(&bytes);
-    }
-    Ok(body_data)
-}
-
-#[async_trait]
-impl ServeHttp for AdminHttpApp {
-    async fn response(&self, http_session: &mut ServerSession) -> Response<Vec<u8>> {
-        http_session.set_keepalive(None);
-
-        let body_data = match read_request_body(http_session).await {
-            Ok(data) => data,
-            Err(e) => {
-                return Response::builder()
-                    .status(StatusCode::BAD_REQUEST)
-                    .body(e.as_bytes().to_vec())
-                    .unwrap();
-            }
-        };
-
-        let (path, method) = {
-            let req_header = http_session.req_header();
-            (req_header.uri.path().to_string(), req_header.method.clone())
-        };
-
-        match self.router.at(&path) {
-            Ok(Match { value, params }) => match value.get(&method) {
-                Some(handler) => {
-                    let params: RequestParams = params
-                        .iter()
-                        .map(|(k, v)| (k.to_string(), v.to_string()))
-                        .collect();
-
-                    let request_data = RequestData {
-                        params,
-                        body: body_data,
-                    };
-                    match handler.call(request_data).await {
-                        Ok(resp) => resp,
-                        Err(e) => {
-                            log::error!("Handler execution failed: {:?}", e);
-                            Response::builder()
-                                .status(StatusCode::BAD_REQUEST)
-                                .body(e.as_bytes().to_vec())
-                                .unwrap()
-                        }
-                    }
-                }
-                // 405 Method Not Allowed
-                None => Response::builder()
-                    .status(StatusCode::METHOD_NOT_ALLOWED)
-                    .body("Method not allowed".as_bytes().to_vec())
-                    .unwrap(),
-            },
-            // 404 Not Found
-            Err(_) => Response::builder()
-                .status(StatusCode::NOT_FOUND)
-                .body("Not Found".as_bytes().to_vec())
-                .unwrap(),
+impl PluginValidatable for config::GlobalRule {
+    fn validate_plugins(&self) -> Result<(), Box<dyn Error>> {
+        for (name, value) in &self.plugins {
+            build_plugin(name, value.clone())?;
         }
+        Ok(())
     }
-}
-
-pub fn admin_http_service(addr: &str) -> Service<AdminHttpApp> {
-    let app = AdminHttpApp::new(Admin::default());
-    let mut service = Service::new("Admin HTTP".to_string(), app);
-    service.add_tcp(addr);
-    service
 }
