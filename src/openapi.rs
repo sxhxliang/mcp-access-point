@@ -299,6 +299,7 @@ impl OpenApiSpec {
         }
 
         tools.push(Tool {
+            annotations: None,
             name: operation_id.clone(),
             description: Some(description),
             input_schema: ToolInputSchema {

@@ -37,6 +37,7 @@ pub async fn request_processing(
                 meta: Map::new(),
                 protocol_version: LATEST_PROTOCOL_VERSION.to_string(),
                 capabilities: ServerCapabilities {
+                    completions: Map::new(),
                     experimental: HashMap::new(),
                     logging: Map::new(),
                     prompts: Some(ServerCapabilitiesPrompts {

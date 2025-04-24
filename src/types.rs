@@ -29,60 +29,13 @@ pub mod error {
         }
     }
 }
-#[doc = "Base for objects that include optional annotations for the client. The client can use annotations to inform how objects are used or displayed"]
+#[doc = "Optional annotations for the client. The client can use annotations to inform how objects are used or displayed"]
 #[doc = r""]
 #[doc = r" <details><summary>JSON schema</summary>"]
 #[doc = r""]
 #[doc = r" ```json"]
 #[doc = "{"]
-#[doc = "  \"description\": \"Base for objects that include optional annotations for the client. The client can use annotations to inform how objects are used or displayed\","]
-#[doc = "  \"type\": \"object\","]
-#[doc = "  \"properties\": {"]
-#[doc = "    \"annotations\": {"]
-#[doc = "      \"type\": \"object\","]
-#[doc = "      \"properties\": {"]
-#[doc = "        \"audience\": {"]
-#[doc = "          \"description\": \"Describes who the intended customer of this object or data is.\\n\\nIt can include multiple entries to indicate content useful for multiple audiences (e.g., `[\\\"user\\\", \\\"assistant\\\"]`).\","]
-#[doc = "          \"type\": \"array\","]
-#[doc = "          \"items\": {"]
-#[doc = "            \"$ref\": \"#/definitions/Role\""]
-#[doc = "          }"]
-#[doc = "        },"]
-#[doc = "        \"priority\": {"]
-#[doc = "          \"description\": \"Describes how important this data is for operating the server.\\n\\nA value of 1 means \\\"most important,\\\" and indicates that the data is\\neffectively required, while 0 means \\\"least important,\\\" and indicates that\\nthe data is entirely optional.\","]
-#[doc = "          \"type\": \"number\","]
-#[doc = "          \"maximum\": 1.0,"]
-#[doc = "          \"minimum\": 0.0"]
-#[doc = "        }"]
-#[doc = "      }"]
-#[doc = "    }"]
-#[doc = "  }"]
-#[doc = "}"]
-#[doc = r" ```"]
-#[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
-pub struct Annotated {
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub annotations: ::std::option::Option<AnnotatedAnnotations>,
-}
-impl ::std::convert::From<&Annotated> for Annotated {
-    fn from(value: &Annotated) -> Self {
-        value.clone()
-    }
-}
-impl ::std::default::Default for Annotated {
-    fn default() -> Self {
-        Self {
-            annotations: Default::default(),
-        }
-    }
-}
-#[doc = "`AnnotatedAnnotations`"]
-#[doc = r""]
-#[doc = r" <details><summary>JSON schema</summary>"]
-#[doc = r""]
-#[doc = r" ```json"]
-#[doc = "{"]
+#[doc = "  \"description\": \"Optional annotations for the client. The client can use annotations to inform how objects are used or displayed\","]
 #[doc = "  \"type\": \"object\","]
 #[doc = "  \"properties\": {"]
 #[doc = "    \"audience\": {"]
@@ -103,24 +56,77 @@ impl ::std::default::Default for Annotated {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
-pub struct AnnotatedAnnotations {
+pub struct Annotations {
     #[doc = "Describes who the intended customer of this object or data is.\n\nIt can include multiple entries to indicate content useful for multiple audiences (e.g., `[\"user\", \"assistant\"]`)."]
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub audience: ::std::vec::Vec<Role>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub priority: ::std::option::Option<f64>,
 }
-impl ::std::convert::From<&AnnotatedAnnotations> for AnnotatedAnnotations {
-    fn from(value: &AnnotatedAnnotations) -> Self {
+impl ::std::convert::From<&Annotations> for Annotations {
+    fn from(value: &Annotations) -> Self {
         value.clone()
     }
 }
-impl ::std::default::Default for AnnotatedAnnotations {
+impl ::std::default::Default for Annotations {
     fn default() -> Self {
         Self {
             audience: Default::default(),
             priority: Default::default(),
         }
+    }
+}
+#[doc = "Audio provided to or from an LLM."]
+#[doc = r""]
+#[doc = r" <details><summary>JSON schema</summary>"]
+#[doc = r""]
+#[doc = r" ```json"]
+#[doc = "{"]
+#[doc = "  \"description\": \"Audio provided to or from an LLM.\","]
+#[doc = "  \"type\": \"object\","]
+#[doc = "  \"required\": ["]
+#[doc = "    \"data\","]
+#[doc = "    \"mimeType\","]
+#[doc = "    \"type\""]
+#[doc = "  ],"]
+#[doc = "  \"properties\": {"]
+#[doc = "    \"annotations\": {"]
+#[doc = "      \"description\": \"Optional annotations for the client.\","]
+#[doc = "      \"$ref\": \"#/definitions/Annotations\""]
+#[doc = "    },"]
+#[doc = "    \"data\": {"]
+#[doc = "      \"description\": \"The base64-encoded audio data.\","]
+#[doc = "      \"type\": \"string\","]
+#[doc = "      \"format\": \"byte\""]
+#[doc = "    },"]
+#[doc = "    \"mimeType\": {"]
+#[doc = "      \"description\": \"The MIME type of the audio. Different providers may support different audio types.\","]
+#[doc = "      \"type\": \"string\""]
+#[doc = "    },"]
+#[doc = "    \"type\": {"]
+#[doc = "      \"type\": \"string\","]
+#[doc = "      \"const\": \"audio\""]
+#[doc = "    }"]
+#[doc = "  }"]
+#[doc = "}"]
+#[doc = r" ```"]
+#[doc = r" </details>"]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+pub struct AudioContent {
+    #[doc = "Optional annotations for the client."]
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub annotations: ::std::option::Option<Annotations>,
+    #[doc = "The base64-encoded audio data."]
+    pub data: ::std::string::String,
+    #[doc = "The MIME type of the audio. Different providers may support different audio types."]
+    #[serde(rename = "mimeType")]
+    pub mime_type: ::std::string::String,
+    #[serde(rename = "type")]
+    pub type_: ::std::string::String,
+}
+impl ::std::convert::From<&AudioContent> for AudioContent {
+    fn from(value: &AudioContent) -> Self {
+        value.clone()
     }
 }
 #[doc = "`BlobResourceContents`"]
@@ -279,6 +285,9 @@ impl ::std::convert::From<&CallToolRequestParams> for CallToolRequestParams {
 #[doc = "            \"$ref\": \"#/definitions/ImageContent\""]
 #[doc = "          },"]
 #[doc = "          {"]
+#[doc = "            \"$ref\": \"#/definitions/AudioContent\""]
+#[doc = "          },"]
+#[doc = "          {"]
 #[doc = "            \"$ref\": \"#/definitions/EmbeddedResource\""]
 #[doc = "          }"]
 #[doc = "        ]"]
@@ -329,6 +338,9 @@ impl ::std::convert::From<&CallToolResult> for CallToolResult {
 #[doc = "      \"$ref\": \"#/definitions/ImageContent\""]
 #[doc = "    },"]
 #[doc = "    {"]
+#[doc = "      \"$ref\": \"#/definitions/AudioContent\""]
+#[doc = "    },"]
+#[doc = "    {"]
 #[doc = "      \"$ref\": \"#/definitions/EmbeddedResource\""]
 #[doc = "    }"]
 #[doc = "  ]"]
@@ -340,6 +352,7 @@ impl ::std::convert::From<&CallToolResult> for CallToolResult {
 pub enum CallToolResultContentItem {
     TextContent(TextContent),
     ImageContent(ImageContent),
+    AudioContent(AudioContent),
     EmbeddedResource(EmbeddedResource),
 }
 impl ::std::convert::From<&Self> for CallToolResultContentItem {
@@ -355,6 +368,11 @@ impl ::std::convert::From<TextContent> for CallToolResultContentItem {
 impl ::std::convert::From<ImageContent> for CallToolResultContentItem {
     fn from(value: ImageContent) -> Self {
         Self::ImageContent(value)
+    }
+}
+impl ::std::convert::From<AudioContent> for CallToolResultContentItem {
+    fn from(value: AudioContent) -> Self {
+        Self::AudioContent(value)
     }
 }
 impl ::std::convert::From<EmbeddedResource> for CallToolResultContentItem {
@@ -1391,6 +1409,9 @@ impl ::std::convert::TryFrom<::std::string::String> for CreateMessageRequestPara
 #[doc = "        },"]
 #[doc = "        {"]
 #[doc = "          \"$ref\": \"#/definitions/ImageContent\""]
+#[doc = "        },"]
+#[doc = "        {"]
+#[doc = "          \"$ref\": \"#/definitions/AudioContent\""]
 #[doc = "        }"]
 #[doc = "      ]"]
 #[doc = "    },"]
@@ -1447,6 +1468,9 @@ impl ::std::convert::From<&CreateMessageResult> for CreateMessageResult {
 #[doc = "    },"]
 #[doc = "    {"]
 #[doc = "      \"$ref\": \"#/definitions/ImageContent\""]
+#[doc = "    },"]
+#[doc = "    {"]
+#[doc = "      \"$ref\": \"#/definitions/AudioContent\""]
 #[doc = "    }"]
 #[doc = "  ]"]
 #[doc = "}"]
@@ -1457,6 +1481,7 @@ impl ::std::convert::From<&CreateMessageResult> for CreateMessageResult {
 pub enum CreateMessageResultContent {
     TextContent(TextContent),
     ImageContent(ImageContent),
+    AudioContent(AudioContent),
 }
 impl ::std::convert::From<&Self> for CreateMessageResultContent {
     fn from(value: &CreateMessageResultContent) -> Self {
@@ -1471,6 +1496,11 @@ impl ::std::convert::From<TextContent> for CreateMessageResultContent {
 impl ::std::convert::From<ImageContent> for CreateMessageResultContent {
     fn from(value: ImageContent) -> Self {
         Self::ImageContent(value)
+    }
+}
+impl ::std::convert::From<AudioContent> for CreateMessageResultContent {
+    fn from(value: AudioContent) -> Self {
+        Self::AudioContent(value)
     }
 }
 #[doc = "An opaque token used to represent a cursor for pagination."]
@@ -1543,22 +1573,8 @@ impl ::std::fmt::Display for Cursor {
 #[doc = "  ],"]
 #[doc = "  \"properties\": {"]
 #[doc = "    \"annotations\": {"]
-#[doc = "      \"type\": \"object\","]
-#[doc = "      \"properties\": {"]
-#[doc = "        \"audience\": {"]
-#[doc = "          \"description\": \"Describes who the intended customer of this object or data is.\\n\\nIt can include multiple entries to indicate content useful for multiple audiences (e.g., `[\\\"user\\\", \\\"assistant\\\"]`).\","]
-#[doc = "          \"type\": \"array\","]
-#[doc = "          \"items\": {"]
-#[doc = "            \"$ref\": \"#/definitions/Role\""]
-#[doc = "          }"]
-#[doc = "        },"]
-#[doc = "        \"priority\": {"]
-#[doc = "          \"description\": \"Describes how important this data is for operating the server.\\n\\nA value of 1 means \\\"most important,\\\" and indicates that the data is\\neffectively required, while 0 means \\\"least important,\\\" and indicates that\\nthe data is entirely optional.\","]
-#[doc = "          \"type\": \"number\","]
-#[doc = "          \"maximum\": 1.0,"]
-#[doc = "          \"minimum\": 0.0"]
-#[doc = "        }"]
-#[doc = "      }"]
+#[doc = "      \"description\": \"Optional annotations for the client.\","]
+#[doc = "      \"$ref\": \"#/definitions/Annotations\""]
 #[doc = "    },"]
 #[doc = "    \"resource\": {"]
 #[doc = "      \"anyOf\": ["]
@@ -1580,8 +1596,9 @@ impl ::std::fmt::Display for Cursor {
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
 pub struct EmbeddedResource {
+    #[doc = "Optional annotations for the client."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub annotations: ::std::option::Option<EmbeddedResourceAnnotations>,
+    pub annotations: ::std::option::Option<Annotations>,
     pub resource: EmbeddedResourceResource,
     #[serde(rename = "type")]
     pub type_: ::std::string::String,
@@ -1589,52 +1606,6 @@ pub struct EmbeddedResource {
 impl ::std::convert::From<&EmbeddedResource> for EmbeddedResource {
     fn from(value: &EmbeddedResource) -> Self {
         value.clone()
-    }
-}
-#[doc = "`EmbeddedResourceAnnotations`"]
-#[doc = r""]
-#[doc = r" <details><summary>JSON schema</summary>"]
-#[doc = r""]
-#[doc = r" ```json"]
-#[doc = "{"]
-#[doc = "  \"type\": \"object\","]
-#[doc = "  \"properties\": {"]
-#[doc = "    \"audience\": {"]
-#[doc = "      \"description\": \"Describes who the intended customer of this object or data is.\\n\\nIt can include multiple entries to indicate content useful for multiple audiences (e.g., `[\\\"user\\\", \\\"assistant\\\"]`).\","]
-#[doc = "      \"type\": \"array\","]
-#[doc = "      \"items\": {"]
-#[doc = "        \"$ref\": \"#/definitions/Role\""]
-#[doc = "      }"]
-#[doc = "    },"]
-#[doc = "    \"priority\": {"]
-#[doc = "      \"description\": \"Describes how important this data is for operating the server.\\n\\nA value of 1 means \\\"most important,\\\" and indicates that the data is\\neffectively required, while 0 means \\\"least important,\\\" and indicates that\\nthe data is entirely optional.\","]
-#[doc = "      \"type\": \"number\","]
-#[doc = "      \"maximum\": 1.0,"]
-#[doc = "      \"minimum\": 0.0"]
-#[doc = "    }"]
-#[doc = "  }"]
-#[doc = "}"]
-#[doc = r" ```"]
-#[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
-pub struct EmbeddedResourceAnnotations {
-    #[doc = "Describes who the intended customer of this object or data is.\n\nIt can include multiple entries to indicate content useful for multiple audiences (e.g., `[\"user\", \"assistant\"]`)."]
-    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub audience: ::std::vec::Vec<Role>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub priority: ::std::option::Option<f64>,
-}
-impl ::std::convert::From<&EmbeddedResourceAnnotations> for EmbeddedResourceAnnotations {
-    fn from(value: &EmbeddedResourceAnnotations) -> Self {
-        value.clone()
-    }
-}
-impl ::std::default::Default for EmbeddedResourceAnnotations {
-    fn default() -> Self {
-        Self {
-            audience: Default::default(),
-            priority: Default::default(),
-        }
     }
 }
 #[doc = "`EmbeddedResourceResource`"]
@@ -1866,22 +1837,8 @@ impl ::std::convert::From<&GetPromptResult> for GetPromptResult {
 #[doc = "  ],"]
 #[doc = "  \"properties\": {"]
 #[doc = "    \"annotations\": {"]
-#[doc = "      \"type\": \"object\","]
-#[doc = "      \"properties\": {"]
-#[doc = "        \"audience\": {"]
-#[doc = "          \"description\": \"Describes who the intended customer of this object or data is.\\n\\nIt can include multiple entries to indicate content useful for multiple audiences (e.g., `[\\\"user\\\", \\\"assistant\\\"]`).\","]
-#[doc = "          \"type\": \"array\","]
-#[doc = "          \"items\": {"]
-#[doc = "            \"$ref\": \"#/definitions/Role\""]
-#[doc = "          }"]
-#[doc = "        },"]
-#[doc = "        \"priority\": {"]
-#[doc = "          \"description\": \"Describes how important this data is for operating the server.\\n\\nA value of 1 means \\\"most important,\\\" and indicates that the data is\\neffectively required, while 0 means \\\"least important,\\\" and indicates that\\nthe data is entirely optional.\","]
-#[doc = "          \"type\": \"number\","]
-#[doc = "          \"maximum\": 1.0,"]
-#[doc = "          \"minimum\": 0.0"]
-#[doc = "        }"]
-#[doc = "      }"]
+#[doc = "      \"description\": \"Optional annotations for the client.\","]
+#[doc = "      \"$ref\": \"#/definitions/Annotations\""]
 #[doc = "    },"]
 #[doc = "    \"data\": {"]
 #[doc = "      \"description\": \"The base64-encoded image data.\","]
@@ -1902,8 +1859,9 @@ impl ::std::convert::From<&GetPromptResult> for GetPromptResult {
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
 pub struct ImageContent {
+    #[doc = "Optional annotations for the client."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub annotations: ::std::option::Option<ImageContentAnnotations>,
+    pub annotations: ::std::option::Option<Annotations>,
     #[doc = "The base64-encoded image data."]
     pub data: ::std::string::String,
     #[doc = "The MIME type of the image. Different providers may support different image types."]
@@ -1915,52 +1873,6 @@ pub struct ImageContent {
 impl ::std::convert::From<&ImageContent> for ImageContent {
     fn from(value: &ImageContent) -> Self {
         value.clone()
-    }
-}
-#[doc = "`ImageContentAnnotations`"]
-#[doc = r""]
-#[doc = r" <details><summary>JSON schema</summary>"]
-#[doc = r""]
-#[doc = r" ```json"]
-#[doc = "{"]
-#[doc = "  \"type\": \"object\","]
-#[doc = "  \"properties\": {"]
-#[doc = "    \"audience\": {"]
-#[doc = "      \"description\": \"Describes who the intended customer of this object or data is.\\n\\nIt can include multiple entries to indicate content useful for multiple audiences (e.g., `[\\\"user\\\", \\\"assistant\\\"]`).\","]
-#[doc = "      \"type\": \"array\","]
-#[doc = "      \"items\": {"]
-#[doc = "        \"$ref\": \"#/definitions/Role\""]
-#[doc = "      }"]
-#[doc = "    },"]
-#[doc = "    \"priority\": {"]
-#[doc = "      \"description\": \"Describes how important this data is for operating the server.\\n\\nA value of 1 means \\\"most important,\\\" and indicates that the data is\\neffectively required, while 0 means \\\"least important,\\\" and indicates that\\nthe data is entirely optional.\","]
-#[doc = "      \"type\": \"number\","]
-#[doc = "      \"maximum\": 1.0,"]
-#[doc = "      \"minimum\": 0.0"]
-#[doc = "    }"]
-#[doc = "  }"]
-#[doc = "}"]
-#[doc = r" ```"]
-#[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
-pub struct ImageContentAnnotations {
-    #[doc = "Describes who the intended customer of this object or data is.\n\nIt can include multiple entries to indicate content useful for multiple audiences (e.g., `[\"user\", \"assistant\"]`)."]
-    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub audience: ::std::vec::Vec<Role>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub priority: ::std::option::Option<f64>,
-}
-impl ::std::convert::From<&ImageContentAnnotations> for ImageContentAnnotations {
-    fn from(value: &ImageContentAnnotations) -> Self {
-        value.clone()
-    }
-}
-impl ::std::default::Default for ImageContentAnnotations {
-    fn default() -> Self {
-        Self {
-            audience: Default::default(),
-            priority: Default::default(),
-        }
     }
 }
 #[doc = "Describes the name and version of an MCP implementation."]
@@ -2226,6 +2138,172 @@ impl ::std::convert::From<&InitializedNotificationParams> for InitializedNotific
         value.clone()
     }
 }
+#[doc = "A JSON-RPC batch request, as described in https://www.jsonrpc.org/specification#batch."]
+#[doc = r""]
+#[doc = r" <details><summary>JSON schema</summary>"]
+#[doc = r""]
+#[doc = r" ```json"]
+#[doc = "{"]
+#[doc = "  \"description\": \"A JSON-RPC batch request, as described in https://www.jsonrpc.org/specification#batch.\","]
+#[doc = "  \"type\": \"array\","]
+#[doc = "  \"items\": {"]
+#[doc = "    \"anyOf\": ["]
+#[doc = "      {"]
+#[doc = "        \"$ref\": \"#/definitions/JSONRPCRequest\""]
+#[doc = "      },"]
+#[doc = "      {"]
+#[doc = "        \"$ref\": \"#/definitions/JSONRPCNotification\""]
+#[doc = "      }"]
+#[doc = "    ]"]
+#[doc = "  }"]
+#[doc = "}"]
+#[doc = r" ```"]
+#[doc = r" </details>"]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct JsonrpcBatchRequest(pub ::std::vec::Vec<JsonrpcBatchRequestItem>);
+impl ::std::ops::Deref for JsonrpcBatchRequest {
+    type Target = ::std::vec::Vec<JsonrpcBatchRequestItem>;
+    fn deref(&self) -> &::std::vec::Vec<JsonrpcBatchRequestItem> {
+        &self.0
+    }
+}
+impl ::std::convert::From<JsonrpcBatchRequest> for ::std::vec::Vec<JsonrpcBatchRequestItem> {
+    fn from(value: JsonrpcBatchRequest) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&JsonrpcBatchRequest> for JsonrpcBatchRequest {
+    fn from(value: &JsonrpcBatchRequest) -> Self {
+        value.clone()
+    }
+}
+impl ::std::convert::From<::std::vec::Vec<JsonrpcBatchRequestItem>> for JsonrpcBatchRequest {
+    fn from(value: ::std::vec::Vec<JsonrpcBatchRequestItem>) -> Self {
+        Self(value)
+    }
+}
+#[doc = "`JsonrpcBatchRequestItem`"]
+#[doc = r""]
+#[doc = r" <details><summary>JSON schema</summary>"]
+#[doc = r""]
+#[doc = r" ```json"]
+#[doc = "{"]
+#[doc = "  \"anyOf\": ["]
+#[doc = "    {"]
+#[doc = "      \"$ref\": \"#/definitions/JSONRPCRequest\""]
+#[doc = "    },"]
+#[doc = "    {"]
+#[doc = "      \"$ref\": \"#/definitions/JSONRPCNotification\""]
+#[doc = "    }"]
+#[doc = "  ]"]
+#[doc = "}"]
+#[doc = r" ```"]
+#[doc = r" </details>"]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum JsonrpcBatchRequestItem {
+    Request(JsonrpcRequest),
+    Notification(JsonrpcNotification),
+}
+impl ::std::convert::From<&Self> for JsonrpcBatchRequestItem {
+    fn from(value: &JsonrpcBatchRequestItem) -> Self {
+        value.clone()
+    }
+}
+impl ::std::convert::From<JsonrpcRequest> for JsonrpcBatchRequestItem {
+    fn from(value: JsonrpcRequest) -> Self {
+        Self::Request(value)
+    }
+}
+impl ::std::convert::From<JsonrpcNotification> for JsonrpcBatchRequestItem {
+    fn from(value: JsonrpcNotification) -> Self {
+        Self::Notification(value)
+    }
+}
+#[doc = "A JSON-RPC batch response, as described in https://www.jsonrpc.org/specification#batch."]
+#[doc = r""]
+#[doc = r" <details><summary>JSON schema</summary>"]
+#[doc = r""]
+#[doc = r" ```json"]
+#[doc = "{"]
+#[doc = "  \"description\": \"A JSON-RPC batch response, as described in https://www.jsonrpc.org/specification#batch.\","]
+#[doc = "  \"type\": \"array\","]
+#[doc = "  \"items\": {"]
+#[doc = "    \"anyOf\": ["]
+#[doc = "      {"]
+#[doc = "        \"$ref\": \"#/definitions/JSONRPCResponse\""]
+#[doc = "      },"]
+#[doc = "      {"]
+#[doc = "        \"$ref\": \"#/definitions/JSONRPCError\""]
+#[doc = "      }"]
+#[doc = "    ]"]
+#[doc = "  }"]
+#[doc = "}"]
+#[doc = r" ```"]
+#[doc = r" </details>"]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct JsonrpcBatchResponse(pub ::std::vec::Vec<JsonrpcBatchResponseItem>);
+impl ::std::ops::Deref for JsonrpcBatchResponse {
+    type Target = ::std::vec::Vec<JsonrpcBatchResponseItem>;
+    fn deref(&self) -> &::std::vec::Vec<JsonrpcBatchResponseItem> {
+        &self.0
+    }
+}
+impl ::std::convert::From<JsonrpcBatchResponse> for ::std::vec::Vec<JsonrpcBatchResponseItem> {
+    fn from(value: JsonrpcBatchResponse) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&JsonrpcBatchResponse> for JsonrpcBatchResponse {
+    fn from(value: &JsonrpcBatchResponse) -> Self {
+        value.clone()
+    }
+}
+impl ::std::convert::From<::std::vec::Vec<JsonrpcBatchResponseItem>> for JsonrpcBatchResponse {
+    fn from(value: ::std::vec::Vec<JsonrpcBatchResponseItem>) -> Self {
+        Self(value)
+    }
+}
+#[doc = "`JsonrpcBatchResponseItem`"]
+#[doc = r""]
+#[doc = r" <details><summary>JSON schema</summary>"]
+#[doc = r""]
+#[doc = r" ```json"]
+#[doc = "{"]
+#[doc = "  \"anyOf\": ["]
+#[doc = "    {"]
+#[doc = "      \"$ref\": \"#/definitions/JSONRPCResponse\""]
+#[doc = "    },"]
+#[doc = "    {"]
+#[doc = "      \"$ref\": \"#/definitions/JSONRPCError\""]
+#[doc = "    }"]
+#[doc = "  ]"]
+#[doc = "}"]
+#[doc = r" ```"]
+#[doc = r" </details>"]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum JsonrpcBatchResponseItem {
+    Response(JsonrpcResponse),
+    Error(JsonrpcError),
+}
+impl ::std::convert::From<&Self> for JsonrpcBatchResponseItem {
+    fn from(value: &JsonrpcBatchResponseItem) -> Self {
+        value.clone()
+    }
+}
+impl ::std::convert::From<JsonrpcResponse> for JsonrpcBatchResponseItem {
+    fn from(value: JsonrpcResponse) -> Self {
+        Self::Response(value)
+    }
+}
+impl ::std::convert::From<JsonrpcError> for JsonrpcBatchResponseItem {
+    fn from(value: JsonrpcError) -> Self {
+        Self::Error(value)
+    }
+}
 #[doc = "A response to a request that indicates an error occurred."]
 #[doc = r""]
 #[doc = r" <details><summary>JSON schema</summary>"]
@@ -2324,7 +2402,115 @@ impl ::std::convert::From<&JsonrpcErrorError> for JsonrpcErrorError {
         value.clone()
     }
 }
-#[doc = "`JsonrpcMessage`"]
+#[doc = "Refers to any valid JSON-RPC object that can be decoded off the wire, or encoded to be sent."]
+#[doc = r""]
+#[doc = r" <details><summary>JSON schema</summary>"]
+#[doc = r""]
+#[doc = r" ```json"]
+#[doc = "{"]
+#[doc = "  \"description\": \"Refers to any valid JSON-RPC object that can be decoded off the wire, or encoded to be sent.\","]
+#[doc = "  \"anyOf\": ["]
+#[doc = "    {"]
+#[doc = "      \"$ref\": \"#/definitions/JSONRPCRequest\""]
+#[doc = "    },"]
+#[doc = "    {"]
+#[doc = "      \"$ref\": \"#/definitions/JSONRPCNotification\""]
+#[doc = "    },"]
+#[doc = "    {"]
+#[doc = "      \"description\": \"A JSON-RPC batch request, as described in https://www.jsonrpc.org/specification#batch.\","]
+#[doc = "      \"type\": \"array\","]
+#[doc = "      \"items\": {"]
+#[doc = "        \"anyOf\": ["]
+#[doc = "          {"]
+#[doc = "            \"$ref\": \"#/definitions/JSONRPCRequest\""]
+#[doc = "          },"]
+#[doc = "          {"]
+#[doc = "            \"$ref\": \"#/definitions/JSONRPCNotification\""]
+#[doc = "          }"]
+#[doc = "        ]"]
+#[doc = "      }"]
+#[doc = "    },"]
+#[doc = "    {"]
+#[doc = "      \"$ref\": \"#/definitions/JSONRPCResponse\""]
+#[doc = "    },"]
+#[doc = "    {"]
+#[doc = "      \"$ref\": \"#/definitions/JSONRPCError\""]
+#[doc = "    },"]
+#[doc = "    {"]
+#[doc = "      \"description\": \"A JSON-RPC batch response, as described in https://www.jsonrpc.org/specification#batch.\","]
+#[doc = "      \"type\": \"array\","]
+#[doc = "      \"items\": {"]
+#[doc = "        \"anyOf\": ["]
+#[doc = "          {"]
+#[doc = "            \"$ref\": \"#/definitions/JSONRPCResponse\""]
+#[doc = "          },"]
+#[doc = "          {"]
+#[doc = "            \"$ref\": \"#/definitions/JSONRPCError\""]
+#[doc = "          }"]
+#[doc = "        ]"]
+#[doc = "      }"]
+#[doc = "    }"]
+#[doc = "  ]"]
+#[doc = "}"]
+#[doc = r" ```"]
+#[doc = r" </details>"]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+pub struct JsonrpcMessage {
+    #[serde(
+        flatten,
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub subtype_0: ::std::option::Option<JsonrpcRequest>,
+    #[serde(
+        flatten,
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub subtype_1: ::std::option::Option<JsonrpcNotification>,
+    #[serde(
+        flatten,
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub subtype_2: ::std::option::Option<::std::vec::Vec<JsonrpcMessageSubtype2Item>>,
+    #[serde(
+        flatten,
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub subtype_3: ::std::option::Option<JsonrpcResponse>,
+    #[serde(
+        flatten,
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub subtype_4: ::std::option::Option<JsonrpcError>,
+    #[serde(
+        flatten,
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub subtype_5: ::std::option::Option<::std::vec::Vec<JsonrpcMessageSubtype5Item>>,
+}
+impl ::std::convert::From<&JsonrpcMessage> for JsonrpcMessage {
+    fn from(value: &JsonrpcMessage) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for JsonrpcMessage {
+    fn default() -> Self {
+        Self {
+            subtype_0: Default::default(),
+            subtype_1: Default::default(),
+            subtype_2: Default::default(),
+            subtype_3: Default::default(),
+            subtype_4: Default::default(),
+            subtype_5: Default::default(),
+        }
+    }
+}
+#[doc = "`JsonrpcMessageSubtype2Item`"]
 #[doc = r""]
 #[doc = r" <details><summary>JSON schema</summary>"]
 #[doc = r""]
@@ -2336,7 +2522,39 @@ impl ::std::convert::From<&JsonrpcErrorError> for JsonrpcErrorError {
 #[doc = "    },"]
 #[doc = "    {"]
 #[doc = "      \"$ref\": \"#/definitions/JSONRPCNotification\""]
-#[doc = "    },"]
+#[doc = "    }"]
+#[doc = "  ]"]
+#[doc = "}"]
+#[doc = r" ```"]
+#[doc = r" </details>"]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum JsonrpcMessageSubtype2Item {
+    Request(JsonrpcRequest),
+    Notification(JsonrpcNotification),
+}
+impl ::std::convert::From<&Self> for JsonrpcMessageSubtype2Item {
+    fn from(value: &JsonrpcMessageSubtype2Item) -> Self {
+        value.clone()
+    }
+}
+impl ::std::convert::From<JsonrpcRequest> for JsonrpcMessageSubtype2Item {
+    fn from(value: JsonrpcRequest) -> Self {
+        Self::Request(value)
+    }
+}
+impl ::std::convert::From<JsonrpcNotification> for JsonrpcMessageSubtype2Item {
+    fn from(value: JsonrpcNotification) -> Self {
+        Self::Notification(value)
+    }
+}
+#[doc = "`JsonrpcMessageSubtype5Item`"]
+#[doc = r""]
+#[doc = r" <details><summary>JSON schema</summary>"]
+#[doc = r""]
+#[doc = r" ```json"]
+#[doc = "{"]
+#[doc = "  \"anyOf\": ["]
 #[doc = "    {"]
 #[doc = "      \"$ref\": \"#/definitions/JSONRPCResponse\""]
 #[doc = "    },"]
@@ -2349,33 +2567,21 @@ impl ::std::convert::From<&JsonrpcErrorError> for JsonrpcErrorError {
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
 #[serde(untagged)]
-pub enum JsonrpcMessage {
-    Request(JsonrpcRequest),
-    Notification(JsonrpcNotification),
+pub enum JsonrpcMessageSubtype5Item {
     Response(JsonrpcResponse),
     Error(JsonrpcError),
 }
-impl ::std::convert::From<&Self> for JsonrpcMessage {
-    fn from(value: &JsonrpcMessage) -> Self {
+impl ::std::convert::From<&Self> for JsonrpcMessageSubtype5Item {
+    fn from(value: &JsonrpcMessageSubtype5Item) -> Self {
         value.clone()
     }
 }
-impl ::std::convert::From<JsonrpcRequest> for JsonrpcMessage {
-    fn from(value: JsonrpcRequest) -> Self {
-        Self::Request(value)
-    }
-}
-impl ::std::convert::From<JsonrpcNotification> for JsonrpcMessage {
-    fn from(value: JsonrpcNotification) -> Self {
-        Self::Notification(value)
-    }
-}
-impl ::std::convert::From<JsonrpcResponse> for JsonrpcMessage {
+impl ::std::convert::From<JsonrpcResponse> for JsonrpcMessageSubtype5Item {
     fn from(value: JsonrpcResponse) -> Self {
         Self::Response(value)
     }
 }
-impl ::std::convert::From<JsonrpcError> for JsonrpcMessage {
+impl ::std::convert::From<JsonrpcError> for JsonrpcMessageSubtype5Item {
     fn from(value: JsonrpcError) -> Self {
         Self::Error(value)
     }
@@ -3970,6 +4176,10 @@ impl ::std::default::Default for PingRequestParamsMeta {
 #[doc = "        \"progressToken\""]
 #[doc = "      ],"]
 #[doc = "      \"properties\": {"]
+#[doc = "        \"message\": {"]
+#[doc = "          \"description\": \"An optional message describing the current progress.\","]
+#[doc = "          \"type\": \"string\""]
+#[doc = "        },"]
 #[doc = "        \"progress\": {"]
 #[doc = "          \"description\": \"The progress thus far. This should increase every time progress is made, even if the total is unknown.\","]
 #[doc = "          \"type\": \"number\""]
@@ -4010,6 +4220,10 @@ impl ::std::convert::From<&ProgressNotification> for ProgressNotification {
 #[doc = "    \"progressToken\""]
 #[doc = "  ],"]
 #[doc = "  \"properties\": {"]
+#[doc = "    \"message\": {"]
+#[doc = "      \"description\": \"An optional message describing the current progress.\","]
+#[doc = "      \"type\": \"string\""]
+#[doc = "    },"]
 #[doc = "    \"progress\": {"]
 #[doc = "      \"description\": \"The progress thus far. This should increase every time progress is made, even if the total is unknown.\","]
 #[doc = "      \"type\": \"number\""]
@@ -4028,6 +4242,9 @@ impl ::std::convert::From<&ProgressNotification> for ProgressNotification {
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
 pub struct ProgressNotificationParams {
+    #[doc = "An optional message describing the current progress."]
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub message: ::std::option::Option<::std::string::String>,
     pub progress: f64,
     #[doc = "The progress token which was given in the initial request, used to associate this notification with the request that is proceeding."]
     #[serde(rename = "progressToken")]
@@ -4304,6 +4521,9 @@ impl ::std::convert::From<&PromptListChangedNotificationParams>
 #[doc = "          \"$ref\": \"#/definitions/ImageContent\""]
 #[doc = "        },"]
 #[doc = "        {"]
+#[doc = "          \"$ref\": \"#/definitions/AudioContent\""]
+#[doc = "        },"]
+#[doc = "        {"]
 #[doc = "          \"$ref\": \"#/definitions/EmbeddedResource\""]
 #[doc = "        }"]
 #[doc = "      ]"]
@@ -4339,6 +4559,9 @@ impl ::std::convert::From<&PromptMessage> for PromptMessage {
 #[doc = "      \"$ref\": \"#/definitions/ImageContent\""]
 #[doc = "    },"]
 #[doc = "    {"]
+#[doc = "      \"$ref\": \"#/definitions/AudioContent\""]
+#[doc = "    },"]
+#[doc = "    {"]
 #[doc = "      \"$ref\": \"#/definitions/EmbeddedResource\""]
 #[doc = "    }"]
 #[doc = "  ]"]
@@ -4350,6 +4573,7 @@ impl ::std::convert::From<&PromptMessage> for PromptMessage {
 pub enum PromptMessageContent {
     TextContent(TextContent),
     ImageContent(ImageContent),
+    AudioContent(AudioContent),
     EmbeddedResource(EmbeddedResource),
 }
 impl ::std::convert::From<&Self> for PromptMessageContent {
@@ -4365,6 +4589,11 @@ impl ::std::convert::From<TextContent> for PromptMessageContent {
 impl ::std::convert::From<ImageContent> for PromptMessageContent {
     fn from(value: ImageContent) -> Self {
         Self::ImageContent(value)
+    }
+}
+impl ::std::convert::From<AudioContent> for PromptMessageContent {
+    fn from(value: AudioContent) -> Self {
+        Self::AudioContent(value)
     }
 }
 impl ::std::convert::From<EmbeddedResource> for PromptMessageContent {
@@ -4777,22 +5006,8 @@ impl ::std::default::Default for RequestParamsMeta {
 #[doc = "  ],"]
 #[doc = "  \"properties\": {"]
 #[doc = "    \"annotations\": {"]
-#[doc = "      \"type\": \"object\","]
-#[doc = "      \"properties\": {"]
-#[doc = "        \"audience\": {"]
-#[doc = "          \"description\": \"Describes who the intended customer of this object or data is.\\n\\nIt can include multiple entries to indicate content useful for multiple audiences (e.g., `[\\\"user\\\", \\\"assistant\\\"]`).\","]
-#[doc = "          \"type\": \"array\","]
-#[doc = "          \"items\": {"]
-#[doc = "            \"$ref\": \"#/definitions/Role\""]
-#[doc = "          }"]
-#[doc = "        },"]
-#[doc = "        \"priority\": {"]
-#[doc = "          \"description\": \"Describes how important this data is for operating the server.\\n\\nA value of 1 means \\\"most important,\\\" and indicates that the data is\\neffectively required, while 0 means \\\"least important,\\\" and indicates that\\nthe data is entirely optional.\","]
-#[doc = "          \"type\": \"number\","]
-#[doc = "          \"maximum\": 1.0,"]
-#[doc = "          \"minimum\": 0.0"]
-#[doc = "        }"]
-#[doc = "      }"]
+#[doc = "      \"description\": \"Optional annotations for the client.\","]
+#[doc = "      \"$ref\": \"#/definitions/Annotations\""]
 #[doc = "    },"]
 #[doc = "    \"description\": {"]
 #[doc = "      \"description\": \"A description of what this resource represents.\\n\\nThis can be used by clients to improve the LLM's understanding of available resources. It can be thought of like a \\\"hint\\\" to the model.\","]
@@ -4821,8 +5036,9 @@ impl ::std::default::Default for RequestParamsMeta {
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
 pub struct Resource {
+    #[doc = "Optional annotations for the client."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub annotations: ::std::option::Option<ResourceAnnotations>,
+    pub annotations: ::std::option::Option<Annotations>,
     #[doc = "A description of what this resource represents.\n\nThis can be used by clients to improve the LLM's understanding of available resources. It can be thought of like a \"hint\" to the model."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub description: ::std::option::Option<::std::string::String>,
@@ -4844,52 +5060,6 @@ pub struct Resource {
 impl ::std::convert::From<&Resource> for Resource {
     fn from(value: &Resource) -> Self {
         value.clone()
-    }
-}
-#[doc = "`ResourceAnnotations`"]
-#[doc = r""]
-#[doc = r" <details><summary>JSON schema</summary>"]
-#[doc = r""]
-#[doc = r" ```json"]
-#[doc = "{"]
-#[doc = "  \"type\": \"object\","]
-#[doc = "  \"properties\": {"]
-#[doc = "    \"audience\": {"]
-#[doc = "      \"description\": \"Describes who the intended customer of this object or data is.\\n\\nIt can include multiple entries to indicate content useful for multiple audiences (e.g., `[\\\"user\\\", \\\"assistant\\\"]`).\","]
-#[doc = "      \"type\": \"array\","]
-#[doc = "      \"items\": {"]
-#[doc = "        \"$ref\": \"#/definitions/Role\""]
-#[doc = "      }"]
-#[doc = "    },"]
-#[doc = "    \"priority\": {"]
-#[doc = "      \"description\": \"Describes how important this data is for operating the server.\\n\\nA value of 1 means \\\"most important,\\\" and indicates that the data is\\neffectively required, while 0 means \\\"least important,\\\" and indicates that\\nthe data is entirely optional.\","]
-#[doc = "      \"type\": \"number\","]
-#[doc = "      \"maximum\": 1.0,"]
-#[doc = "      \"minimum\": 0.0"]
-#[doc = "    }"]
-#[doc = "  }"]
-#[doc = "}"]
-#[doc = r" ```"]
-#[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
-pub struct ResourceAnnotations {
-    #[doc = "Describes who the intended customer of this object or data is.\n\nIt can include multiple entries to indicate content useful for multiple audiences (e.g., `[\"user\", \"assistant\"]`)."]
-    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub audience: ::std::vec::Vec<Role>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub priority: ::std::option::Option<f64>,
-}
-impl ::std::convert::From<&ResourceAnnotations> for ResourceAnnotations {
-    fn from(value: &ResourceAnnotations) -> Self {
-        value.clone()
-    }
-}
-impl ::std::default::Default for ResourceAnnotations {
-    fn default() -> Self {
-        Self {
-            audience: Default::default(),
-            priority: Default::default(),
-        }
     }
 }
 #[doc = "The contents of a specific resource or sub-resource."]
@@ -5065,22 +5235,8 @@ impl ::std::convert::From<&ResourceReference> for ResourceReference {
 #[doc = "  ],"]
 #[doc = "  \"properties\": {"]
 #[doc = "    \"annotations\": {"]
-#[doc = "      \"type\": \"object\","]
-#[doc = "      \"properties\": {"]
-#[doc = "        \"audience\": {"]
-#[doc = "          \"description\": \"Describes who the intended customer of this object or data is.\\n\\nIt can include multiple entries to indicate content useful for multiple audiences (e.g., `[\\\"user\\\", \\\"assistant\\\"]`).\","]
-#[doc = "          \"type\": \"array\","]
-#[doc = "          \"items\": {"]
-#[doc = "            \"$ref\": \"#/definitions/Role\""]
-#[doc = "          }"]
-#[doc = "        },"]
-#[doc = "        \"priority\": {"]
-#[doc = "          \"description\": \"Describes how important this data is for operating the server.\\n\\nA value of 1 means \\\"most important,\\\" and indicates that the data is\\neffectively required, while 0 means \\\"least important,\\\" and indicates that\\nthe data is entirely optional.\","]
-#[doc = "          \"type\": \"number\","]
-#[doc = "          \"maximum\": 1.0,"]
-#[doc = "          \"minimum\": 0.0"]
-#[doc = "        }"]
-#[doc = "      }"]
+#[doc = "      \"description\": \"Optional annotations for the client.\","]
+#[doc = "      \"$ref\": \"#/definitions/Annotations\""]
 #[doc = "    },"]
 #[doc = "    \"description\": {"]
 #[doc = "      \"description\": \"A description of what this template is for.\\n\\nThis can be used by clients to improve the LLM's understanding of available resources. It can be thought of like a \\\"hint\\\" to the model.\","]
@@ -5105,8 +5261,9 @@ impl ::std::convert::From<&ResourceReference> for ResourceReference {
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
 pub struct ResourceTemplate {
+    #[doc = "Optional annotations for the client."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub annotations: ::std::option::Option<ResourceTemplateAnnotations>,
+    pub annotations: ::std::option::Option<Annotations>,
     #[doc = "A description of what this template is for.\n\nThis can be used by clients to improve the LLM's understanding of available resources. It can be thought of like a \"hint\" to the model."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub description: ::std::option::Option<::std::string::String>,
@@ -5126,52 +5283,6 @@ pub struct ResourceTemplate {
 impl ::std::convert::From<&ResourceTemplate> for ResourceTemplate {
     fn from(value: &ResourceTemplate) -> Self {
         value.clone()
-    }
-}
-#[doc = "`ResourceTemplateAnnotations`"]
-#[doc = r""]
-#[doc = r" <details><summary>JSON schema</summary>"]
-#[doc = r""]
-#[doc = r" ```json"]
-#[doc = "{"]
-#[doc = "  \"type\": \"object\","]
-#[doc = "  \"properties\": {"]
-#[doc = "    \"audience\": {"]
-#[doc = "      \"description\": \"Describes who the intended customer of this object or data is.\\n\\nIt can include multiple entries to indicate content useful for multiple audiences (e.g., `[\\\"user\\\", \\\"assistant\\\"]`).\","]
-#[doc = "      \"type\": \"array\","]
-#[doc = "      \"items\": {"]
-#[doc = "        \"$ref\": \"#/definitions/Role\""]
-#[doc = "      }"]
-#[doc = "    },"]
-#[doc = "    \"priority\": {"]
-#[doc = "      \"description\": \"Describes how important this data is for operating the server.\\n\\nA value of 1 means \\\"most important,\\\" and indicates that the data is\\neffectively required, while 0 means \\\"least important,\\\" and indicates that\\nthe data is entirely optional.\","]
-#[doc = "      \"type\": \"number\","]
-#[doc = "      \"maximum\": 1.0,"]
-#[doc = "      \"minimum\": 0.0"]
-#[doc = "    }"]
-#[doc = "  }"]
-#[doc = "}"]
-#[doc = r" ```"]
-#[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
-pub struct ResourceTemplateAnnotations {
-    #[doc = "Describes who the intended customer of this object or data is.\n\nIt can include multiple entries to indicate content useful for multiple audiences (e.g., `[\"user\", \"assistant\"]`)."]
-    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub audience: ::std::vec::Vec<Role>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub priority: ::std::option::Option<f64>,
-}
-impl ::std::convert::From<&ResourceTemplateAnnotations> for ResourceTemplateAnnotations {
-    fn from(value: &ResourceTemplateAnnotations) -> Self {
-        value.clone()
-    }
-}
-impl ::std::default::Default for ResourceTemplateAnnotations {
-    fn default() -> Self {
-        Self {
-            audience: Default::default(),
-            priority: Default::default(),
-        }
     }
 }
 #[doc = "A notification from the server to the client, informing it that a resource has changed and may need to be read again. This should only be sent if the client previously sent a resources/subscribe request."]
@@ -5500,6 +5611,9 @@ impl ::std::convert::From<&RootsListChangedNotificationParams>
 #[doc = "        },"]
 #[doc = "        {"]
 #[doc = "          \"$ref\": \"#/definitions/ImageContent\""]
+#[doc = "        },"]
+#[doc = "        {"]
+#[doc = "          \"$ref\": \"#/definitions/AudioContent\""]
 #[doc = "        }"]
 #[doc = "      ]"]
 #[doc = "    },"]
@@ -5532,6 +5646,9 @@ impl ::std::convert::From<&SamplingMessage> for SamplingMessage {
 #[doc = "    },"]
 #[doc = "    {"]
 #[doc = "      \"$ref\": \"#/definitions/ImageContent\""]
+#[doc = "    },"]
+#[doc = "    {"]
+#[doc = "      \"$ref\": \"#/definitions/AudioContent\""]
 #[doc = "    }"]
 #[doc = "  ]"]
 #[doc = "}"]
@@ -5542,6 +5659,7 @@ impl ::std::convert::From<&SamplingMessage> for SamplingMessage {
 pub enum SamplingMessageContent {
     TextContent(TextContent),
     ImageContent(ImageContent),
+    AudioContent(AudioContent),
 }
 impl ::std::convert::From<&Self> for SamplingMessageContent {
     fn from(value: &SamplingMessageContent) -> Self {
@@ -5558,6 +5676,11 @@ impl ::std::convert::From<ImageContent> for SamplingMessageContent {
         Self::ImageContent(value)
     }
 }
+impl ::std::convert::From<AudioContent> for SamplingMessageContent {
+    fn from(value: AudioContent) -> Self {
+        Self::AudioContent(value)
+    }
+}
 #[doc = "Capabilities that a server may support. Known capabilities are defined here, in this schema, but this is not a closed set: any server can define its own, additional capabilities."]
 #[doc = r""]
 #[doc = r" <details><summary>JSON schema</summary>"]
@@ -5567,6 +5690,11 @@ impl ::std::convert::From<ImageContent> for SamplingMessageContent {
 #[doc = "  \"description\": \"Capabilities that a server may support. Known capabilities are defined here, in this schema, but this is not a closed set: any server can define its own, additional capabilities.\","]
 #[doc = "  \"type\": \"object\","]
 #[doc = "  \"properties\": {"]
+#[doc = "    \"completions\": {"]
+#[doc = "      \"description\": \"Present if the server supports argument autocompletion suggestions.\","]
+#[doc = "      \"type\": \"object\","]
+#[doc = "      \"additionalProperties\": true"]
+#[doc = "    },"]
 #[doc = "    \"experimental\": {"]
 #[doc = "      \"description\": \"Experimental, non-standard capabilities that the server supports.\","]
 #[doc = "      \"type\": \"object\","]
@@ -5620,6 +5748,9 @@ impl ::std::convert::From<ImageContent> for SamplingMessageContent {
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
 pub struct ServerCapabilities {
+    #[doc = "Present if the server supports argument autocompletion suggestions."]
+    #[serde(default, skip_serializing_if = "::serde_json::Map::is_empty")]
+    pub completions: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
     #[doc = "Experimental, non-standard capabilities that the server supports."]
     #[serde(
         default,
@@ -5647,6 +5778,7 @@ impl ::std::convert::From<&ServerCapabilities> for ServerCapabilities {
 impl ::std::default::Default for ServerCapabilities {
     fn default() -> Self {
         Self {
+            completions: Default::default(),
             experimental: Default::default(),
             logging: Default::default(),
             prompts: Default::default(),
@@ -6044,7 +6176,7 @@ impl ::std::convert::From<CompleteResult> for ServerResult {
 #[doc = "      ],"]
 #[doc = "      \"properties\": {"]
 #[doc = "        \"level\": {"]
-#[doc = "          \"description\": \"The level of logging that the client wants to receive from the server. The server should send all logs at this level and higher (i.e., more severe) to the client as notifications/logging/message.\","]
+#[doc = "          \"description\": \"The level of logging that the client wants to receive from the server. The server should send all logs at this level and higher (i.e., more severe) to the client as notifications/message.\","]
 #[doc = "          \"$ref\": \"#/definitions/LoggingLevel\""]
 #[doc = "        }"]
 #[doc = "      }"]
@@ -6075,7 +6207,7 @@ impl ::std::convert::From<&SetLevelRequest> for SetLevelRequest {
 #[doc = "  ],"]
 #[doc = "  \"properties\": {"]
 #[doc = "    \"level\": {"]
-#[doc = "      \"description\": \"The level of logging that the client wants to receive from the server. The server should send all logs at this level and higher (i.e., more severe) to the client as notifications/logging/message.\","]
+#[doc = "      \"description\": \"The level of logging that the client wants to receive from the server. The server should send all logs at this level and higher (i.e., more severe) to the client as notifications/message.\","]
 #[doc = "      \"$ref\": \"#/definitions/LoggingLevel\""]
 #[doc = "    }"]
 #[doc = "  }"]
@@ -6084,7 +6216,7 @@ impl ::std::convert::From<&SetLevelRequest> for SetLevelRequest {
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
 pub struct SetLevelRequestParams {
-    #[doc = "The level of logging that the client wants to receive from the server. The server should send all logs at this level and higher (i.e., more severe) to the client as notifications/logging/message."]
+    #[doc = "The level of logging that the client wants to receive from the server. The server should send all logs at this level and higher (i.e., more severe) to the client as notifications/message."]
     pub level: LoggingLevel,
 }
 impl ::std::convert::From<&SetLevelRequestParams> for SetLevelRequestParams {
@@ -6180,22 +6312,8 @@ impl ::std::convert::From<&SubscribeRequestParams> for SubscribeRequestParams {
 #[doc = "  ],"]
 #[doc = "  \"properties\": {"]
 #[doc = "    \"annotations\": {"]
-#[doc = "      \"type\": \"object\","]
-#[doc = "      \"properties\": {"]
-#[doc = "        \"audience\": {"]
-#[doc = "          \"description\": \"Describes who the intended customer of this object or data is.\\n\\nIt can include multiple entries to indicate content useful for multiple audiences (e.g., `[\\\"user\\\", \\\"assistant\\\"]`).\","]
-#[doc = "          \"type\": \"array\","]
-#[doc = "          \"items\": {"]
-#[doc = "            \"$ref\": \"#/definitions/Role\""]
-#[doc = "          }"]
-#[doc = "        },"]
-#[doc = "        \"priority\": {"]
-#[doc = "          \"description\": \"Describes how important this data is for operating the server.\\n\\nA value of 1 means \\\"most important,\\\" and indicates that the data is\\neffectively required, while 0 means \\\"least important,\\\" and indicates that\\nthe data is entirely optional.\","]
-#[doc = "          \"type\": \"number\","]
-#[doc = "          \"maximum\": 1.0,"]
-#[doc = "          \"minimum\": 0.0"]
-#[doc = "        }"]
-#[doc = "      }"]
+#[doc = "      \"description\": \"Optional annotations for the client.\","]
+#[doc = "      \"$ref\": \"#/definitions/Annotations\""]
 #[doc = "    },"]
 #[doc = "    \"text\": {"]
 #[doc = "      \"description\": \"The text content of the message.\","]
@@ -6211,8 +6329,9 @@ impl ::std::convert::From<&SubscribeRequestParams> for SubscribeRequestParams {
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
 pub struct TextContent {
+    #[doc = "Optional annotations for the client."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub annotations: ::std::option::Option<TextContentAnnotations>,
+    pub annotations: ::std::option::Option<Annotations>,
     #[doc = "The text content of the message."]
     pub text: ::std::string::String,
     #[serde(rename = "type")]
@@ -6221,52 +6340,6 @@ pub struct TextContent {
 impl ::std::convert::From<&TextContent> for TextContent {
     fn from(value: &TextContent) -> Self {
         value.clone()
-    }
-}
-#[doc = "`TextContentAnnotations`"]
-#[doc = r""]
-#[doc = r" <details><summary>JSON schema</summary>"]
-#[doc = r""]
-#[doc = r" ```json"]
-#[doc = "{"]
-#[doc = "  \"type\": \"object\","]
-#[doc = "  \"properties\": {"]
-#[doc = "    \"audience\": {"]
-#[doc = "      \"description\": \"Describes who the intended customer of this object or data is.\\n\\nIt can include multiple entries to indicate content useful for multiple audiences (e.g., `[\\\"user\\\", \\\"assistant\\\"]`).\","]
-#[doc = "      \"type\": \"array\","]
-#[doc = "      \"items\": {"]
-#[doc = "        \"$ref\": \"#/definitions/Role\""]
-#[doc = "      }"]
-#[doc = "    },"]
-#[doc = "    \"priority\": {"]
-#[doc = "      \"description\": \"Describes how important this data is for operating the server.\\n\\nA value of 1 means \\\"most important,\\\" and indicates that the data is\\neffectively required, while 0 means \\\"least important,\\\" and indicates that\\nthe data is entirely optional.\","]
-#[doc = "      \"type\": \"number\","]
-#[doc = "      \"maximum\": 1.0,"]
-#[doc = "      \"minimum\": 0.0"]
-#[doc = "    }"]
-#[doc = "  }"]
-#[doc = "}"]
-#[doc = r" ```"]
-#[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
-pub struct TextContentAnnotations {
-    #[doc = "Describes who the intended customer of this object or data is.\n\nIt can include multiple entries to indicate content useful for multiple audiences (e.g., `[\"user\", \"assistant\"]`)."]
-    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub audience: ::std::vec::Vec<Role>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub priority: ::std::option::Option<f64>,
-}
-impl ::std::convert::From<&TextContentAnnotations> for TextContentAnnotations {
-    fn from(value: &TextContentAnnotations) -> Self {
-        value.clone()
-    }
-}
-impl ::std::default::Default for TextContentAnnotations {
-    fn default() -> Self {
-        Self {
-            audience: Default::default(),
-            priority: Default::default(),
-        }
     }
 }
 #[doc = "`TextResourceContents`"]
@@ -6330,8 +6403,12 @@ impl ::std::convert::From<&TextResourceContents> for TextResourceContents {
 #[doc = "    \"name\""]
 #[doc = "  ],"]
 #[doc = "  \"properties\": {"]
+#[doc = "    \"annotations\": {"]
+#[doc = "      \"description\": \"Optional additional tool information.\","]
+#[doc = "      \"$ref\": \"#/definitions/ToolAnnotations\""]
+#[doc = "    },"]
 #[doc = "    \"description\": {"]
-#[doc = "      \"description\": \"A human-readable description of the tool.\","]
+#[doc = "      \"description\": \"A human-readable description of the tool.\\n\\nThis can be used by clients to improve the LLM's understanding of available tools. It can be thought of like a \\\"hint\\\" to the model.\","]
 #[doc = "      \"type\": \"string\""]
 #[doc = "    },"]
 #[doc = "    \"inputSchema\": {"]
@@ -6370,7 +6447,10 @@ impl ::std::convert::From<&TextResourceContents> for TextResourceContents {
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
 pub struct Tool {
-    #[doc = "A human-readable description of the tool."]
+    #[doc = "Optional additional tool information."]
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub annotations: ::std::option::Option<ToolAnnotations>,
+    #[doc = "A human-readable description of the tool.\n\nThis can be used by clients to improve the LLM's understanding of available tools. It can be thought of like a \"hint\" to the model."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub description: ::std::option::Option<::std::string::String>,
     #[serde(rename = "inputSchema")]
@@ -6381,6 +6461,89 @@ pub struct Tool {
 impl ::std::convert::From<&Tool> for Tool {
     fn from(value: &Tool) -> Self {
         value.clone()
+    }
+}
+#[doc = "Additional properties describing a Tool to clients.\n\nNOTE: all properties in ToolAnnotations are **hints**.\nThey are not guaranteed to provide a faithful description of\ntool behavior (including descriptive properties like `title`).\n\nClients should never make tool use decisions based on ToolAnnotations\nreceived from untrusted servers."]
+#[doc = r""]
+#[doc = r" <details><summary>JSON schema</summary>"]
+#[doc = r""]
+#[doc = r" ```json"]
+#[doc = "{"]
+#[doc = "  \"description\": \"Additional properties describing a Tool to clients.\\n\\nNOTE: all properties in ToolAnnotations are **hints**.\\nThey are not guaranteed to provide a faithful description of\\ntool behavior (including descriptive properties like `title`).\\n\\nClients should never make tool use decisions based on ToolAnnotations\\nreceived from untrusted servers.\","]
+#[doc = "  \"type\": \"object\","]
+#[doc = "  \"properties\": {"]
+#[doc = "    \"destructiveHint\": {"]
+#[doc = "      \"description\": \"If true, the tool may perform destructive updates to its environment.\\nIf false, the tool performs only additive updates.\\n\\n(This property is meaningful only when `readOnlyHint == false`)\\n\\nDefault: true\","]
+#[doc = "      \"type\": \"boolean\""]
+#[doc = "    },"]
+#[doc = "    \"idempotentHint\": {"]
+#[doc = "      \"description\": \"If true, calling the tool repeatedly with the same arguments\\nwill have no additional effect on the its environment.\\n\\n(This property is meaningful only when `readOnlyHint == false`)\\n\\nDefault: false\","]
+#[doc = "      \"type\": \"boolean\""]
+#[doc = "    },"]
+#[doc = "    \"openWorldHint\": {"]
+#[doc = "      \"description\": \"If true, this tool may interact with an \\\"open world\\\" of external\\nentities. If false, the tool's domain of interaction is closed.\\nFor example, the world of a web search tool is open, whereas that\\nof a memory tool is not.\\n\\nDefault: true\","]
+#[doc = "      \"type\": \"boolean\""]
+#[doc = "    },"]
+#[doc = "    \"readOnlyHint\": {"]
+#[doc = "      \"description\": \"If true, the tool does not modify its environment.\\n\\nDefault: false\","]
+#[doc = "      \"type\": \"boolean\""]
+#[doc = "    },"]
+#[doc = "    \"title\": {"]
+#[doc = "      \"description\": \"A human-readable title for the tool.\","]
+#[doc = "      \"type\": \"string\""]
+#[doc = "    }"]
+#[doc = "  }"]
+#[doc = "}"]
+#[doc = r" ```"]
+#[doc = r" </details>"]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+pub struct ToolAnnotations {
+    #[doc = "If true, the tool may perform destructive updates to its environment.\nIf false, the tool performs only additive updates.\n\n(This property is meaningful only when `readOnlyHint == false`)\n\nDefault: true"]
+    #[serde(
+        rename = "destructiveHint",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub destructive_hint: ::std::option::Option<bool>,
+    #[doc = "If true, calling the tool repeatedly with the same arguments\nwill have no additional effect on the its environment.\n\n(This property is meaningful only when `readOnlyHint == false`)\n\nDefault: false"]
+    #[serde(
+        rename = "idempotentHint",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub idempotent_hint: ::std::option::Option<bool>,
+    #[doc = "If true, this tool may interact with an \"open world\" of external\nentities. If false, the tool's domain of interaction is closed.\nFor example, the world of a web search tool is open, whereas that\nof a memory tool is not.\n\nDefault: true"]
+    #[serde(
+        rename = "openWorldHint",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub open_world_hint: ::std::option::Option<bool>,
+    #[doc = "If true, the tool does not modify its environment.\n\nDefault: false"]
+    #[serde(
+        rename = "readOnlyHint",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub read_only_hint: ::std::option::Option<bool>,
+    #[doc = "A human-readable title for the tool."]
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub title: ::std::option::Option<::std::string::String>,
+}
+impl ::std::convert::From<&ToolAnnotations> for ToolAnnotations {
+    fn from(value: &ToolAnnotations) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for ToolAnnotations {
+    fn default() -> Self {
+        Self {
+            destructive_hint: Default::default(),
+            idempotent_hint: Default::default(),
+            open_world_hint: Default::default(),
+            read_only_hint: Default::default(),
+            title: Default::default(),
+        }
     }
 }
 #[doc = "A JSON Schema object defining the expected parameters for the tool."]
