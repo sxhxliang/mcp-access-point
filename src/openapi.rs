@@ -3,7 +3,7 @@ use once_cell::sync::Lazy;
 
 use http::{Method, Uri};
 use serde::Deserialize;
-use serde_json::Value;
+use serde_json::{json, Map, Value};
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
@@ -12,13 +12,13 @@ use tokio::fs;
 
 use crate::{
     config::{MCPOpenAPIConfig, MCPRouteMetaInfo, MCP_ROUTE_META_INFO_MAP},
-    types::{ListToolsResult, Tool, ToolInputSchema, ToolInputSchemaProperty},
+    types::{ListToolsResult, Tool, ToolInputSchema},
     utils::file::read_from_local_or_remote,
 };
 
 /// Global map to store global rules, initialized lazily.
 pub static MCP_TOOLS_MAP: Lazy<Arc<Mutex<ListToolsResult>>> =
-    Lazy::new(|| Arc::new(Mutex::new(ListToolsResult::new(vec![]))));
+    Lazy::new(|| Arc::new(Mutex::new(ListToolsResult { meta: Map::new(), next_cursor: None, tools: vec![] })));
 
 pub fn global_openapi_tools_fetch() -> Option<ListToolsResult> {
     // Lock the Mutex and clone the inner value to return as Arc
@@ -33,7 +33,7 @@ pub fn reload_global_openapi_tools(
 
     // Lock the Mutex and update the global tools map
     let mut map = MCP_TOOLS_MAP.lock().map_err(|e| e.to_string())?;
-    *map = ListToolsResult::new(tools.tools.clone());
+    *map = ListToolsResult { meta: Map::new(), next_cursor: None, tools:tools.tools.clone()};
 
     Ok(tools)
 }
@@ -41,7 +41,7 @@ pub fn reload_global_openapi_tools(
 pub fn reload_global_openapi_tools_from_config(
     mcp_cfgs: Vec<MCPOpenAPIConfig>,
 ) -> Result<ListToolsResult, Box<dyn std::error::Error>> {
-    let mut tools: ListToolsResult = ListToolsResult::new(vec![]);
+    let mut tools: ListToolsResult = ListToolsResult { meta: Map::new(), next_cursor: None, tools: vec![] };
     for mcp_cfg in mcp_cfgs {
         let (_, content) = read_from_local_or_remote(&mcp_cfg.path)?;
         let mut spec: OpenApiSpec = OpenApiSpec::new(content)?;
@@ -64,7 +64,11 @@ pub fn reload_global_openapi_tools_from_config(
     }
     // Lock the Mutex and update the global tools map
     let mut map = MCP_TOOLS_MAP.lock().map_err(|e| e.to_string())?;
-    *map = ListToolsResult::new(tools.tools.clone());
+    *map = ListToolsResult{
+        meta: Map::new(),
+        next_cursor: None,
+        tools: tools.tools.clone(),
+    };
 
     Ok(tools)
 }
@@ -172,7 +176,11 @@ impl OpenApiSpec {
             self.process_method(&item.delete, path, Method::DELETE, &mut tools);
             self.process_method(&item.patch, path, Method::PATCH, &mut tools);
         }
-        Ok(ListToolsResult { tools })
+        Ok(ListToolsResult {
+            tools,
+            meta: Map::new(),
+            next_cursor: None,
+        })
     }
 
     pub fn process_method(
@@ -277,12 +285,12 @@ impl OpenApiSpec {
         let mut required = Vec::new();
 
         for param in &params {
+            let mut prop_type = Map::new();
+            prop_type.insert("title".into(), Value::String(param.name.clone()));
+            prop_type.insert("prop_type".into(), Value::String(param.param_type.clone()));
             properties.insert(
                 param.name.clone(),
-                ToolInputSchemaProperty {
-                    title: param.name.clone(),
-                    prop_type: param.param_type.clone(),
-                },
+                prop_type
             );
 
             if param.required.unwrap() {
@@ -294,9 +302,9 @@ impl OpenApiSpec {
             name: operation_id.clone(),
             description: Some(description),
             input_schema: ToolInputSchema {
-                properties: Some(properties),
-                required: Some(required),
-                schema_type: "object".to_string(),
+                properties,
+                required,
+                type_: "object".to_string(),
             },
         });
     }

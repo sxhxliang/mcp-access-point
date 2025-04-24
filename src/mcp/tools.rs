@@ -3,16 +3,17 @@ use std::{str::FromStr, sync::Arc};
 use http::Uri;
 use pingora::{proxy::Session, Result};
 use pingora_proxy::ProxyHttp;
+use serde_json::Map;
 
 use crate::{
-    config::{global_mcp_route_meta_info_fetch, self}, openapi::global_openapi_tools_fetch,
+    config::{self, global_mcp_route_meta_info_fetch},
+    jsonrpc::{CallToolRequestParam, JSONRPCRequest, JSONRPCResponse},
+    openapi::global_openapi_tools_fetch,
     proxy::route,
-    service::mcp::MCPProxyService, 
+    service::mcp::MCPProxyService,
     sse_event::SseEvent,
-    types::{
-        CallToolRequestParam, CallToolResult, Content, JSONRPCRequest, JSONRPCResponse, TextContent,
-    }, 
-    utils::request::{merge_path_query, replace_dynamic_params}
+    types::{CallToolResult, CallToolResultContentItem, RequestId, TextContent},
+    utils::request::{merge_path_query, replace_dynamic_params},
 };
 
 pub async fn request_processing(
@@ -22,10 +23,7 @@ pub async fn request_processing(
     session: &mut Session,
     request: &JSONRPCRequest,
 ) -> Result<bool> {
-    let mut request_id = 0;
-    if request.id.is_some() {
-        request_id = request.id.unwrap();
-    }
+    let request_id = request.id.clone().unwrap_or(RequestId::Integer(0));
     match request.method.as_str() {
         "tools/list" => {
             let list_tools = global_openapi_tools_fetch();
@@ -58,9 +56,8 @@ pub async fn request_processing(
             let req_params = request.params.clone().unwrap();
             let params: CallToolRequestParam = serde_json::from_value(req_params).unwrap();
             log::debug!("params {:?}", params);
-            // match route_proxy 
+            // match route_proxy
             let route_meta_info = global_mcp_route_meta_info_fetch(&params.name);
-
 
             log::debug!("route_meta_info {:?}", route_meta_info);
             log::debug!("tools/call");
@@ -81,7 +78,10 @@ pub async fn request_processing(
                             id: String::new(),
                             upstream_id: Some(upstream_id.clone()),
                             uri: Some(route_meta_info.path.path().to_string()),
-                            methods: vec![config::HttpMethod::from_http_method(&route_meta_info.method).unwrap()],
+                            methods: vec![config::HttpMethod::from_http_method(
+                                &route_meta_info.method,
+                            )
+                            .unwrap()],
                             ..Default::default()
                         };
 
@@ -96,7 +96,9 @@ pub async fn request_processing(
                         }
                     }
 
-                    session.req_header_mut().set_method(route_meta_info.method.clone());
+                    session
+                        .req_header_mut()
+                        .set_method(route_meta_info.method.clone());
                     session
                         .req_header_mut()
                         .set_uri(Uri::from_str(&path_and_query).unwrap());
@@ -108,14 +110,18 @@ pub async fn request_processing(
                 None => {
                     log::warn!("not found tool {}", params.name);
                     let result = CallToolResult {
-                        content: vec![Content::Text(TextContent {
+                        meta: Map::new(),
+                        content: vec![CallToolResultContentItem::TextContent(TextContent {
+                            type_: "text".to_string(),
                             text: "not found tool".to_string(),
                             annotations: None,
                         })],
                         is_error: Some(false),
                     };
-                    let res =
-                        JSONRPCResponse::new(request_id, serde_json::to_value(result).unwrap());
+                    let res = JSONRPCResponse::new(
+                        RequestId::from(0),
+                        serde_json::to_value(result).unwrap(),
+                    );
                     let event = SseEvent::new_event(
                         session_id,
                         "message",

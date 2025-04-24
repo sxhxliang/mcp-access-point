@@ -4,7 +4,8 @@ use pingora_proxy::ProxyHttp;
 use crate::{
     service::mcp::MCPProxyService,
     sse_event::SseEvent,
-    types::JSONRPCRequest,
+    types::RequestId,
+    jsonrpc::JSONRPCRequest
 };
 
 // Helper function to send an SseEvent and mark the response as accepted
@@ -28,7 +29,7 @@ pub async fn request_processing(
     request: &JSONRPCRequest,
 ) -> Result<bool> {
     // Safely handle the request ID assignment
-    let request_id = request.id.unwrap_or(0);
+    let request_id = request.id.clone().unwrap_or(RequestId::Integer(0));
 
     match request.method.as_str() {
         "ping" => {

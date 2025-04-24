@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{str::FromStr, time::Duration};
 
 use async_stream::stream;
 use async_trait::async_trait;
@@ -14,24 +14,22 @@ use pingora_error::{Error, Result};
 use pingora_http::{RequestHeader, ResponseHeader};
 use pingora_proxy::{ProxyHttp, Session};
 
+use serde_json::Map;
 use tokio::sync::broadcast;
 
-
-use crate::{proxy::upstream::upstream_fetch, sse_event::SseEvent, types::ErrorCode};
-
-
+use crate::{proxy::upstream::upstream_fetch, sse_event::SseEvent, types::RequestId};
 
 use crate::{
     config::{
-        CLIENT_MESSAGE_ENDPOINT, CLIENT_SSE_ENDPOINT, CLIENT_STREAMABLE_HTTP_ENDPOINT, ERROR_MESSAGE, SERVER_WITH_AUTH
+        CLIENT_MESSAGE_ENDPOINT, CLIENT_SSE_ENDPOINT, CLIENT_STREAMABLE_HTTP_ENDPOINT,
+        ERROR_MESSAGE, SERVER_WITH_AUTH,
     },
-    mcp, utils,
+    jsonrpc::{ErrorCode, JSONRPCError, JSONRPCErrorDetails, JSONRPCRequest, JSONRPCResponse},
+    mcp,
     plugin::{build_plugin_executor, ProxyPlugin},
     proxy::{global_rule::global_plugin_fetch, route::global_route_match_fetch, ProxyContext},
-    types::{
-        CallToolResult, Content, JSONRPCError, JSONRPCErrorDetails,
-        JSONRPCRequest, JSONRPCResponse, TextContent,
-    },
+    types::{CallToolResult, CallToolResultContentItem, TextContent},
+    utils,
 };
 
 /// Proxy service.
@@ -130,7 +128,6 @@ impl MCPProxyService {
     }
 }
 
-
 #[async_trait]
 impl ProxyHttp for MCPProxyService {
     type CTX = ProxyContext;
@@ -176,14 +173,16 @@ impl ProxyHttp for MCPProxyService {
     async fn request_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> Result<bool> {
         if ctx.route.is_none() {
             log::warn!("Route({:?}) not found", session.req_header().uri);
-            if session.req_header().uri.path() != CLIENT_SSE_ENDPOINT && session.req_header().uri.path() != CLIENT_MESSAGE_ENDPOINT {
+            if session.req_header().uri.path() != CLIENT_SSE_ENDPOINT
+                && session.req_header().uri.path() != CLIENT_MESSAGE_ENDPOINT
+            {
                 // Handle the case where the route is not found
                 // and the request is for the SSE endpoint
                 log::warn!("Route not found, responding with 404");
                 session
                     .respond_error(StatusCode::NOT_FOUND.as_u16())
                     .await?;
-                    return Ok(true);
+                return Ok(true);
             }
         }
 
@@ -199,9 +198,6 @@ impl ProxyHttp for MCPProxyService {
 
         // execute plugins
         ctx.plugin.clone().request_filter(session, ctx).await?;
-
-
-
 
         log::debug!(
             "Request path: {:?}",
@@ -250,7 +246,7 @@ impl ProxyHttp for MCPProxyService {
                                     // Invalid request - no session ID or not initialization request
                                     let res = JSONRPCError {
                                         jsonrpc: "2.0".to_string(),
-                                        id: 0,
+                                        id: RequestId::from(0),
                                         error: JSONRPCErrorDetails {
                                             code: ErrorCode::OwnErrorCode,
                                             message: "Bad Request: No valid session ID provided"
@@ -304,12 +300,20 @@ impl ProxyHttp for MCPProxyService {
                         .req_header_mut()
                         .append_header("MCP-SESSION-ID", session_id);
                     if request.id.is_some() {
-                        let _ = session
-                            .req_header_mut()
-                            .append_header("MCP-REQUEST-ID", request.id.unwrap());
+                        let _ = session.req_header_mut().append_header(
+                            "MCP-REQUEST-ID",
+                            request.id.clone().unwrap().to_string(),
+                        );
                     }
 
-                    return mcp::request_processing(ctx, session_id, self, session, &request).await;
+                    return mcp::request_processing(
+                        ctx,
+                        session_id,
+                        self,
+                        session,
+                        &request.clone(),
+                    )
+                    .await;
                 }
                 Err(e) => {
                     log::error!("Failed to parse JSON: {}", e);
@@ -328,29 +332,28 @@ impl ProxyHttp for MCPProxyService {
         ctx: &mut Self::CTX,
     ) -> Result<Box<HttpPeer>> {
         let peer = match ctx.route.clone().as_ref() {
-            Some(route) => {
-                route.select_http_peer(session)
-            }
+            Some(route) => route.select_http_peer(session),
             None => {
-                let upstream_id = session.req_header_mut().remove_header("upstream_id").unwrap();
+                let upstream_id = session
+                    .req_header_mut()
+                    .remove_header("upstream_id")
+                    .unwrap();
                 log::info!("upstream_peer upstream_id: {:?}", upstream_id);
                 let upstream = upstream_fetch(upstream_id.to_str().unwrap());
                 match upstream {
                     Some(_upstream) => {
                         log::info!("upstream_peer upstream found ");
-                    },
+                    }
                     None => {
                         log::warn!("upstream_peer upstream not found");
-                    },
+                    }
                 };
 
                 // let upstream = upstream_fetch(upstream_id.to_str().unwrap()).unwrap();
                 // let peer = upstream.select_backend(session);
                 ctx.route_mcp.clone().unwrap().select_http_peer(session)
                 // log::warn!("Route not found");
-                
             }
-            
         };
         // log::info!("upstream_peer: {:?}", ctx.route_mcp.unwrap().inner);
         // let peer = ctx.route.as_ref().unwrap().select_http_peer(session);
@@ -443,7 +446,9 @@ impl ProxyHttp for MCPProxyService {
                 // Construct the result object
 
                 let result = CallToolResult {
-                    content: vec![Content::Text(TextContent {
+                    meta: Map::new(),
+                    content: vec![CallToolResultContentItem::TextContent(TextContent {
+                        type_: "text".to_string(),
                         text: body.as_ref().map_or_else(
                             || ERROR_MESSAGE.to_string(),
                             |b| String::from_utf8_lossy(b).to_string(),
@@ -454,9 +459,11 @@ impl ProxyHttp for MCPProxyService {
                 };
                 // Convert the result to JSON-RPC response
 
-                if let Ok(request_id) = request_id.parse::<i32>() {
-                    let res =
-                        JSONRPCResponse::new(request_id, serde_json::to_value(result).unwrap());
+                if let Ok(request_id) = request_id.parse::<i64>() {
+                    let res = JSONRPCResponse::new(
+                        RequestId::from(request_id),
+                        serde_json::to_value(result).unwrap(),
+                    );
                     let event = SseEvent::new_event(
                         session_id,
                         "message",
@@ -476,7 +483,7 @@ impl ProxyHttp for MCPProxyService {
         }
         Ok(())
     }
-    
+
     fn response_body_filter(
         &self,
         session: &mut Session,

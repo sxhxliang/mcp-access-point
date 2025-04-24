@@ -1,10 +1,12 @@
 use pingora::{proxy::Session, Result};
 use pingora_proxy::ProxyHttp;
+use serde_json::Map;
 
 use crate::{
     service::mcp::MCPProxyService,
     sse_event::SseEvent,
-    types::{JSONRPCRequest, JSONRPCResponse, ListPromptsResult, Prompt, PromptArgument},
+    types::{ListPromptsResult, Prompt, PromptArgument, RequestId},
+    jsonrpc::{JSONRPCRequest, JSONRPCResponse},
 };
 
 pub async fn request_processing(
@@ -14,37 +16,39 @@ pub async fn request_processing(
     session: &mut Session,
     request: &JSONRPCRequest,
 ) -> Result<bool> {
-    let mut request_id = 0;
-    if request.id.is_some() {
-        request_id = request.id.unwrap();
-    }
+    let request_id = request.id.clone().unwrap_or(RequestId::Integer(0));
+    // if request.id.is_some() {
+    //     request_id = request.id.unwrap();
+    // }
     match request.method.as_str() {
         "prompts/list" => {
             log::info!("prompts/list");
 
             let result = ListPromptsResult {
+                meta:Map::new(),
+                next_cursor: None,
                 prompts: vec![
                     Prompt {
                         name: "[mock data]current-time".to_string(),
                         description: Some(
                             "[mock data]Display current time in the city".to_string(),
                         ),
-                        arguments: Some(vec![PromptArgument {
+                        arguments: vec![PromptArgument {
                             name: "city".to_string(),
                             description: Some("City name".to_string()),
                             required: Some(true),
-                        }]),
+                        }],
                     },
                     Prompt {
                         name: "[mock data]analyze-code".to_string(),
                         description: Some(
                             "[mock data]Analyze code for potential improvements".to_string(),
                         ),
-                        arguments: Some(vec![PromptArgument {
+                        arguments: vec![PromptArgument {
                             name: "language".to_string(),
                             description: Some("Programming language".to_string()),
                             required: Some(true),
-                        }]),
+                        }],
                     },
                 ],
             };

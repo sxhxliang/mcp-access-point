@@ -11,5 +11,6 @@ pub mod service;
 pub mod utils;
 pub mod mcp;
 pub mod sse_event;
+pub mod jsonrpc;
 pub mod openapi;
 pub mod types;

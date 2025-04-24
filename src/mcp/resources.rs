@@ -1,16 +1,16 @@
 #[warn(dead_code)]
 use pingora::{proxy::Session, Result};
 use pingora_proxy::ProxyHttp;
+use serde_json::Map;
 
 use crate::{
     service::mcp::MCPProxyService,
     sse_event::SseEvent,
     types::{
-        JSONRPCRequest, JSONRPCResponse, ListResourcesResult, ReadResourceResult, Resource,
-        ResourceContents, ResourceTemplate, ResourceTemplateListResult, TextResourceContents,
+        ListResourceTemplatesResult, ListResourcesResult, ReadResourceResult, ReadResourceResultContentsItem, RequestId, Resource, ResourceContents, ResourceTemplate, TextResourceContents
     },
+    jsonrpc::{JSONRPCRequest, JSONRPCResponse},
 };
-
 
 pub struct ResourceManager {
     resources: Vec<Resource>,
@@ -49,10 +49,7 @@ pub async fn request_processing(
     session: &mut Session,
     request: &JSONRPCRequest,
 ) -> Result<bool> {
-    let mut request_id = 0;
-    if request.id.is_some() {
-        request_id = request.id.unwrap();
-    }
+    let request_id = request.id.clone().unwrap_or(RequestId::Integer(0));
     match request.method.as_str() {
         "resources/subscribe" => {
             // Todo: handle subscription
@@ -66,7 +63,10 @@ pub async fn request_processing(
         }
         "resources/list" => {
             let result = ListResourcesResult {
+                meta: Map::new(),
+                next_cursor: None,
                 resources: vec![Resource {
+                    annotations: None,
                     uri: "file:///logs/app.log".to_string(),
                     name: "Application Logs".to_string(),
                     description: Some(
@@ -92,11 +92,14 @@ pub async fn request_processing(
                 if let Some(uri) = params.get("uri") {
                     log::info!("resources/read uri: {}", uri);
                     let result = ReadResourceResult {
-                        contents: vec![ResourceContents::Text(TextResourceContents {
-                            uri: uri.to_string(),
-                            mime_type: Some("text/plain".to_string()),
-                            text: "[mock data] resources/read".to_string(),
-                        })],
+                        meta: Map::new(),
+                        contents: vec![ReadResourceResultContentsItem::TextResourceContents(
+                            TextResourceContents {
+                                uri: uri.to_string(),
+                                mime_type: Some("text/plain".to_string()),
+                                text: "[mock data] resources/read".to_string(),
+                            },
+                        )],
                     };
                     let res =
                         JSONRPCResponse::new(request_id, serde_json::to_value(result).unwrap());
@@ -113,15 +116,19 @@ pub async fn request_processing(
             return Ok(true);
         }
         "resources/templates/list" => {
-            let result = ResourceTemplateListResult {
+            let result = ListResourceTemplatesResult {
+                meta: Map::new(),
+                next_cursor: None,
                 resource_templates: vec![
                     ResourceTemplate {
+                        annotations: None,
                         uri_template: "greeting://{name}".to_string(),
                         name: "get_greeting".to_string(),
                         description: Some("Get a personalized greeting".to_string()),
                         mime_type: Some("image/jpeg".to_string()),
                     },
                     ResourceTemplate {
+                        annotations: None,
                         uri_template: "users://{user_id}/profile".to_string(),
                         name: "get_user_profile".to_string(),
                         description: Some("Dynamic user data".to_string()),

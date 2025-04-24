@@ -11,13 +11,14 @@ use crate::{
     service::mcp::MCPProxyService,
     sse_event::SseEvent,
     types::{
-        Implementation, InitializeResult, JSONRPCRequest, JSONRPCResponse, PromptsCapability,
-        ResourcesCapability, ServerCapabilities, ToolsCapability, LATEST_PROTOCOL_VERSION,
+        Implementation, InitializeResult, ServerCapabilities, ServerCapabilitiesPrompts, ServerCapabilitiesResources, ServerCapabilitiesTools, 
     },
+    jsonrpc::{JSONRPCRequest, JSONRPCResponse, LATEST_PROTOCOL_VERSION}
 };
 
 use pingora::{proxy::Session, Result};
 use pingora_proxy::ProxyHttp;
+use serde_json::Map;
 
 // 2024-11-05 specification protocol;
 pub async fn request_processing(
@@ -33,19 +34,20 @@ pub async fn request_processing(
             log::info!("using request method: {}", request.method);
 
             let result = InitializeResult {
+                meta: Map::new(),
                 protocol_version: LATEST_PROTOCOL_VERSION.to_string(),
                 capabilities: ServerCapabilities {
-                    experimental: Some(HashMap::new()),
-                    logging: None,
-                    prompts: Some(PromptsCapability {
-                        list_changed: false,
+                    experimental: HashMap::new(),
+                    logging: Map::new(),
+                    prompts: Some(ServerCapabilitiesPrompts {
+                        list_changed: None,
                     }),
-                    resources: Some(ResourcesCapability {
-                        subscribe: false,
-                        list_changed: false,
+                    resources: Some(ServerCapabilitiesResources {
+                        subscribe: None,
+                        list_changed: None,
                     }),
-                    tools: Some(ToolsCapability {
-                        list_changed: false,
+                    tools: Some(ServerCapabilitiesTools {
+                        list_changed: None,
                     }),
                 },
                 server_info: Implementation {
@@ -56,7 +58,7 @@ pub async fn request_processing(
             };
 
             let res =
-                JSONRPCResponse::new(request.id.unwrap(), serde_json::to_value(result).unwrap());
+                JSONRPCResponse::new(request.id.clone().unwrap(), serde_json::to_value(result).unwrap());
             let event =
                 SseEvent::new_event(session_id, "message", &serde_json::to_string(&res).unwrap());
 
