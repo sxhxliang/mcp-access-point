@@ -112,7 +112,7 @@ git clone https://github.com/sxhxliang/mcp-access-point.git
 cd mcp-access-point
 
 # Build image
-docker build -t kames2025/mcp-access-point:latest .
+docker build -t liangshihua/mcp-access-point:latest .
 ```
 
 ### Run Docker Container  
