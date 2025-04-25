@@ -13,17 +13,17 @@ access_point:
     - address: 0.0.0.0:8080 # listen on all interfaces
 
 mcps:
-  - service-1:  # Service identifier
-    upstream_id: 1
-    upstream_config: # Upstream service configuration (optional)
-      headers:
-        X-API-Key: "12345-abcdef"
-        Authorization: "Bearer token123"
-        User-Agent: "MyApp/1.0"
-        Accept: "application/json"
-      nodes:
-        "127.0.0.1:8090": 1 # must be the same as upstream id in upstreams
-    path: openapi_for_demo_patch1.json # Local OpenAPI file path
+  # - service-1:  # Service identifier
+  #   upstream_id: 1
+  #   upstream_config: # Upstream service configuration (optional)
+  #     headers:
+  #       X-API-Key: "12345-abcdef"
+  #       Authorization: "Bearer token123"
+  #       User-Agent: "MyApp/1.0"
+  #       Accept: "application/json"
+  #     nodes:
+  #       "127.0.0.1:8090": 1 # must be the same as upstream id in upstreams
+  #   path: openapi_for_demo_patch1.json # Local OpenAPI file path
 
   - web-api-2:
     upstream_id: 2

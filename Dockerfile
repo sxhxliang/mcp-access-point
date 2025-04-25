@@ -4,6 +4,13 @@ WORKDIR /app
 
 # 复制项目文件
 COPY . .
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libssl-dev \
+    pkg-config \
+    cmake \
+    libclang-dev \
+    protobuf-compiler \
+    && rm -rf /var/lib/apt/lists/*
 
 # 构建项目
 RUN cargo build --release

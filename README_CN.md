@@ -125,30 +125,16 @@ docker build -t sxhxliang/mcp-access-point:latest .
 ### 拉取并运行Docker容器(旧版本)
 ```bash
 # 使用环境变量配置（上游服务在宿主机上运行）
-# 注意：将 /path/to/your/openapi.json 替换为你本地 OpenAPI 文件的实际路径
-# 注意：upstream 地址使用了 host.docker.internal 来指向宿主机，如果无效请尝试宿主机的局域网IP
+# 注意：将 /path/to/your/config.yaml 替换为你本地文件的实际路径
 docker run -d --name mcp-access-point --rm \
   -p 8080:8080 \
   -e port=8080 \
-  -e upstream=host.docker.internal:8090 \
-  -e openapi_json=/app/config/openapi.json \
-  -v /path/to/your/openapi.json:/app/config/openapi.json \
-  kames2025/mcp-access-point:latest
-
-# 或者直接指定openapi_json环境变量
-docker run -d --name mcp-access-point --rm \
-  -p 8080:8080 \
-  -e port=8080 \
-  -e upstream=host.docker.internal:8090 \
-  -e openapi_json=/app/config/openapi.json \
-  -v /path/to/your/openapi.json:/app/config/openapi.json \
-  kames2025/mcp-access-point:latest
+  -v /path/to/your/config.yaml:/app/config/config.yaml \
+  sxhxliang/mcp-access-point:latest
 ```
 
 ### 环境变量说明
 - `port`: MCP接入网关监听端口，默认为8080
-- `upstream`: 上游服务地址，默认为localhost:8090
-- `openapi_json`: OpenAPI规范文件路径，默认为/app/config/openapi.json
 
 ## 典型应用场景  
 

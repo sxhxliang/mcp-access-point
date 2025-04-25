@@ -117,22 +117,18 @@ docker build -t liangshihua/mcp-access-point:latest .
 
 ### Run Docker Container  
 ```bash
-# Using environment variables (upstream service running on host)
-# Note: Replace /path/to/your/openapi.json with actual path
-# Note: Use host.docker.internal for upstream address (or host's LAN IP if needed)
+# Using environment variables (service running on host)
+# Note: Replace /path/to/your/config.yaml with actual path
+
 docker run -d --name mcp-access-point --rm \
   -p 8080:8080 \
   -e port=8080 \
-  -e upstream=host.docker.internal:8090 \
-  -e openapi_json=/app/config/openapi.json \
-  -v /path/to/your/openapi.json:/app/config/openapi.json \
-  kames2025/mcp-access-point:latest
+  -v /path/to/your/config.yaml:/app/config/config.yaml \
+  sxhxliang/mcp-access-point:latest
 ```
 
 ### Environment Variables  
 - `port`: MCP Access Point listening port (default: 8080)
-- `upstream`: Upstream service address (default: localhost:8090)
-- `openapi_json`: OpenAPI spec file path (default: /app/config/openapi.json)
 
 ## Typical Use Cases  
 
