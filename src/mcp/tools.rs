@@ -39,11 +39,11 @@ pub async fn request_processing(
                     );
                     let _ = mcp_proxy.tx.send(event);
                     mcp_proxy.response_accepted(session).await?;
-                    return Ok(true);
+                    Ok(true)
                 }
                 None => {
                     log::warn!("not found tool");
-                    return Ok(false);
+                    Ok(false)
                 }
             }
         }
@@ -105,7 +105,7 @@ pub async fn request_processing(
                     // do not remove_header("Content-Length")
                     session.req_header_mut().remove_header("Content-Type");
 
-                    return Ok(false);
+                    Ok(false)
                 }
                 None => {
                     log::warn!("not found tool {}", params.name);
@@ -130,14 +130,14 @@ pub async fn request_processing(
 
                     let _ = mcp_proxy.tx.send(event);
                     mcp_proxy.response_accepted(session).await?;
-                    return Ok(true);
+                    Ok(true)
                 }
             }
         }
         _ => {
             let _ = mcp_proxy.tx.send(SseEvent::new(session_id, "Accepted"));
             mcp_proxy.response_accepted(session).await?;
-            return Ok(true);
+            Ok(true)
         }
     }
     // Ok(false)

@@ -3,10 +3,10 @@ use pingora_proxy::ProxyHttp;
 use serde_json::Map;
 
 use crate::{
+    jsonrpc::{JSONRPCRequest, JSONRPCResponse},
     service::mcp::MCPProxyService,
     sse_event::SseEvent,
     types::{ListPromptsResult, Prompt, PromptArgument, RequestId},
-    jsonrpc::{JSONRPCRequest, JSONRPCResponse},
 };
 
 pub async fn request_processing(
@@ -25,7 +25,7 @@ pub async fn request_processing(
             log::info!("prompts/list");
 
             let result = ListPromptsResult {
-                meta:Map::new(),
+                meta: Map::new(),
                 next_cursor: None,
                 prompts: vec![
                     Prompt {
@@ -59,7 +59,7 @@ pub async fn request_processing(
                 SseEvent::new_event(session_id, "message", &serde_json::to_string(&res).unwrap());
             let _ = mcp_proxy.tx.send(event);
             mcp_proxy.response_accepted(session).await?;
-            return Ok(true);
+            Ok(true)
         }
         "prompts/get" => {
             // let res = JSONRPCResponse::new(
@@ -67,13 +67,13 @@ pub async fn request_processing(
             //     serde_json::to_value(result).unwrap(),
             // );
             mcp_proxy.response_accepted(session).await?;
-            return Ok(true);
+            Ok(true)
         }
         _ => {
             let _ = mcp_proxy.tx.send(SseEvent::new(session_id, "Accepted"));
             mcp_proxy.response_accepted(session).await?;
-            return Ok(true);
+            Ok(true)
         }
     }
-    Ok(false)
+    // Ok(false)
 }

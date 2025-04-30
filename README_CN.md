@@ -49,18 +49,7 @@ npx @modelcontextprotocol/inspector@0.8.1 node build/index.js
  
 
 ### 参数详解：  
-1. **`-f openapi_for_demo.json`**  
-   - `-f`（或 `--file`）指定 OpenAPI 规范文件的路径（`openapi_for_demo.json`）。  
-   - 该文件定义了 MCP（Model Context Protocol）接入点要代理转换的 API。  
-
-2. **`-p 8080`**  
-   - `-p`（或 `--port`）设置 MCP 接入点的监听端口（`8080`），用于接收客户端请求。  
-
-3. **`-u localhost:8090`**  
-   - `-u`（或 `--upstream`）指定上游服务的地址（`localhost:8090`）。  
-   - MCP 接入点会在处理请求后，将其转发到该地址对应的后端服务。  
-
-4  **`-c config.yaml`**
+1. **`-c config.yaml`**
    - `-c`（或 `--config`）指定配置文件路径（`config.yaml`）。  
    - 该文件定义了 MCP 接入点要代理转换的 API。
 

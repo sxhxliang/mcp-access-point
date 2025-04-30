@@ -46,18 +46,7 @@ npx @modelcontextprotocol/inspector@0.8.1 node build/index.js
 ```
 
 ### Parameter Details:  
-1. **`-f openapi_for_demo.json`**  
-   - `-f` (or `--file`) specifies the path to the OpenAPI specification file (`openapi_for_demo.json`).  
-   - This file defines the APIs that the MCP Access Point will proxy and convert.  
-
-2. **`-p 8080`**  
-   - `-p` (or `--port`) sets the listening port (`8080`) for the MCP Access Point to receive client requests.  
-
-3. **`-u localhost:8090`**  
-   - `-u` (or `--upstream`) specifies the upstream service address (`localhost:8090`).  
-   - The MCP Access Point forwards processed requests to this backend service.  
-
-4. **`-c config.yaml`**  
+1.  **`-c config.yaml`**  
    - `-c` (or `--config`) specifies the configuration file path (`config.yaml`).  
    - This file defines multiple MCP services and their configurations.  
 
