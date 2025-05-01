@@ -16,16 +16,30 @@ use super::{apply_regex_uri_template, ProxyPlugin};
 use crate::proxy::ProxyContext;
 
 pub const PLUGIN_NAME: &str = "proxy-rewrite";
+const PRIORITY: i32 = 1008;
 
 pub fn create_proxy_rewrite_plugin(cfg: YamlValue) -> Result<Arc<dyn ProxyPlugin>> {
-    let config: PluginConfig = serde_yaml::from_value(cfg)
-        .or_err_with(ReadError, || "Invalid proxy rewrite plugin config")?;
+    let config: PluginConfig =
+        serde_yaml::from_value(cfg).or_err(ReadError, "Invalid proxy rewrite plugin config")?;
 
     config
         .validate()
-        .or_err_with(ReadError, || "Invalid proxy rewrite plugin config")?;
+        .or_err(ReadError, "Invalid proxy rewrite plugin config")?;
 
-    Ok(Arc::new(PluginProxyRewrite { config }))
+    // Precompile regex patterns for regex_uri to improve performance
+    let mut regex_patterns = Vec::new();
+    for i in (0..config.regex_uri.len()).step_by(2) {
+        let pattern = &config.regex_uri[i];
+        let template = &config.regex_uri[i + 1];
+        // Validation ensures regex is valid, so unwrap is safe
+        let re = Regex::new(pattern).unwrap();
+        regex_patterns.push((re, template.clone()));
+    }
+
+    Ok(Arc::new(PluginProxyRewrite {
+        config,
+        regex_patterns,
+    }))
 }
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize, Validate)]
@@ -46,6 +60,7 @@ struct Headers {
 
 #[derive(Default, Debug, Serialize, Deserialize, Validate)]
 struct PluginConfig {
+    /// The URI to rewrite to. Takes precedence over `regex_uri` if both are set.
     uri: Option<String>,
     method: Option<String>,
     #[serde(default)]
@@ -76,6 +91,7 @@ impl PluginConfig {
 
 pub struct PluginProxyRewrite {
     config: PluginConfig,
+    regex_patterns: Vec<(Regex, String)>, // Precompiled regex and template pairs
 }
 
 #[async_trait]
@@ -85,7 +101,7 @@ impl ProxyPlugin for PluginProxyRewrite {
     }
 
     fn priority(&self) -> i32 {
-        1008
+        PRIORITY
     }
 
     async fn upstream_request_filter(
@@ -105,14 +121,14 @@ impl ProxyPlugin for PluginProxyRewrite {
                 method
                     .as_bytes()
                     .try_into()
-                    .or_err_with(InternalError, || "Invalid method")?,
+                    .or_err(InternalError, "Invalid method")?,
             );
         }
 
         if let Some(ref host) = self.config.host {
             upstream_request
                 .insert_header(http::header::HOST, host)
-                .or_err_with(InternalError, || "Invalid host")?;
+                .or_err(InternalError, "Invalid host")?;
         }
 
         if let Some(ref headers) = self.config.headers {
@@ -137,18 +153,10 @@ impl PluginProxyRewrite {
             };
         }
 
-        if !self.config.regex_uri.is_empty() {
+        if !self.regex_patterns.is_empty() {
             if let Some(pq) = path_and_query {
                 let query = pq.query().unwrap_or("");
-                let new_path = apply_regex_uri_template(
-                    pq.path(),
-                    &self
-                        .config
-                        .regex_uri
-                        .iter()
-                        .map(|s| s.as_str())
-                        .collect::<Vec<&str>>(),
-                );
+                let new_path = apply_regex_uri_template(pq.path(), &self.regex_patterns);
                 return if query.is_empty() {
                     new_path.parse().ok()
                 } else {
@@ -161,23 +169,17 @@ impl PluginProxyRewrite {
     }
 
     fn apply_headers(&self, upstream_request: &mut RequestHeader, headers: &Headers) -> Result<()> {
-        headers.set.iter().for_each(|head| {
-            upstream_request
-                .insert_header(head.name.clone(), head.value.as_str())
-                .or_err_with(InternalError, || "Invalid header")
-                .unwrap();
-        });
+        for head in &headers.set {
+            upstream_request.insert_header(head.name.clone(), &head.value)?;
+        }
 
-        headers.remove.iter().for_each(|name| {
+        for name in &headers.remove {
             upstream_request.remove_header(name);
-        });
+        }
 
-        headers.add.iter().for_each(|head| {
-            upstream_request
-                .append_header(head.name.clone(), head.value.as_str())
-                .or_err_with(InternalError, || "Invalid header")
-                .unwrap();
-        });
+        for head in &headers.add {
+            upstream_request.append_header(head.name.clone(), &head.value)?;
+        }
 
         Ok(())
     }

@@ -34,6 +34,32 @@ pub const CLIENT_STREAMABLE_HTTP_ENDPOINT: &str = "/mcp";
 pub const ERROR_MESSAGE: &str = "Unable to fetch data for this mcp server.";
 pub const SERVER_WITH_AUTH: bool = false;
 
+/// Trait for types with an ID field, used for unique ID validation.
+pub trait Identifiable {
+  fn id(&self) -> &str;
+  fn set_id(&mut self, id: String);
+}
+
+macro_rules! impl_identifiable {
+  ($type:ty) => {
+      impl Identifiable for $type {
+          fn id(&self) -> &str {
+              &self.id
+          }
+
+          fn set_id(&mut self, id: String) {
+              self.id = id;
+          }
+      }
+  };
+}
+
+impl_identifiable!(Route);
+impl_identifiable!(Upstream);
+impl_identifiable!(Service);
+impl_identifiable!(GlobalRule);
+impl_identifiable!(SSL);
+
 #[derive(Default, Debug, Serialize, Deserialize, Validate)]
 #[validate(schema(function = "Config::validate_resource_id"))]
 pub struct Config {

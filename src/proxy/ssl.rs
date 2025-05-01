@@ -3,7 +3,7 @@ use std::sync::Arc;
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use dashmap::DashMap;
-use log::debug;
+use log::{debug, error};
 use matchit::{InsertError, Router as MatchRouter};
 use once_cell::sync::Lazy;
 use pingora::listeners::TlsAccept;
@@ -13,26 +13,37 @@ use pingora::tls::ssl::{NameType, SslRef};
 use pingora::tls::x509::X509;
 use pingora_error::Result;
 
-use crate::config;
+use crate::config::{self, Identifiable};
 
-use super::{Identifiable, MapOperations};
+use super::MapOperations;
 
 static DEFAULT_SERVER_NAME: &str = "*";
 
 /// Proxy SSL.
 pub struct ProxySSL {
     pub inner: config::SSL,
+    // Store parsed cert and key, handle parsing errors during creation/update
+    parsed_cert: Result<X509, String>,
+    parsed_key: Result<PKey<pingora::tls::pkey::Private>, String>,
 }
 
 impl From<config::SSL> for ProxySSL {
     fn from(value: config::SSL) -> Self {
-        Self { inner: value }
+        let parsed_cert = X509::from_pem(value.cert.as_bytes())
+            .map_err(|e| format!("Failed to parse cert for {}: {}", value.id, e));
+        let parsed_key = PKey::private_key_from_pem(value.key.as_bytes())
+            .map_err(|e| format!("Failed to parse key for {}: {}", value.id, e));
+        Self {
+            inner: value,
+            parsed_cert,
+            parsed_key,
+        }
     }
 }
 
 impl Identifiable for ProxySSL {
-    fn id(&self) -> String {
-        self.inner.id.clone()
+    fn id(&self) -> &str {
+        &self.inner.id
     }
 
     fn set_id(&mut self, id: String) {
@@ -41,17 +52,9 @@ impl Identifiable for ProxySSL {
 }
 
 impl ProxySSL {
-    /// Gets the list of snis for the ssl.
+    /// Gets the list of SNIs for the SSL.
     fn get_snis(&self) -> Vec<String> {
         self.inner.snis.clone()
-    }
-
-    fn get_cert_bytes(&self) -> Vec<u8> {
-        self.inner.cert.clone().into_bytes()
-    }
-
-    fn get_key_bytes(&self) -> Vec<u8> {
-        self.inner.key.clone().into_bytes()
     }
 }
 
@@ -61,12 +64,13 @@ pub struct MatchEntry {
 }
 
 impl MatchEntry {
-    /// Inserts a ssl into the match entry.
+    /// Inserts an SSL into the match entry.
     fn insert_ssl(&mut self, proxy_ssl: Arc<ProxySSL>) -> Result<(), InsertError> {
         let snis = proxy_ssl.get_snis();
 
         // Insert for host URIs
         for sni in snis.iter() {
+            // Reverse SNI to support wildcard matching (e.g., "*.example.com" matches subdomains)
             let reversed_sni = sni.chars().rev().collect::<String>();
             self.snis.insert(reversed_sni, proxy_ssl.clone())?;
         }
@@ -74,11 +78,12 @@ impl MatchEntry {
         Ok(())
     }
 
-    /// Matches a sni to a ssl.
+    /// Matches an SNI to an SSL.
     fn match_sni(&self, sni: String) -> Option<Arc<ProxySSL>> {
+        // Reverse SNI to match the stored reversed SNI patterns
         let reversed_sni = sni.chars().rev().collect::<String>();
 
-        log::debug!("match sni: sni={:?}", sni,);
+        log::debug!("match sni: sni={:?}", sni);
 
         if let Ok(v) = self.snis.at(&reversed_sni) {
             return Some(v.value.clone());
@@ -87,12 +92,12 @@ impl MatchEntry {
     }
 }
 
-/// Global map to store ssl, initialized lazily.
+/// Global map to store SSL, initialized lazily.
 pub static SSL_MAP: Lazy<DashMap<String, Arc<ProxySSL>>> = Lazy::new(DashMap::new);
 static GLOBAL_SSL_MATCH: Lazy<ArcSwap<MatchEntry>> =
     Lazy::new(|| ArcSwap::new(Arc::new(MatchEntry::default())));
 
-pub fn global_ssl_match_fetch() -> Arc<MatchEntry> {
+fn global_ssl_match_fetch() -> Arc<MatchEntry> {
     GLOBAL_SSL_MATCH.load().clone()
 }
 
@@ -100,40 +105,41 @@ pub fn reload_global_ssl_match() {
     let mut matcher = MatchEntry::default();
 
     for ssl in SSL_MAP.iter() {
-        debug!("Inserting route: {}", ssl.inner.id);
-        matcher.insert_ssl(ssl.clone()).unwrap();
+        debug!("Inserting route: {}", ssl.value().inner.id);
+        matcher.insert_ssl(ssl.value().clone()).unwrap();
     }
 
     GLOBAL_SSL_MATCH.store(Arc::new(matcher));
 }
 
-/// Loads ssl from the given configuration.
+/// Loads SSL from the given configuration.
 pub fn load_static_ssls(config: &config::Config) -> Result<()> {
     let proxy_ssls: Vec<Arc<ProxySSL>> = config
         .ssls
         .iter()
-        .map(|ssl| {
+        .filter_map(|ssl| {
             log::info!("Configuring ssl: {}", ssl.id);
-            Ok(Arc::new(ProxySSL::from(ssl.clone())))
+            let proxy_ssl = ProxySSL::from(ssl.clone());
+            // Only include SSL if both cert and key parsing succeeded
+            match (&proxy_ssl.parsed_cert, &proxy_ssl.parsed_key) {
+                (Ok(_), Ok(_)) => Some(Ok(Arc::new(proxy_ssl))),
+                (Err(e), _) => {
+                    error!("{}", e);
+                    None
+                }
+                (_, Err(e)) => {
+                    error!("{}", e);
+                    None
+                }
+            }
         })
         .collect::<Result<Vec<_>>>()?;
 
-    SSL_MAP.reload_resource(proxy_ssls);
+    SSL_MAP.reload_resources(proxy_ssls);
 
     reload_global_ssl_match();
 
     Ok(())
-}
-
-/// Fetches an ssl by its ID.
-pub fn ssl_fetch(id: &str) -> Option<Arc<ProxySSL>> {
-    match SSL_MAP.get(id) {
-        Some(rule) => Some(rule.value().clone()),
-        None => {
-            log::warn!("Route with id '{}' not found", id);
-            None
-        }
-    }
 }
 
 pub struct DynamicCert {
@@ -147,16 +153,24 @@ impl DynamicCert {
         let key_bytes =
             std::fs::read(tls.key_path.clone()).expect("Failed to read TLS private key file");
 
-        Box::new(Self {
-            default: Arc::new(ProxySSL::from(config::SSL {
-                id: String::new(),
-                cert: String::from_utf8(cert_bytes)
-                    .expect("Failed to convert certificate bytes to UTF-8 string"),
-                key: String::from_utf8(key_bytes)
-                    .expect("Failed to convert private key bytes to UTF-8 string"),
-                snis: Vec::new(),
-            })),
-        })
+        let ssl_config = config::SSL {
+            id: String::new(),
+            cert: String::from_utf8(cert_bytes)
+                .expect("Failed to convert certificate bytes to UTF-8 string"),
+            key: String::from_utf8(key_bytes)
+                .expect("Failed to convert private key bytes to UTF-8 string"),
+            snis: Vec::new(),
+        };
+
+        let proxy_ssl = ProxySSL::from(ssl_config);
+        // Ensure default SSL has valid cert and key
+        match (&proxy_ssl.parsed_cert, &proxy_ssl.parsed_key) {
+            (Ok(_), Ok(_)) => Box::new(Self {
+                default: Arc::new(proxy_ssl),
+            }),
+            (Err(e), _) => panic!("Default SSL certificate parsing failed: {}", e),
+            (_, Err(e)) => panic!("Default SSL key parsing failed: {}", e),
+        }
     }
 }
 
@@ -173,19 +187,18 @@ impl TlsAccept for DynamicCert {
             self.default.clone()
         };
 
-        match X509::from_pem(&proxy_ssl.get_cert_bytes()) {
-            Ok(cert) => match PKey::private_key_from_pem(&proxy_ssl.get_key_bytes()) {
-                Ok(key) => {
-                    if let Err(e) = ext::ssl_use_certificate(ssl, &cert) {
-                        log::error!("Failed to use certificate: {}", e);
-                    }
-                    if let Err(e) = ext::ssl_use_private_key(ssl, &key) {
-                        log::error!("Failed to use private key: {}", e);
-                    }
+        match (&proxy_ssl.parsed_cert, &proxy_ssl.parsed_key) {
+            (Ok(cert), Ok(key)) => {
+                // Use the cached cert and key
+                if let Err(e) = ext::ssl_use_certificate(ssl, cert) {
+                    log::error!("Failed to use certificate: {}", e);
                 }
-                Err(e) => log::error!("Failed to parse private key: {}", e),
-            },
-            Err(e) => log::error!("Failed to parse certificate: {}", e),
+                if let Err(e) = ext::ssl_use_private_key(ssl, key) {
+                    log::error!("Failed to use private key: {}", e);
+                }
+            }
+            (Err(e), _) => log::error!("{}", e), // Log parsing error stored in ProxySSL
+            (_, Err(e)) => log::error!("{}", e), // Log parsing error stored in ProxySSL
         }
     }
 }

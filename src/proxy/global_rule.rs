@@ -6,11 +6,11 @@ use once_cell::sync::Lazy;
 use pingora_error::Result;
 
 use crate::{
-    config,
-    plugin::{build_plugin, ProxyPlugin, ProxyPluginExecutor},
+    config::{self, Identifiable},
+    plugin::{build_plugin, ProxyPlugin},
 };
 
-use super::{Identifiable, MapOperations};
+use super::{MapOperations, ProxyPluginExecutor};
 
 /// Represents a proxy service that manages upstreams.
 pub struct ProxyGlobalRule {
@@ -19,8 +19,8 @@ pub struct ProxyGlobalRule {
 }
 
 impl Identifiable for ProxyGlobalRule {
-    fn id(&self) -> String {
-        self.inner.id.clone()
+    fn id(&self) -> &str {
+        &self.inner.id
     }
 
     fn set_id(&mut self, id: String) {
@@ -28,22 +28,16 @@ impl Identifiable for ProxyGlobalRule {
     }
 }
 
-impl From<config::GlobalRule> for ProxyGlobalRule {
-    fn from(value: config::GlobalRule) -> Self {
-        Self {
-            inner: value,
-            plugins: Vec::new(),
-        }
-    }
-}
-
 impl ProxyGlobalRule {
     pub fn new_with_plugins(rule: config::GlobalRule) -> Result<Self> {
-        let mut proxy_global_rule = Self::from(rule.clone());
+        let mut proxy_global_rule = ProxyGlobalRule {
+            inner: rule.clone(),
+            plugins: Vec::with_capacity(rule.plugins.len()),
+        };
 
         // Load plugins and log each one
         for (name, value) in rule.plugins {
-            log::info!("Loading plugin: {}", name); // Add logging for each plugin
+            log::info!("Loading plugin: {}", name);
             let plugin = build_plugin(&name, value)?;
             proxy_global_rule.plugins.push(plugin);
         }
@@ -61,27 +55,28 @@ pub fn global_plugin_fetch() -> Arc<ProxyPluginExecutor> {
     GLOBAL_PLUGIN.load().clone()
 }
 
-/// reload ProxyPluginExecutor
+/// Reloads ProxyPluginExecutor with deduplicated plugins sorted by priority.
 pub fn reload_global_plugin() {
-    // 创建一个 HashMap 用来去重插件
+    // Use a HashMap to deduplicate plugins by name
     let mut unique_plugins: HashMap<String, Arc<dyn ProxyPlugin>> = HashMap::new();
 
-    // 遍历 GLOBAL_RULE_MAP 中的所有 ProxyGlobalRule
+    // Iterate through all ProxyGlobalRule in GLOBAL_RULE_MAP
     for rule in GLOBAL_RULE_MAP.iter() {
         for plugin in &rule.plugins {
-            // 使用 plugin.name() 作为唯一标识符，去重
+            // Deduplicate by plugin name; only one instance of each plugin is kept
+            // (the last encountered instance from any GlobalRule is retained)
             let plugin_name = plugin.name();
             unique_plugins.insert(plugin_name.to_string(), plugin.clone());
         }
     }
 
-    // 从 HashMap 获取去重后的插件并根据 priority 排序
+    // Collect deduplicated plugins and sort by priority
     let mut plugins: Vec<_> = unique_plugins.into_values().collect();
 
-    // 按照 ProxyPlugin.priority() 排序，优先级大的排前面
+    // Sort plugins by priority (higher priority first)
     plugins.sort_by_key(|b| std::cmp::Reverse(b.priority()));
 
-    // 创建并返回 ProxyPluginExecutor
+    // Update GLOBAL_PLUGIN with new executor
     GLOBAL_PLUGIN.store(Arc::new(ProxyPluginExecutor { plugins }));
 }
 
@@ -105,18 +100,8 @@ pub fn load_static_global_rules(config: &config::Config) -> Result<()> {
         .collect::<Result<Vec<_>>>()?;
 
     // Reload global rules into the map
-    GLOBAL_RULE_MAP.reload_resource(proxy_global_rules);
+    GLOBAL_RULE_MAP.reload_resources(proxy_global_rules);
     reload_global_plugin();
 
     Ok(())
-}
-
-pub fn global_rule_fetch(id: &str) -> Option<Arc<ProxyGlobalRule>> {
-    match GLOBAL_RULE_MAP.get(id) {
-        Some(rule) => Some(rule.value().clone()),
-        None => {
-            log::warn!("Global rule with id '{}' not found", id);
-            None
-        }
-    }
 }

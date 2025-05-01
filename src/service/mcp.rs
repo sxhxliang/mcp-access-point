@@ -26,7 +26,7 @@ use crate::{
     },
     jsonrpc::{ErrorCode, JSONRPCError, JSONRPCErrorDetails, JSONRPCRequest, JSONRPCResponse},
     mcp,
-    plugin::{build_plugin_executor, ProxyPlugin},
+    plugin::ProxyPlugin,
     proxy::{global_rule::global_plugin_fetch, route::global_route_match_fetch, ProxyContext},
     types::{CallToolResult, CallToolResultContentItem, TextContent},
     utils,
@@ -154,7 +154,7 @@ impl ProxyHttp for MCPProxyService {
         if let Some((route_params, route)) = global_route_match_fetch().match_request(session) {
             ctx.route_params = Some(route_params);
             ctx.route = Some(route.clone());
-            ctx.plugin = build_plugin_executor(route);
+            ctx.plugin = route.build_plugin_executor();
 
             ctx.global_plugin = global_plugin_fetch();
         }

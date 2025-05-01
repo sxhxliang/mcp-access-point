@@ -19,9 +19,23 @@ use pingora_proxy::Session;
 use pingora_runtime::Runtime;
 use tokio::sync::watch;
 
-use crate::{config, utils::request::request_selector_key};
+use crate::{
+    config::{self, Identifiable},
+    utils::request::request_selector_key,
+};
 
-use super::{discovery::HybridDiscovery, Identifiable, MapOperations};
+use super::{discovery::HybridDiscovery, MapOperations};
+
+/// Fetches an upstream by its ID.
+pub fn upstream_fetch(id: &str) -> Option<Arc<ProxyUpstream>> {
+    match UPSTREAM_MAP.get(id) {
+        Some(upstream) => Some(upstream.value().clone()),
+        None => {
+            log::warn!("Upstream with id '{}' not found", id);
+            None
+        }
+    }
+}
 
 /// Proxy load balancer.
 ///
@@ -29,28 +43,13 @@ use super::{discovery::HybridDiscovery, Identifiable, MapOperations};
 pub struct ProxyUpstream {
     pub inner: config::Upstream,
     lb: SelectionLB,
-
     runtime: Option<Runtime>,
     watch: Option<watch::Sender<bool>>,
 }
 
-impl TryFrom<config::Upstream> for ProxyUpstream {
-    type Error = Box<Error>;
-
-    /// Creates a new `ProxyLB` instance from an `Upstream` configuration.
-    fn try_from(value: config::Upstream) -> Result<Self> {
-        Ok(Self {
-            inner: value.clone(),
-            lb: SelectionLB::try_from(value)?,
-            runtime: None,
-            watch: None,
-        })
-    }
-}
-
 impl Identifiable for ProxyUpstream {
-    fn id(&self) -> String {
-        self.inner.id.clone()
+    fn id(&self) -> &str {
+        &self.inner.id
     }
 
     fn set_id(&mut self, id: String) {
@@ -58,15 +57,23 @@ impl Identifiable for ProxyUpstream {
     }
 }
 
+// ! Each ProxyUpstream with health check will still create its own pingora_runtime::Runtime.
+// ! This will result in a potentially large number of threads being created (number of threads = number of upstreams * number of threads per Runtime).
+// ! It is strongly recommended to use the Background Service mechanism provided by Pingora Server to run health checks instead.
 impl ProxyUpstream {
     pub fn new_with_health_check(upstream: config::Upstream, work_stealing: bool) -> Result<Self> {
-        let mut proxy_upstream = Self::try_from(upstream)?;
+        let mut proxy_upstream = ProxyUpstream {
+            inner: upstream.clone(),
+            lb: SelectionLB::try_from(upstream.clone())?,
+            runtime: None,
+            watch: None,
+        };
         proxy_upstream.start_health_check(work_stealing);
         Ok(proxy_upstream)
     }
 
     /// Starts the health check service, runs only once.
-    pub fn start_health_check(&mut self, work_stealing: bool) {
+    fn start_health_check(&mut self, work_stealing: bool) {
         if let Some(mut service) = self.take_background_service() {
             // Create a channel for watching the health check status
             let (watch_tx, watch_rx) = watch::channel(false);
@@ -79,12 +86,6 @@ impl ProxyUpstream {
             let runtime = self.create_runtime(work_stealing, threads, service.name());
 
             // Spawn the service on the runtime
-            // #[cfg(unix)]
-            // runtime.get_handle().spawn(async move {
-            //     service.start_service(None, watch_rx, 1).await;
-            //     info!("Service exited.");
-            // });
-            // #[cfg(target_os = "windows")]
             runtime.get_handle().spawn(async move {
                 service.start_service( 
                     #[cfg(unix)] None,
@@ -185,12 +186,12 @@ impl Drop for ProxyUpstream {
     fn drop(&mut self) {
         self.stop_health_check();
 
-        // 确保其他资源如 runtime 被释放
+        // Ensure other resources like runtime are released
         if let Some(runtime) = self.runtime.take() {
-            // 获取 runtime 的 handle
+            // Get the runtime handle
             let handler = runtime.get_handle().clone();
 
-            // 使用 handler 执行关闭逻辑
+            // Use handler to execute shutdown logic
             handler.spawn_blocking(move || {
                 runtime.shutdown_timeout(Duration::from_secs(1));
             });
@@ -256,7 +257,8 @@ where
             upstreams.health_check_frequency = Some(health_check_frequency);
         }
 
-        let background = background_service("health check", upstreams);
+        let background =
+            background_service(&format!("health check for {}", upstream.id), upstreams);
         let upstreams = background.task();
 
         let this = Self {
@@ -394,18 +396,7 @@ pub fn load_static_upstreams(config: &config::Config) -> Result<()> {
         .collect::<Result<Vec<_>>>()?;
 
     // Insert all ProxyUpstream instances into the global map.
-    UPSTREAM_MAP.reload_resource(proxy_upstreams);
+    UPSTREAM_MAP.reload_resources(proxy_upstreams);
 
     Ok(())
-}
-
-/// Fetches an upstream by its ID.
-pub fn upstream_fetch(id: &str) -> Option<Arc<ProxyUpstream>> {
-    match UPSTREAM_MAP.get(id) {
-        Some(rule) => Some(rule.value().clone()),
-        None => {
-            log::warn!("Upstream with id '{}' not found", id);
-            None
-        }
-    }
 }
