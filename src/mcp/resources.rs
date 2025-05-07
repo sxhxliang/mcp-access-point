@@ -1,16 +1,18 @@
-use http::StatusCode;
+
 #[warn(dead_code)]
 use pingora::{proxy::Session, Result};
 use pingora_proxy::ProxyHttp;
 use serde_json::Map;
 
 use crate::{
-    service::mcp::MCPProxyService,
-    sse_event::SseEvent,
-    types::{
-        ListResourceTemplatesResult, ListResourcesResult, ReadResourceResult, ReadResourceResultContentsItem, RequestId, Resource, ResourceContents, ResourceTemplate, TextResourceContents
-    },
     jsonrpc::{JSONRPCRequest, JSONRPCResponse},
+    mcp::send_json_response,
+    service::mcp::MCPProxyService,
+    types::{
+        ListResourceTemplatesResult, ListResourcesResult, ReadResourceResult,
+        ReadResourceResultContentsItem, RequestId, Resource, ResourceContents, ResourceTemplate,
+        TextResourceContents,
+    },
 };
 
 pub struct ResourceManager {
@@ -49,19 +51,19 @@ pub async fn request_processing(
     mcp_proxy: &MCPProxyService,
     session: &mut Session,
     request: &JSONRPCRequest,
-    stream: bool
+    stream: bool,
 ) -> Result<bool> {
     let request_id = request.id.clone().unwrap_or(RequestId::Integer(0));
     match request.method.as_str() {
         "resources/subscribe" => {
             // Todo: handle subscription
             log::debug!("resources/subscribe");
-            return Ok(true);
+            Ok(true)
         }
         "resources/unsubscribe" => {
             // Todo: handle unsubscription
             log::debug!("resources/unsubscribe");
-            return Ok(true);
+            Ok(true)
         }
         "resources/list" => {
             let result = ListResourcesResult {
@@ -79,17 +81,10 @@ pub async fn request_processing(
                 }],
             };
             let res = JSONRPCResponse::new(request_id, serde_json::to_value(result).unwrap());
-            if stream {
-                let event =
-                    SseEvent::new_event(session_id, "message", &serde_json::to_string(&res).unwrap());
-                let _ = mcp_proxy.tx.send(event);
-                mcp_proxy.response_accepted(session).await?;
-            } else {
-                mcp_proxy.response(session, StatusCode::OK, serde_json::to_string(&res).unwrap()).await?;
-            }
-           
+            send_json_response(mcp_proxy, session, &res, stream, session_id).await?;
+
             log::debug!("resources/list");
-            return Ok(true);
+            Ok(true)
         }
         "resources/read" => {
             log::debug!("resources/read");
@@ -109,22 +104,13 @@ pub async fn request_processing(
                     };
                     let res =
                         JSONRPCResponse::new(request_id, serde_json::to_value(result).unwrap());
-                    
-                    if stream {
-                        let event = SseEvent::new_event(
-                            session_id,
-                            "message",
-                            &serde_json::to_string(&res).unwrap(),
-                        );
-                        let _ = mcp_proxy.tx.send(event);
-                    } else {
-                        mcp_proxy.response(session, StatusCode::OK, serde_json::to_string(&res).unwrap()).await?;
-                    }
+
+                    send_json_response(mcp_proxy, session, &res, stream, session_id).await?;
                 }
             }
 
             mcp_proxy.response_accepted(session).await?;
-            return Ok(true);
+            Ok(true)
         }
         "resources/templates/list" => {
             let result = ListResourceTemplatesResult {
@@ -150,27 +136,14 @@ pub async fn request_processing(
 
             let res = JSONRPCResponse::new(request_id, serde_json::to_value(result).unwrap());
 
-            if stream {
-                let event =
-                    SseEvent::new_event(session_id, "message", &serde_json::to_string(&res).unwrap());
-                let _ = mcp_proxy.tx.send(event);
-
-                log::debug!("resources/templates/list");
-                mcp_proxy.response_accepted(session).await?;
-            } else {
-                mcp_proxy.response(session, StatusCode::OK, serde_json::to_string(&res).unwrap()).await?;
-            }
-            return Ok(true);
+            send_json_response(mcp_proxy, session, &res, stream, session_id).await?;
+            Ok(true)
         }
         _ => {
-            if stream {
-                let _ = mcp_proxy.tx.send(SseEvent::new(session_id, "Accepted"));
-                mcp_proxy.response_accepted(session).await?;
-            } else {
-                mcp_proxy.response(session, StatusCode::OK, serde_json::to_string("{}").unwrap()).await?;
-            }
-            return Ok(true);
+            let res = JSONRPCResponse::new(request_id, serde_json::to_value("{}").unwrap());
+            send_json_response(mcp_proxy, session, &res, stream, session_id).await?;
+
+            Ok(true)
         }
     }
-    Ok(false)
 }

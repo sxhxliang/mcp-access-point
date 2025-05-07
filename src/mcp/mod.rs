@@ -21,6 +21,23 @@ use pingora::{proxy::Session, Result};
 use pingora_proxy::ProxyHttp;
 use serde_json::Map;
 
+pub async fn send_json_response(
+    mcp_proxy: &MCPProxyService,
+    session: &mut Session,
+    res: &JSONRPCResponse,
+    stream: bool,
+    session_id: &str,
+) -> Result<()> {
+    if stream {
+        let event = SseEvent::new_event(session_id, "message", &serde_json::to_string(res).unwrap());
+        let _ = mcp_proxy.tx.send(event);
+        mcp_proxy.response_accepted(session).await?;
+    } else {
+        mcp_proxy.response(session, StatusCode::OK, serde_json::to_string(res).unwrap()).await?;
+    }
+    Ok(())
+}
+
 // 2024-11-05 specification protocol;
 pub async fn request_processing(
     ctx: &mut <MCPProxyService as ProxyHttp>::CTX,

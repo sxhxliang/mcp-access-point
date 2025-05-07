@@ -1,6 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
-use http::{StatusCode, Uri};
+use http::Uri;
 use pingora::{proxy::Session, Result};
 use pingora_proxy::ProxyHttp;
 use serde_json::Map;
@@ -8,10 +8,10 @@ use serde_json::Map;
 use crate::{
     config::{self, global_mcp_route_meta_info_fetch},
     jsonrpc::{CallToolRequestParam, JSONRPCRequest, JSONRPCResponse},
+    mcp::send_json_response,
     openapi::global_openapi_tools_fetch,
     proxy::route,
     service::mcp::MCPProxyService,
-    sse_event::SseEvent,
     types::{CallToolResult, CallToolResultContentItem, RequestId, TextContent},
     utils::request::{merge_path_query, replace_dynamic_params},
 };
@@ -32,17 +32,7 @@ pub async fn request_processing(
                 Some(tools) => {
                     let res =
                         JSONRPCResponse::new(request_id, serde_json::to_value(tools).unwrap());
-                    if stream {
-                        let event = SseEvent::new_event(
-                            session_id,
-                            "message",
-                            &serde_json::to_string(&res).unwrap(),
-                        );
-                        let _ = mcp_proxy.tx.send(event);
-                        mcp_proxy.response_accepted(session).await?;
-                    }else {
-                        mcp_proxy.response(session, StatusCode::OK, serde_json::to_string(&res).unwrap()).await?;
-                    }
+                    send_json_response(mcp_proxy, session, &res, stream, session_id).await?;
                     Ok(true)
                 }
                 None => {
@@ -57,8 +47,48 @@ pub async fn request_processing(
                 .insert_header("upstream_peer", "127.0.0.1:8090");
             log::debug!("uri {}", session.req_header().uri.path());
 
-            let req_params = request.params.clone().unwrap();
-            let params: CallToolRequestParam = serde_json::from_value(req_params).unwrap();
+            let req_params = match request.params.clone() {
+                Some(p) => p,
+                None => {
+                    log::error!("Missing params in tools/call request");
+                    let result = CallToolResult {
+                        meta: Map::new(),
+                        content: vec![CallToolResultContentItem::TextContent(TextContent {
+                            type_: "text".to_string(),
+                            text: "Missing request parameters".to_string(),
+                            annotations: None,
+                        })],
+                        is_error: Some(true),
+                    };
+                    let res = JSONRPCResponse::new(
+                        request_id.clone(),
+                        serde_json::to_value(result).unwrap(),
+                    );
+                    send_json_response(mcp_proxy, session, &res, stream, session_id).await?;
+                    return Ok(true);
+                }
+            };
+            let params: CallToolRequestParam = match serde_json::from_value(req_params) {
+                Ok(p) => p,
+                Err(e) => {
+                    log::error!("Failed to deserialize CallToolRequestParam: {}", e);
+                    let result = CallToolResult {
+                        meta: Map::new(),
+                        content: vec![CallToolResultContentItem::TextContent(TextContent {
+                            type_: "text".to_string(),
+                            text: "Invalid request parameters".to_string(),
+                            annotations: None,
+                        })],
+                        is_error: Some(true),
+                    };
+                    let res = JSONRPCResponse::new(
+                        request_id.clone(),
+                        serde_json::to_value(result).unwrap(),
+                    );
+                    send_json_response(mcp_proxy, session, &res, stream, session_id).await?;
+                    return Ok(true);
+                }
+            };
             log::debug!("params {:?}", params);
             // match route_proxy
             let route_meta_info = global_mcp_route_meta_info_fetch(&params.name);
@@ -126,25 +156,14 @@ pub async fn request_processing(
                         RequestId::from(0),
                         serde_json::to_value(result).unwrap(),
                     );
-                    if stream {
-                        let event = SseEvent::new_event(
-                            session_id,
-                            "message",
-                            &serde_json::to_string(&res).unwrap(),
-                        );
-
-                        let _ = mcp_proxy.tx.send(event);
-                        mcp_proxy.response_accepted(session).await?;
-                    }else {
-                        mcp_proxy.response(session, StatusCode::OK, serde_json::to_string(&res).unwrap()).await?;
-                    }
+                    send_json_response(mcp_proxy, session, &res, stream, session_id).await?;
                     Ok(true)
                 }
             }
         }
         _ => {
-            let _ = mcp_proxy.tx.send(SseEvent::new(session_id, "Accepted"));
-            mcp_proxy.response_accepted(session).await?;
+            let res = JSONRPCResponse::new(request_id, serde_json::to_value("{}").unwrap());
+            send_json_response(mcp_proxy, session, &res, stream, session_id).await?;
             Ok(true)
         }
     }

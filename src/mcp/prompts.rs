@@ -1,4 +1,3 @@
-use http::StatusCode;
 use pingora::{proxy::Session, Result};
 use pingora_proxy::ProxyHttp;
 use serde_json::Map;
@@ -6,9 +5,10 @@ use serde_json::Map;
 use crate::{
     jsonrpc::{JSONRPCRequest, JSONRPCResponse},
     service::mcp::MCPProxyService,
-    sse_event::SseEvent,
     types::{ListPromptsResult, Prompt, PromptArgument, RequestId},
 };
+
+use super::send_json_response;
 
 pub async fn request_processing(
     _ctx: &mut <MCPProxyService as ProxyHttp>::CTX,
@@ -56,14 +56,7 @@ pub async fn request_processing(
             };
 
             let res = JSONRPCResponse::new(request_id, serde_json::to_value(result).unwrap());
-            if stream {
-                let event =
-                    SseEvent::new_event(session_id, "message", &serde_json::to_string(&res).unwrap());
-                let _ = mcp_proxy.tx.send(event);
-                mcp_proxy.response_accepted(session).await?;
-            } else {
-                mcp_proxy.response(session, StatusCode::OK, serde_json::to_string(&res).unwrap()).await?;
-            }
+            send_json_response(mcp_proxy, session, &res, stream, session_id).await?;
             Ok(true)
         }
         "prompts/get" => {
@@ -75,12 +68,9 @@ pub async fn request_processing(
             Ok(true)
         }
         _ => {
-            if stream {
-                let _ = mcp_proxy.tx.send(SseEvent::new(session_id, "Accepted"));
-                mcp_proxy.response_accepted(session).await?;
-            } else {
-                mcp_proxy.response(session, StatusCode::OK, serde_json::to_string("{}").unwrap()).await?;
-            }
+            let res = JSONRPCResponse::new(request_id, serde_json::to_value("{}").unwrap());
+            send_json_response(mcp_proxy, session, &res, stream, session_id).await?;
+
             Ok(true)
         }
     }

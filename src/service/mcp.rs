@@ -6,9 +6,9 @@ use bytes::Bytes;
 use futures::StreamExt;
 use http::{header, StatusCode};
 use log::debug;
-use pingora::modules::http::{
-    HttpModules,
-    {compression::ResponseCompressionBuilder, grpc_web::GrpcWeb},
+use pingora::{
+    modules::http::{compression::ResponseCompressionBuilder, grpc_web::GrpcWeb, HttpModules},
+    ErrorType,
 };
 use pingora_core::upstreams::peer::HttpPeer;
 use pingora_error::{Error, Result};
@@ -33,6 +33,7 @@ use crate::{
     utils,
 };
 
+const STREAMABLE_HTTP: &str = "streamable_http";
 /// Proxy service.
 ///
 /// Manages the proxying of requests to upstream servers.
@@ -42,90 +43,169 @@ pub struct MCPProxyService {
 }
 
 impl MCPProxyService {
+    /// Helper method to build and send HTTP responses
+    async fn build_and_send_response(
+        &self,
+        session: &mut Session,
+        code: StatusCode,
+        content_type: &str,
+        body: Option<Bytes>,
+    ) -> Result<bool> {
+        let mut resp = ResponseHeader::build(code, None)?;
+
+        resp.insert_header(header::CONTENT_TYPE, content_type)?;
+
+        if let Some(body) = &body {
+            resp.insert_header(header::CONTENT_LENGTH, body.len().to_string())?;
+        }
+
+        session.write_response_header(Box::new(resp), false).await?;
+
+        session.write_response_body(body, true).await.map_err(|e| {
+            log::error!("Failed to write response body: {}", e);
+            e
+        })?;
+
+        Ok(true)
+    }
     pub fn new(tx: broadcast::Sender<SseEvent>) -> Self {
         Self { tx }
     }
 
+    /// Builds and sends an accepted response with empty body
+    ///
+    /// # Arguments
+    /// * `session` - The HTTP session to write response to
+    ///
+    /// # Returns
+    /// Result indicating success or failure
     pub async fn response_accepted(&self, session: &mut Session) -> Result<()> {
-        let mut resp = ResponseHeader::build(StatusCode::ACCEPTED, Some(4))?;
-
-        // let body = Bytes::from("Accepted");
-        resp.insert_header(header::CONTENT_TYPE, "text/plain")?;
-        // resp.insert_header(header::CONTENT_LENGTH, body.len().to_string())?;
-
-        session.write_response_header(Box::new(resp), false).await?;
-
-        session
-            .write_response_body(None, true)
-            .await?;
+        let _ = self
+            .build_and_send_response(session, StatusCode::ACCEPTED, "text/plain", None)
+            .await;
         Ok(())
     }
 
+    /// Builds and sends a JSON response
+    ///
+    /// # Arguments
+    /// * `session` - The HTTP session to write response to
+    /// * `code` - HTTP status code
+    /// * `data` - JSON string to send as response body
+    ///
+    /// # Returns
+    /// Result indicating success or failure
     pub async fn response(
         &self,
         session: &mut Session,
         code: StatusCode,
         data: String,
     ) -> Result<bool> {
-        let mut resp = ResponseHeader::build(code, None)?;
-
         let body = Bytes::from(data);
-        resp.insert_header(header::CONTENT_TYPE, "application/json")?;
-        resp.insert_header(header::CONTENT_LENGTH, body.len().to_string())?;
-
-        session.write_response_header(Box::new(resp), false).await?;
-
-        session
-            .write_response_body(Some(body.clone()), true)
-            .await?;
-        Ok(true)
+        self.build_and_send_response(session, code, "application/json", Some(body))
+            .await
     }
 
+    /// Handles Server-Sent Events (SSE) connection
+    ///
+    /// # Arguments
+    /// * `session` - The HTTP session to establish SSE connection
+    ///
+    /// # Returns
+    /// Result indicating success or failure
     pub async fn response_sse(&self, session: &mut Session) -> Result<bool> {
+        // Build SSE headers
         let mut resp = ResponseHeader::build(StatusCode::OK, Some(4))?;
         resp.insert_header(header::CONTENT_TYPE, "text/event-stream")?;
         resp.insert_header(header::CACHE_CONTROL, "no-cache")?;
-
         session.write_response_header(Box::new(resp), false).await?;
 
+        // Generate unique session ID
         let session_id = uuid::Uuid::new_v4().to_string();
 
-        let message_url = if SERVER_WITH_AUTH {
-            let parsed = utils::request::query_to_map(&session.req_header().uri);
-            // let token = parsed.get("token");
-            let token = match parsed.get("token") {
-                Some(token) => token,
-                None => {
-                    log::error!("token is None");
-                    ""
-                }
-            };
-            format!("{CLIENT_MESSAGE_ENDPOINT}?session_id={session_id}&token={token}")
-        } else {
-            format!("{CLIENT_MESSAGE_ENDPOINT}?session_id={session_id}")
-        };
+        // Build message URL with optional auth token
+        let message_url = self.build_sse_message_url(session, &session_id)?;
 
-        let mut rx = self.tx.subscribe();
+        // Subscribe to event channel
+        let rx = self.tx.subscribe();
+
+        // Create and handle SSE stream
+        self.handle_sse_stream(session, &session_id, &message_url, rx)
+            .await
+    }
+
+    /// Builds SSE message URL with optional auth token
+    fn build_sse_message_url(&self, session: &mut Session, session_id: &str) -> Result<String> {
+        if SERVER_WITH_AUTH {
+            let parsed = utils::request::query_to_map(&session.req_header().uri);
+            let token = match parsed.get("token") {
+                Some(data) => data,
+                None => "",
+            };
+            Ok(format!(
+                "{CLIENT_MESSAGE_ENDPOINT}?session_id={session_id}&token={token}"
+            ))
+        } else {
+            Ok(format!("{CLIENT_MESSAGE_ENDPOINT}?session_id={session_id}"))
+        }
+    }
+
+    /// Handles SSE event stream
+    async fn handle_sse_stream(
+        &self,
+        session: &mut Session,
+        session_id: &str,
+        message_url: &str,
+        mut rx: broadcast::Receiver<SseEvent>,
+    ) -> Result<bool> {
         let body = stream! {
-            let event = SseEvent::new_event(&session_id,"endpoint", &message_url);
+            // Send initial connection event
+            let event = SseEvent::new_event(session_id, "endpoint", message_url);
             yield event.to_bytes();
 
+            // Process incoming events
             while let Ok(event) = rx.recv().await {
-                log::info!("event session_id: {:?}", &event);
+                log::debug!("Received SSE event for session: {}", session_id);
                 if event.session_id == session_id {
                     yield event.to_bytes();
                 }
             }
         };
 
+        // Stream events to client
         let mut body_stream = Box::pin(body);
         while let Some(chunk) = body_stream.next().await {
-            if let Err(e) = session.write_response_body(Some(chunk.into()), false).await {
-                log::error!("Failed to send SSE response: {}", e);
-                break;
-            }
+            session
+                .write_response_body(Some(chunk.into()), false)
+                .await
+                .map_err(|e| {
+                    log::error!("Failed to send SSE event: {}", e);
+                    e
+                })?;
         }
+
         Ok(true)
+    }
+    /// Parses JSON-RPC request from session body
+    async fn parse_json_rpc_request(&self, session: &mut Session) -> Result<JSONRPCRequest> {
+        let body = session
+            .downstream_session
+            .read_request_body()
+            .await
+            .map_err(|e| {
+                log::error!("Failed to read request body: {}", e);
+                return Error::because(ErrorType::ReadError, "Failed to read request body:", e);
+            })?;
+
+        if body.is_none() {
+            log::warn!("Request body is empty");
+            return Err(Error::err(ErrorType::ReadError)?);
+        }
+
+        serde_json::from_slice::<JSONRPCRequest>(&body.unwrap()).map_err(|e| {
+            log::error!("Failed to parse JSON: {}", e);
+            return Error::because(ErrorType::ReadError, "Failed to read request body:", e);
+        })
     }
 }
 
@@ -209,13 +289,16 @@ impl ProxyHttp for MCPProxyService {
 
         // 2025-03-26 specification protocol;
         if path == CLIENT_STREAMABLE_HTTP_ENDPOINT {
-            log::debug!("Handle GET requests for SSE streams (using built-in support from StreamableHTTP)");
             let mcp_session_id = session.req_header().headers.get("mcp-session-id");
 
             // Handle GET requests for SSE streams (using built-in support from StreamableHTTP)
             if session.req_header().method == http::Method::GET {
+                ctx.vars
+                    .insert(STREAMABLE_HTTP.to_string(), "stream".to_string());
+                log::debug!("Handle GET requests for SSE streams (using built-in support from StreamableHTTP)");
                 // Check for Last-Event-ID header for resumability
                 let last_event_id = session.req_header().headers.get("last-event-id");
+                log::debug!("req_header: {:?}", session.req_header());
                 if let Some(last_event_id) = last_event_id {
                     log::info!(
                         "Client reconnecting with Last-Event-ID: {:?}",
@@ -227,7 +310,10 @@ impl ProxyHttp for MCPProxyService {
                         mcp_session_id
                     );
                 }
+                return self.response_sse(session).await;
             } else if session.req_header().method == http::Method::POST {
+                ctx.vars
+                    .insert(STREAMABLE_HTTP.to_string(), "stateless".to_string());
                 //  Headers({'host': '0.0.0.0:3000', 'connection': 'keep-alive', 'accept': 'application/json, text/event-stream', 'content-type': 'application/json', 'accept-language': '*', 'sec-fetch-mode': 'cors', 'user-agent': 'node', 'accept-encoding': 'gzip, deflate', 'content-length': '205'})
                 // {'jsonrpc': '2.0', 'id': 0, 'method': 'initialize', 'params': {'protocolVersion': '2024-11-05', 'capabilities': {'sampling': {}, 'roots': {'listChanged': True}}, 'clientInfo': {'name': 'mcp-inspector', 'version': '0.11.0'}}}
                 // Handle POST requests for initialization or resuming a stream
@@ -236,7 +322,21 @@ impl ProxyHttp for MCPProxyService {
                     // TODO Reuse existing transport
                     log::debug!("Reuse existing transport");
                 } else {
-
+                    // match self.parse_json_rpc_request(session).await {
+                    //     Ok(request) => {
+                    //         return mcp::request_processing_streamable_http(
+                    //             ctx,
+                    //             "session_id",
+                    //             self,
+                    //             session,
+                    //             &request,
+                    //         )
+                    //         .await;
+                    //     }
+                    //     Err(e) => {
+                    //         log::error!("Failed to process JSON-RPC request: {}", e);
+                    //     }
+                    // }
                     let body = match session.downstream_session.read_request_body().await {
                         Ok(body) => body,
                         Err(e) => {
@@ -251,7 +351,6 @@ impl ProxyHttp for MCPProxyService {
                     if let Some(ref body) = body {
                         match serde_json::from_slice::<JSONRPCRequest>(body) {
                             Ok(request) => {
-
                                 return mcp::request_processing_streamable_http(
                                     ctx,
                                     "session_id",
@@ -280,15 +379,7 @@ impl ProxyHttp for MCPProxyService {
         if path == CLIENT_SSE_ENDPOINT {
             self.response_sse(session).await
         } else if path == CLIENT_MESSAGE_ENDPOINT {
-            let body = session.downstream_session.read_request_body().await?;
-
-            log::debug!("Request body: {:#?}", &body);
-            if body.is_none() {
-                log::warn!("Request body is none");
-                return Ok(true);
-            }
-
-            match serde_json::from_slice::<JSONRPCRequest>(&body.unwrap()) {
+            match self.parse_json_rpc_request(session).await {
                 Ok(request) => {
                     let parsed = utils::request::query_to_map(&session.req_header().uri);
                     let session_id = parsed.get("session_id").unwrap();
@@ -401,6 +492,12 @@ impl ProxyHttp for MCPProxyService {
             .response_filter(session, upstream_response, ctx)
             .await?;
 
+        // Remove content-length because the size of the new body is unknown
+        upstream_response.remove_header("Content-Length");
+        upstream_response
+            .insert_header("Transfer-Encoding", "Chunked")
+            .unwrap();
+
         // execute plugins
         ctx.plugin
             .clone()
@@ -411,8 +508,8 @@ impl ProxyHttp for MCPProxyService {
         &self,
         session: &mut Session,
         body: &mut Option<Bytes>,
-        _end_of_stream: bool,
-        _ctx: &mut Self::CTX,
+        end_of_stream: bool,
+        ctx: &mut Self::CTX,
     ) -> Result<()> {
         let path = session.req_header().uri.path();
         log::debug!(
@@ -434,6 +531,7 @@ impl ProxyHttp for MCPProxyService {
         log::debug!("session_id_header: {:?}", session_id_header);
         log::debug!("request_id_header: {:?}", request_id_header);
 
+        // SSE endpoint handling
         if let (Some(session_id_header), Some(request_id_header)) =
             (session_id_header, request_id_header)
         {
@@ -478,6 +576,70 @@ impl ProxyHttp for MCPProxyService {
             }
             *body = Some(Bytes::from("Accepted"));
         }
+
+        if end_of_stream {
+            log::debug!("upstream_response_body_filter End of stream reached");
+        }
+
+        match ctx.vars.get(STREAMABLE_HTTP) {
+            Some(http_type) => {
+                match http_type.as_str() {
+                    "stream" => {
+                        // Handle streaming responses
+                        log::debug!("Handling streaming responses");
+                        *body = Some(Bytes::from("Accepted"));
+                    }
+                    "stateless" => {
+                        // Handle stateless responses
+                        log::debug!("Handling stateless responses");
+                        let result = CallToolResult {
+                            meta: Map::new(),
+                            content: vec![CallToolResultContentItem::TextContent(TextContent {
+                                type_: "text".to_string(),
+                                text: body.as_ref().map_or_else(
+                                    || ERROR_MESSAGE.to_string(),
+                                    |b| String::from_utf8_lossy(b).to_string(),
+                                ),
+                                annotations: None,
+                            })],
+                            is_error: Some(false),
+                        };
+                        let res = JSONRPCResponse::new(
+                            RequestId::from(0),
+                            serde_json::to_value(result).unwrap(),
+                        );
+                        // TODO Send the response to the client
+                        let data_body = serde_json::to_string(&res).unwrap();
+                        log::debug!("data_body: {:?}", data_body);
+                        *body = Some(Bytes::copy_from_slice(data_body.as_bytes()));
+                    }
+                    _ => {
+                        log::error!("Invalid http_type value");
+                    }
+                }
+            }
+            None => {
+                // let result = CallToolResult {
+                //     meta: Map::new(),
+                //     content: vec![CallToolResultContentItem::TextContent(TextContent {
+                //         type_: "text".to_string(),
+                //         text: body.as_ref().map_or_else(
+                //             || ERROR_MESSAGE.to_string(),
+                //             |b| String::from_utf8_lossy(b).to_string(),
+                //         ),
+                //         annotations: None,
+                //     })],
+                //     is_error: Some(false),
+                // };
+                // let res =
+                //     JSONRPCResponse::new(RequestId::from(0), serde_json::to_value(result).unwrap());
+                // // *body = Some(Bytes::from(serde_json::to_string(&result).unwrap()));
+                // // session.downstream_session.write_response_header(resp)
+                // let data_body = serde_json::to_string(&res).unwrap();
+                // log::debug!("data_body: {:?}", data_body);
+                // // *body = Some(Bytes::copy_from_slice(data_body.as_bytes()));
+            }
+        };
         Ok(())
     }
 
@@ -497,6 +659,16 @@ impl ProxyHttp for MCPProxyService {
         ctx.plugin
             .clone()
             .response_body_filter(session, body, end_of_stream, ctx)?;
+
+        if end_of_stream {
+            log::debug!("response_body_filter End of stream reached");
+        }
+        // if end_of_stream {
+        //     // This is the last chunk, we can process the data now
+        //     let json_body: Resp = serde_json::de::from_slice(&ctx.buffer).unwrap();
+        //     let yaml_body = serde_yaml::to_string(&json_body).unwrap();
+        //     *body = Some(Bytes::copy_from_slice(yaml_body.as_bytes()));
+        // }
         Ok(None)
     }
 
