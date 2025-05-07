@@ -30,7 +30,7 @@ pub const CLIENT_SSE_ENDPOINT: &str = "/sse";
 pub const CLIENT_MESSAGE_ENDPOINT: &str = "/messages/";
 
 // 2025-03-26 specification protocol;
-pub const CLIENT_STREAMABLE_HTTP_ENDPOINT: &str = "/mcp";
+pub const CLIENT_STREAMABLE_HTTP_ENDPOINT: &str = "/mcp/";
 pub const ERROR_MESSAGE: &str = "Unable to fetch data for this mcp server.";
 pub const SERVER_WITH_AUTH: bool = false;
 

@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use futures::StreamExt;
 use http::{header, StatusCode};
+use log::debug;
 use pingora::modules::http::{
     HttpModules,
     {compression::ResponseCompressionBuilder, grpc_web::GrpcWeb},
@@ -46,16 +47,16 @@ impl MCPProxyService {
     }
 
     pub async fn response_accepted(&self, session: &mut Session) -> Result<()> {
-        let mut resp = ResponseHeader::build(StatusCode::OK, Some(4))?;
+        let mut resp = ResponseHeader::build(StatusCode::ACCEPTED, Some(4))?;
 
-        let body = Bytes::from("Accepted");
+        // let body = Bytes::from("Accepted");
         resp.insert_header(header::CONTENT_TYPE, "text/plain")?;
-        resp.insert_header(header::CONTENT_LENGTH, body.len().to_string())?;
+        // resp.insert_header(header::CONTENT_LENGTH, body.len().to_string())?;
 
         session.write_response_header(Box::new(resp), false).await?;
 
         session
-            .write_response_body(Some(body.clone()), true)
+            .write_response_body(None, true)
             .await?;
         Ok(())
     }
@@ -175,6 +176,7 @@ impl ProxyHttp for MCPProxyService {
             log::warn!("Route({:?}) not found", session.req_header().uri);
             if session.req_header().uri.path() != CLIENT_SSE_ENDPOINT
                 && session.req_header().uri.path() != CLIENT_MESSAGE_ENDPOINT
+                && session.req_header().uri.path() != CLIENT_STREAMABLE_HTTP_ENDPOINT
             {
                 // Handle the case where the route is not found
                 // and the request is for the SSE endpoint
@@ -207,6 +209,7 @@ impl ProxyHttp for MCPProxyService {
 
         // 2025-03-26 specification protocol;
         if path == CLIENT_STREAMABLE_HTTP_ENDPOINT {
+            log::debug!("Handle GET requests for SSE streams (using built-in support from StreamableHTTP)");
             let mcp_session_id = session.req_header().headers.get("mcp-session-id");
 
             // Handle GET requests for SSE streams (using built-in support from StreamableHTTP)
@@ -225,9 +228,15 @@ impl ProxyHttp for MCPProxyService {
                     );
                 }
             } else if session.req_header().method == http::Method::POST {
+                //  Headers({'host': '0.0.0.0:3000', 'connection': 'keep-alive', 'accept': 'application/json, text/event-stream', 'content-type': 'application/json', 'accept-language': '*', 'sec-fetch-mode': 'cors', 'user-agent': 'node', 'accept-encoding': 'gzip, deflate', 'content-length': '205'})
+                // {'jsonrpc': '2.0', 'id': 0, 'method': 'initialize', 'params': {'protocolVersion': '2024-11-05', 'capabilities': {'sampling': {}, 'roots': {'listChanged': True}}, 'clientInfo': {'name': 'mcp-inspector', 'version': '0.11.0'}}}
+                // Handle POST requests for initialization or resuming a stream
+                log::debug!("Handle POST requests for initialization or resuming a stream");
                 if let Some(_mcp_session_id) = mcp_session_id {
                     // TODO Reuse existing transport
+                    log::debug!("Reuse existing transport");
                 } else {
+
                     let body = match session.downstream_session.read_request_body().await {
                         Ok(body) => body,
                         Err(e) => {
@@ -237,32 +246,20 @@ impl ProxyHttp for MCPProxyService {
                         }
                     };
 
-                    if let Some(ref body) = body {
-                        match serde_json::from_slice(body) {
-                            Ok(parsed_body) => {
-                                if utils::request::is_initialize_request(&parsed_body) {
-                                    // New initialization request
-                                } else {
-                                    // Invalid request - no session ID or not initialization request
-                                    let res = JSONRPCError {
-                                        jsonrpc: "2.0".to_string(),
-                                        id: RequestId::from(0),
-                                        error: JSONRPCErrorDetails {
-                                            code: ErrorCode::OwnErrorCode,
-                                            message: "Bad Request: No valid session ID provided"
-                                                .to_string(),
-                                            data: None,
-                                        },
-                                    };
+                    log::debug!("Request body: {:#?}", &body);
 
-                                    return self
-                                        .response(
-                                            session,
-                                            StatusCode::BAD_REQUEST,
-                                            serde_json::to_string(&res).unwrap(),
-                                        )
-                                        .await;
-                                }
+                    if let Some(ref body) = body {
+                        match serde_json::from_slice::<JSONRPCRequest>(body) {
+                            Ok(request) => {
+
+                                return mcp::request_processing_streamable_http(
+                                    ctx,
+                                    "session_id",
+                                    self,
+                                    session,
+                                    &request.clone(),
+                                )
+                                .await;
                             }
                             Err(e) => {
                                 // Handle JSON parsing errors gracefully

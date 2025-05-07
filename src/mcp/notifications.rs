@@ -27,6 +27,7 @@ pub async fn request_processing(
     mcp_proxy: &MCPProxyService,
     session: &mut Session,
     request: &JSONRPCRequest,
+    stream: bool, // TODO: Implement stream handling if needed, currently unused in this cod
 ) -> Result<bool> {
     // Safely handle the request ID assignment
     let request_id = request.id.clone().unwrap_or(RequestId::Integer(0));
@@ -34,27 +35,37 @@ pub async fn request_processing(
     match request.method.as_str() {
         "ping" => {
             log::debug!("ping...");
-            process_response(ctx, session_id, "{}", mcp_proxy, session).await?;
+            if stream {
+                process_response(ctx, session_id, "{}", mcp_proxy, session).await?;
+            }
             Ok(true)
         }
         "notifications/initialized" | "notifications/cancelled" => {
             log::debug!("notifications/initialized or notifications/cancelled");
-            process_response(ctx, session_id, "Accepted", mcp_proxy, session).await?;
+            if stream {
+                process_response(ctx, session_id, "Accepted", mcp_proxy, session).await?;
+            }
             Ok(true)
         }
         "notifications/roots/list_changed" => {
             log::debug!("notifications/roots/list_changed");
-            mcp_proxy.response_accepted(session).await?;
+            if stream {
+                mcp_proxy.response_accepted(session).await?;
+            }
             Ok(true)
         }
         "completion/complete" => {
             log::debug!("completion/complete");
             // TODO: Implement resource completion logic
-            mcp_proxy.response_accepted(session).await?;
+            if stream {
+                mcp_proxy.response_accepted(session).await?;
+            }
             Ok(true)
         }
         _ => {
-            process_response(ctx, session_id, "Accepted", mcp_proxy, session).await?;
+            if stream {
+                process_response(ctx, session_id, "Accepted", mcp_proxy, session).await?;
+            }
             Ok(true)
         }
     }
