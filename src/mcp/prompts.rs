@@ -19,9 +19,7 @@ pub async fn request_processing(
     stream: bool,
 ) -> Result<bool> {
     let request_id = request.id.clone().unwrap_or(RequestId::Integer(0));
-    // if request.id.is_some() {
-    //     request_id = request.id.unwrap();
-    // }
+
     match request.method.as_str() {
         "prompts/list" => {
             log::info!("prompts/list");

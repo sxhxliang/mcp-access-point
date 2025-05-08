@@ -3,11 +3,7 @@ pub mod http_admin;
 pub mod validate;
 use std::error::Error;
 
-use crate::{
-    config,
-    plugin::build_plugin,
-};
-
+use crate::{config, plugin::build_plugin};
 
 trait PluginValidatable {
     fn validate_plugins(&self) -> Result<(), Box<dyn Error>>;

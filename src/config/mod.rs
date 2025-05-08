@@ -1,15 +1,14 @@
+pub mod control;
 pub mod etcd;
+pub mod mcp;
 pub mod route;
 pub mod upstream;
-pub mod mcp;
-pub mod control;
 
+pub use control::*;
+pub use etcd::*;
+pub use mcp::*;
 pub use route::*;
 pub use upstream::*;
-pub use etcd::*;
-pub use control::*;
-pub use mcp::*;
-
 
 use std::{collections::HashMap, fs, net::SocketAddr};
 
@@ -20,7 +19,6 @@ use pingora_error::{Error, ErrorType::*, OrErr, Result};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value as YamlValue;
 use validator::{Validate, ValidationError};
-
 
 pub const SERVER_NAME: &str = "mcp_proxy";
 pub const SERVER_VERSION: &str = "1.5";
@@ -36,22 +34,22 @@ pub const SERVER_WITH_AUTH: bool = false;
 
 /// Trait for types with an ID field, used for unique ID validation.
 pub trait Identifiable {
-  fn id(&self) -> &str;
-  fn set_id(&mut self, id: String);
+    fn id(&self) -> &str;
+    fn set_id(&mut self, id: String);
 }
 
 macro_rules! impl_identifiable {
-  ($type:ty) => {
-      impl Identifiable for $type {
-          fn id(&self) -> &str {
-              &self.id
-          }
+    ($type:ty) => {
+        impl Identifiable for $type {
+            fn id(&self) -> &str {
+                &self.id
+            }
 
-          fn set_id(&mut self, id: String) {
-              self.id = id;
-          }
-      }
-  };
+            fn set_id(&mut self, id: String) {
+                self.id = id;
+            }
+        }
+    };
 }
 
 impl_identifiable!(Route);
@@ -201,7 +199,6 @@ impl Listener {
         }
     }
 }
-
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Tls {

@@ -1,7 +1,5 @@
 #![allow(clippy::upper_case_acronyms)]
 
-use std::ops::DerefMut;
-
 use pingora::services::listening::Service;
 use pingora_core::{
     apps::HttpServerOptions,
@@ -10,10 +8,10 @@ use pingora_core::{
 };
 use pingora_proxy::{http_proxy_service_with_name, HttpProxy};
 use sentry::IntoDsn;
+use std::ops::DerefMut;
+use tokio::sync::broadcast;
 
-use access_point::{admin::http_admin::AdminHttpApp, openapi::reload_global_openapi_tools_from_config};
-use access_point::config;
-use access_point::config::{etcd::EtcdConfigSync, Config};
+use access_point::config::{self, etcd::EtcdConfigSync, Config};
 use access_point::logging::Logger;
 use access_point::proxy::{
     event::ProxyEventHandler,
@@ -23,9 +21,11 @@ use access_point::proxy::{
     ssl::{load_static_ssls, DynamicCert},
     upstream::load_static_upstreams,
 };
+use access_point::{
+    admin::http_admin::AdminHttpApp, openapi::reload_global_openapi_tools_from_config,
+};
 // use access_point::service::http::HttpService;
 use access_point::service::mcp::MCPProxyService;
-use tokio::sync::broadcast;
 
 fn main() {
     // 加载配置和命令行参数
@@ -82,14 +82,18 @@ fn main() {
     // let mcp_config =
     //         Config::load_yaml_with_opt_override(&cli_options).expect("Failed to load configuration");
     if let Some(mcps) = config.mcps {
-        let _tools = reload_global_openapi_tools_from_config(mcps).expect("Failed to reload openapi tools");
+        let _tools =
+            reload_global_openapi_tools_from_config(mcps).expect("Failed to reload openapi tools");
     }
-      // println!("total tools : {:#?}", tools.tools.len());
+    // println!("total tools : {:#?}", tools.tools.len());
 
     let (tx, _) = broadcast::channel(16);
-    
-    let mut http_service: Service<HttpProxy<MCPProxyService>> =
-        http_proxy_service_with_name(&access_point_server.configuration, MCPProxyService::new(tx), "access_point");
+
+    let mut http_service: Service<HttpProxy<MCPProxyService>> = http_proxy_service_with_name(
+        &access_point_server.configuration,
+        MCPProxyService::new(tx),
+        "access_point",
+    );
 
     // 添加监听器
     log::info!("Adding listeners...");
@@ -109,7 +113,10 @@ fn main() {
 }
 
 // 添加监听器的辅助函数
-fn add_listeners(http_service: &mut Service<HttpProxy<MCPProxyService>>, cfg: &config::AccessPointConfig) {
+fn add_listeners(
+    http_service: &mut Service<HttpProxy<MCPProxyService>>,
+    cfg: &config::AccessPointConfig,
+) {
     for list_cfg in cfg.listeners.iter() {
         if let Some(tls) = &list_cfg.tls {
             // ... TLS 配置

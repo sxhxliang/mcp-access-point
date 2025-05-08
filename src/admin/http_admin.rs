@@ -17,14 +17,12 @@ use std::{
 };
 use tokio::sync::Mutex;
 
-
-use crate::config::{Admin, EtcdClientWrapper, AccessPointConfig};
 use super::validate::*;
+use crate::config::{AccessPointConfig, Admin, EtcdClientWrapper};
 
 type RequestParams = BTreeMap<String, String>;
 type ResponseResult = Result<Response<Vec<u8>>, String>;
 type HttpRouterHandler = Pin<Box<dyn Future<Output = ResponseResult> + Send + 'static>>;
-
 
 #[derive(Serialize, Deserialize)]
 struct ValueWrapper<T> {
@@ -97,7 +95,10 @@ impl RequestData {
         self.header.headers.get(key)
     }
     pub fn get_header_value(&self, key: &str) -> Option<String> {
-        self.header.headers.get(key).map(|v| v.to_str().unwrap_or("").to_string())
+        self.header
+            .headers
+            .get(key)
+            .map(|v| v.to_str().unwrap_or("").to_string())
     }
 }
 
@@ -112,13 +113,12 @@ async fn list_resources(_req: RequestData) -> Result<Response<Vec<u8>>, String> 
     Ok(res)
 }
 
-async fn put_resource_handle(
-    req: RequestData
-) -> Result<Response<Vec<u8>>, String> {
+async fn put_resource_handle(req: RequestData) -> Result<Response<Vec<u8>>, String> {
     validate_content_type(&req)?;
 
     // let body_data = req.body_data.clone();
-    let resource_type = req.params
+    let resource_type = req
+        .params
         .get("resource")
         .ok_or_else(|| "MissingParameter resource".to_string())?;
     let key = format!(
@@ -130,16 +130,18 @@ async fn put_resource_handle(
     );
 
     // validate_resource(resource_type, &req.body_data)?;
-    req.etcd.lock().await.put(&key, req.body_data)
+    req.etcd
+        .lock()
+        .await
+        .put(&key, req.body_data)
         .await
         .map_err(|e| e.to_string())?;
     Ok(ResponseHelper::success(Vec::new(), None))
 }
 
-async fn get_resource_handle(
-    req: RequestData
-) -> Result<Response<Vec<u8>>, String> {
-    let resource_type = req.params
+async fn get_resource_handle(req: RequestData) -> Result<Response<Vec<u8>>, String> {
+    let resource_type = req
+        .params
         .get("resource")
         .ok_or_else(|| "Missing parameter".to_string())?;
 
@@ -151,41 +153,39 @@ async fn get_resource_handle(
             .ok_or_else(|| "Missing upstream configuration".to_string())?
     );
 
-
     match req.etcd.lock().await.get(&key).await {
         Err(e) => Err(e.to_string()),
         Ok(Some(value)) => {
-            let json_value: serde_json::Value = serde_json::from_slice(&value)
-                .map_err(|e| format!("Invalid JSON data: {}", e))?;
-            
+            let json_value: serde_json::Value =
+                serde_json::from_slice(&value).map_err(|e| format!("Invalid JSON data: {}", e))?;
+
             // let wrapper = ValueWrapper { value: json_value };
-            let json_vec = serde_json::to_vec(&json_value)
-                .map_err(|e| e.to_string())?;
+            let json_vec = serde_json::to_vec(&json_value).map_err(|e| e.to_string())?;
             Ok(ResponseHelper::success(json_vec, Some("application/json")))
         }
         Ok(None) => Err("Resource not found".to_string()),
     }
 }
 
-async fn delete_resource_handle(
-    req: RequestData
-) -> Result<Response<Vec<u8>>, String> {
+async fn delete_resource_handle(req: RequestData) -> Result<Response<Vec<u8>>, String> {
     let key = format!(
         "{}/{}",
         req.params
             .get("resource")
             .ok_or_else(|| "MissingParameter resource".to_string())?,
-            req.params
+        req.params
             .get("id")
             .ok_or_else(|| "MissingParameter id".to_string())?
     );
 
-    req.etcd.lock().await.delete(&key)
+    req.etcd
+        .lock()
+        .await
+        .delete(&key)
         .await
         .map_err(|e| e.to_string())?;
     Ok(ResponseHelper::success(Vec::new(), None))
 }
-
 
 pub struct AdminHttpApp {
     config: Admin,
@@ -248,14 +248,11 @@ impl AdminHttpApp {
         service.add_tcp(addr);
         service
     }
-    
 }
 
 async fn read_request_body(http_session: &mut ServerSession) -> Result<Vec<u8>, String> {
     let body_data = match http_session.read_request_body().await {
-        Ok(Some(body_data)) => { 
-            body_data.to_vec()
-        }
+        Ok(Some(body_data)) => body_data.to_vec(),
         Ok(None) => vec![], // done
         Err(e) => return Err("Failed to read request body".to_string()),
     };
@@ -283,7 +280,6 @@ impl ServeHttp for AdminHttpApp {
         };
 
         match self.router.at(&path) {
-            
             Ok(Match { value, params }) => match value.get(&method) {
                 Some(handler) => {
                     let params: RequestParams = params
@@ -322,4 +318,3 @@ impl ServeHttp for AdminHttpApp {
         }
     }
 }
-

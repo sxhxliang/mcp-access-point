@@ -1,11 +1,11 @@
-use std::{str::FromStr, time::Duration};
+use std::time::Duration;
 
 use async_stream::stream;
 use async_trait::async_trait;
 use bytes::Bytes;
 use futures::StreamExt;
 use http::{header, StatusCode};
-use log::debug;
+
 use pingora::{
     modules::http::{compression::ResponseCompressionBuilder, grpc_web::GrpcWeb, HttpModules},
     ErrorType,
@@ -18,22 +18,24 @@ use pingora_proxy::{ProxyHttp, Session};
 use serde_json::Map;
 use tokio::sync::broadcast;
 
-use crate::{proxy::upstream::upstream_fetch, sse_event::SseEvent, types::RequestId};
-
 use crate::{
     config::{
         CLIENT_MESSAGE_ENDPOINT, CLIENT_SSE_ENDPOINT, CLIENT_STREAMABLE_HTTP_ENDPOINT,
         ERROR_MESSAGE, SERVER_WITH_AUTH,
     },
-    jsonrpc::{ErrorCode, JSONRPCError, JSONRPCErrorDetails, JSONRPCRequest, JSONRPCResponse},
-    mcp,
+    jsonrpc::{JSONRPCRequest, JSONRPCResponse},
     plugin::ProxyPlugin,
-    proxy::{global_rule::global_plugin_fetch, route::global_route_match_fetch, ProxyContext},
+    proxy::{
+        global_rule::global_plugin_fetch, route::global_route_match_fetch,
+        upstream::upstream_fetch, ProxyContext,
+    },
+    service::endpoint::{self, MCP_REQUEST_ID, MCP_SESSION_ID, MCP_STREAMABLE_HTTP},
+    sse_event::SseEvent,
+    types::RequestId,
     types::{CallToolResult, CallToolResultContentItem, TextContent},
     utils,
 };
 
-const STREAMABLE_HTTP: &str = "streamable_http";
 /// Proxy service.
 ///
 /// Manages the proxying of requests to upstream servers.
@@ -187,7 +189,7 @@ impl MCPProxyService {
         Ok(true)
     }
     /// Parses JSON-RPC request from session body
-    async fn parse_json_rpc_request(&self, session: &mut Session) -> Result<JSONRPCRequest> {
+    pub async fn parse_json_rpc_request(&self, session: &mut Session) -> Result<JSONRPCRequest> {
         let body = session
             .downstream_session
             .read_request_body()
@@ -287,129 +289,21 @@ impl ProxyHttp for MCPProxyService {
         );
         let path = session.req_header().uri.path();
 
-        // 2025-03-26 specification protocol;
-        if path == CLIENT_STREAMABLE_HTTP_ENDPOINT {
-            let mcp_session_id = session.req_header().headers.get("mcp-session-id");
-
-            // Handle GET requests for SSE streams (using built-in support from StreamableHTTP)
-            if session.req_header().method == http::Method::GET {
-                ctx.vars
-                    .insert(STREAMABLE_HTTP.to_string(), "stream".to_string());
-                log::debug!("Handle GET requests for SSE streams (using built-in support from StreamableHTTP)");
-                // Check for Last-Event-ID header for resumability
-                let last_event_id = session.req_header().headers.get("last-event-id");
-                log::debug!("req_header: {:?}", session.req_header());
-                if let Some(last_event_id) = last_event_id {
-                    log::info!(
-                        "Client reconnecting with Last-Event-ID: {:?}",
-                        last_event_id
-                    );
-                } else {
-                    log::info!(
-                        "Establishing new SSE stream for session {:?}",
-                        mcp_session_id
-                    );
-                }
-                return self.response_sse(session).await;
-            } else if session.req_header().method == http::Method::POST {
-                ctx.vars
-                    .insert(STREAMABLE_HTTP.to_string(), "stateless".to_string());
-                //  Headers({'host': '0.0.0.0:3000', 'connection': 'keep-alive', 'accept': 'application/json, text/event-stream', 'content-type': 'application/json', 'accept-language': '*', 'sec-fetch-mode': 'cors', 'user-agent': 'node', 'accept-encoding': 'gzip, deflate', 'content-length': '205'})
-                // {'jsonrpc': '2.0', 'id': 0, 'method': 'initialize', 'params': {'protocolVersion': '2024-11-05', 'capabilities': {'sampling': {}, 'roots': {'listChanged': True}}, 'clientInfo': {'name': 'mcp-inspector', 'version': '0.11.0'}}}
-                // Handle POST requests for initialization or resuming a stream
-                log::debug!("Handle POST requests for initialization or resuming a stream");
-                if let Some(_mcp_session_id) = mcp_session_id {
-                    // TODO Reuse existing transport
-                    log::debug!("Reuse existing transport");
-                } else {
-                    // match self.parse_json_rpc_request(session).await {
-                    //     Ok(request) => {
-                    //         return mcp::request_processing_streamable_http(
-                    //             ctx,
-                    //             "session_id",
-                    //             self,
-                    //             session,
-                    //             &request,
-                    //         )
-                    //         .await;
-                    //     }
-                    //     Err(e) => {
-                    //         log::error!("Failed to process JSON-RPC request: {}", e);
-                    //     }
-                    // }
-                    let body = match session.downstream_session.read_request_body().await {
-                        Ok(body) => body,
-                        Err(e) => {
-                            // Handle read error gracefully
-                            log::debug!("Failed to read request body: {}", e);
-                            return Err(e); // Propagate the error or handle it as needed
-                        }
-                    };
-
-                    log::debug!("Request body: {:#?}", &body);
-
-                    if let Some(ref body) = body {
-                        match serde_json::from_slice::<JSONRPCRequest>(body) {
-                            Ok(request) => {
-                                return mcp::request_processing_streamable_http(
-                                    ctx,
-                                    "session_id",
-                                    self,
-                                    session,
-                                    &request.clone(),
-                                )
-                                .await;
-                            }
-                            Err(e) => {
-                                // Handle JSON parsing errors gracefully
-                                log::debug!("Failed to parse request body as JSON: {}", e);
-                            }
-                        }
-                    } else {
-                        // Handle the case where the body is None
-                        log::debug!("Request body is empty");
-                    }
-                }
-
-                return Ok(false);
+        // Handle the request based on the path
+        match path {
+            CLIENT_STREAMABLE_HTTP_ENDPOINT => {
+                // 2025-03-26 specification protocol;
+                return endpoint::handle_streamable_http_endpoint(ctx, self, session).await;
             }
-        }
-
-        // 2024-11-05 specification protocol;
-        if path == CLIENT_SSE_ENDPOINT {
-            self.response_sse(session).await
-        } else if path == CLIENT_MESSAGE_ENDPOINT {
-            match self.parse_json_rpc_request(session).await {
-                Ok(request) => {
-                    let parsed = utils::request::query_to_map(&session.req_header().uri);
-                    let session_id = parsed.get("session_id").unwrap();
-                    log::info!("session_id: {}", session_id);
-                    let _ = session
-                        .req_header_mut()
-                        .append_header("MCP-SESSION-ID", session_id);
-                    if request.id.is_some() {
-                        let _ = session.req_header_mut().append_header(
-                            "MCP-REQUEST-ID",
-                            request.id.clone().unwrap().to_string(),
-                        );
-                    }
-
-                    return mcp::request_processing(
-                        ctx,
-                        session_id,
-                        self,
-                        session,
-                        &request.clone(),
-                    )
-                    .await;
-                }
-                Err(e) => {
-                    log::error!("Failed to parse JSON: {}", e);
-                }
+            CLIENT_SSE_ENDPOINT => {
+                // 2024-11-05 specification protocol;
+                return endpoint::handle_sse_endpoint(ctx, self, session).await;
             }
-            Ok(false)
-        } else {
-            Ok(false)
+            CLIENT_MESSAGE_ENDPOINT => {
+                // 2024-11-05 specification protocol;
+                return endpoint::handle_message_endpoint(ctx, self, session).await;
+            }
+            _ => Ok(false),
         }
     }
 
@@ -422,12 +316,10 @@ impl ProxyHttp for MCPProxyService {
         let peer = match ctx.route.clone().as_ref() {
             Some(route) => route.select_http_peer(session),
             None => {
-                let upstream_id = session
-                    .req_header_mut()
-                    .remove_header("upstream_id")
-                    .unwrap();
+                let upstream_id = ctx.vars.get("upstream_id").unwrap();
+                // TODO upstream_id is null, need to find the upstream_id from the route_params
                 log::info!("upstream_peer upstream_id: {:?}", upstream_id);
-                let upstream = upstream_fetch(upstream_id.to_str().unwrap());
+                let upstream = upstream_fetch(upstream_id);
                 match upstream {
                     Some(_upstream) => {
                         log::info!("upstream_peer upstream found ");
@@ -437,14 +329,11 @@ impl ProxyHttp for MCPProxyService {
                     }
                 };
 
-                // let upstream = upstream_fetch(upstream_id.to_str().unwrap()).unwrap();
-                // let peer = upstream.select_backend(session);
                 ctx.route_mcp.clone().unwrap().select_http_peer(session)
-                // log::warn!("Route not found");
             }
         };
         // log::info!("upstream_peer: {:?}", ctx.route_mcp.unwrap().inner);
-        // let peer = ctx.route.as_ref().unwrap().select_http_peer(session);
+
         if let Ok(ref peer) = peer {
             ctx.vars
                 .insert("upstream".to_string(), peer._address.to_string());
@@ -523,65 +412,45 @@ impl ProxyHttp for MCPProxyService {
         } else {
             log::info!("upstream response Body is None");
         }
-
-        // Safely retrieve headers
-        let headers = &session.req_header().headers;
-        let session_id_header = headers.get("MCP-SESSION-ID");
-        let request_id_header = headers.get("MCP-REQUEST-ID");
-        log::debug!("session_id_header: {:?}", session_id_header);
-        log::debug!("request_id_header: {:?}", request_id_header);
-
-        // SSE endpoint handling
-        if let (Some(session_id_header), Some(request_id_header)) =
-            (session_id_header, request_id_header)
+        // SSE endpoint processing
+        if let (Some(session_id), Some(request_id)) =
+            (ctx.vars.get(MCP_SESSION_ID), ctx.vars.get(MCP_REQUEST_ID))
         {
-            if let (Ok(session_id), Ok(request_id)) =
-                (session_id_header.to_str(), request_id_header.to_str())
-            {
-                // Construct the result object
+            // Construct the result object
+            let result = CallToolResult {
+                meta: Map::new(),
+                content: vec![CallToolResultContentItem::TextContent(TextContent {
+                    type_: "text".to_string(),
+                    text: body.as_ref().map_or_else(
+                        || ERROR_MESSAGE.to_string(),
+                        |b| String::from_utf8_lossy(b).to_string(),
+                    ),
+                    annotations: None,
+                })],
+                is_error: Some(false),
+            };
+            // Convert the result to JSON-RPC response
 
-                let result = CallToolResult {
-                    meta: Map::new(),
-                    content: vec![CallToolResultContentItem::TextContent(TextContent {
-                        type_: "text".to_string(),
-                        text: body.as_ref().map_or_else(
-                            || ERROR_MESSAGE.to_string(),
-                            |b| String::from_utf8_lossy(b).to_string(),
-                        ),
-                        annotations: None,
-                    })],
-                    is_error: Some(false),
-                };
-                // Convert the result to JSON-RPC response
-
-                if let Ok(request_id) = request_id.parse::<i64>() {
-                    let res = JSONRPCResponse::new(
-                        RequestId::from(request_id),
-                        serde_json::to_value(result).unwrap(),
-                    );
-                    let event = SseEvent::new_event(
-                        session_id,
-                        "message",
-                        &serde_json::to_string(&res).unwrap(),
-                    );
-                    // Send the event (placeholder for actual implementation)
-                    if let Err(e) = self.tx.send(event) {
-                        log::error!("Failed to send SSE event: {}", e);
-                    }
-                } else {
-                    log::error!("Invalid MCP-REQUEST-ID format");
+            if let Ok(request_id) = request_id.parse::<i64>() {
+                let res = JSONRPCResponse::new(
+                    RequestId::from(request_id),
+                    serde_json::to_value(result).unwrap(),
+                );
+                let event = SseEvent::new_event(
+                    session_id,
+                    "message",
+                    &serde_json::to_string(&res).unwrap(),
+                );
+                // Send the event (placeholder for actual implementation)
+                if let Err(e) = self.tx.send(event) {
+                    log::error!("Failed to send SSE event: {}", e);
                 }
             } else {
-                log::error!("Headers contain invalid characters");
+                log::error!("Invalid MCP-REQUEST-ID format");
             }
-            *body = Some(Bytes::from("Accepted"));
         }
-
-        if end_of_stream {
-            log::debug!("upstream_response_body_filter End of stream reached");
-        }
-
-        match ctx.vars.get(STREAMABLE_HTTP) {
+        // Handle mcp streaming http responses
+        match ctx.vars.get(MCP_STREAMABLE_HTTP) {
             Some(http_type) => {
                 match http_type.as_str() {
                     "stream" => {

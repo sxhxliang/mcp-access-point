@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::{borrow::Cow, collections::HashMap};
 use std::str::FromStr;
+use std::{borrow::Cow, collections::HashMap};
 
 use crate::types::RequestId;
 pub const LATEST_PROTOCOL_VERSION: &str = "2024-11-05";
@@ -91,7 +91,6 @@ impl Default for JSONRPCResponse {
         }
     }
 }
-
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]

@@ -4,7 +4,6 @@ use pingora_error::Result;
 use serde::{Deserialize, Serialize};
 use validator::{Validate, ValidationError};
 
-
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Admin {
     pub address: SocketAddr,

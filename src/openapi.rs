@@ -17,8 +17,13 @@ use crate::{
 };
 
 /// Global map to store global rules, initialized lazily.
-pub static MCP_TOOLS_MAP: Lazy<Arc<Mutex<ListToolsResult>>> =
-    Lazy::new(|| Arc::new(Mutex::new(ListToolsResult { meta: Map::new(), next_cursor: None, tools: vec![] })));
+pub static MCP_TOOLS_MAP: Lazy<Arc<Mutex<ListToolsResult>>> = Lazy::new(|| {
+    Arc::new(Mutex::new(ListToolsResult {
+        meta: Map::new(),
+        next_cursor: None,
+        tools: vec![],
+    }))
+});
 
 pub fn global_openapi_tools_fetch() -> Option<ListToolsResult> {
     // Lock the Mutex and clone the inner value to return as Arc
@@ -33,7 +38,11 @@ pub fn reload_global_openapi_tools(
 
     // Lock the Mutex and update the global tools map
     let mut map = MCP_TOOLS_MAP.lock().map_err(|e| e.to_string())?;
-    *map = ListToolsResult { meta: Map::new(), next_cursor: None, tools:tools.tools.clone()};
+    *map = ListToolsResult {
+        meta: Map::new(),
+        next_cursor: None,
+        tools: tools.tools.clone(),
+    };
 
     Ok(tools)
 }
@@ -41,7 +50,11 @@ pub fn reload_global_openapi_tools(
 pub fn reload_global_openapi_tools_from_config(
     mcp_cfgs: Vec<MCPOpenAPIConfig>,
 ) -> Result<ListToolsResult, Box<dyn std::error::Error>> {
-    let mut tools: ListToolsResult = ListToolsResult { meta: Map::new(), next_cursor: None, tools: vec![] };
+    let mut tools: ListToolsResult = ListToolsResult {
+        meta: Map::new(),
+        next_cursor: None,
+        tools: vec![],
+    };
     for mcp_cfg in mcp_cfgs {
         let (_, content) = read_from_local_or_remote(&mcp_cfg.path)?;
         let mut spec: OpenApiSpec = OpenApiSpec::new(content)?;
@@ -64,7 +77,7 @@ pub fn reload_global_openapi_tools_from_config(
     }
     // Lock the Mutex and update the global tools map
     let mut map = MCP_TOOLS_MAP.lock().map_err(|e| e.to_string())?;
-    *map = ListToolsResult{
+    *map = ListToolsResult {
         meta: Map::new(),
         next_cursor: None,
         tools: tools.tools.clone(),
@@ -288,10 +301,7 @@ impl OpenApiSpec {
             let mut prop_type = Map::new();
             prop_type.insert("title".into(), Value::String(param.name.clone()));
             prop_type.insert("prop_type".into(), Value::String(param.param_type.clone()));
-            properties.insert(
-                param.name.clone(),
-                prop_type
-            );
+            properties.insert(param.name.clone(), prop_type);
 
             if param.required.unwrap() {
                 required.push(param.name.clone());

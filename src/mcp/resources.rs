@@ -1,4 +1,3 @@
-
 #[warn(dead_code)]
 use pingora::{proxy::Session, Result};
 use pingora_proxy::ProxyHttp;

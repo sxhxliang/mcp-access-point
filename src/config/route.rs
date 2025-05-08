@@ -1,4 +1,3 @@
-
 use std::{collections::HashMap, fmt};
 
 use pingora_error::Result;
@@ -7,7 +6,6 @@ use serde_yaml::Value as YamlValue;
 use validator::{Validate, ValidationError};
 
 use super::{Timeout, Upstream};
-
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum HttpMethod {
@@ -52,7 +50,6 @@ impl HttpMethod {
             _ => None,
         }
     }
-    
 }
 
 impl std::fmt::Display for HttpMethod {
@@ -72,8 +69,6 @@ impl std::fmt::Display for HttpMethod {
         write!(f, "{}", method)
     }
 }
-
-
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize, Validate)]
 #[validate(schema(function = "Route::validate"))]

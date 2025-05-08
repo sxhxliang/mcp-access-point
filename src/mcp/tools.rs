@@ -121,10 +121,9 @@ pub async fn request_processing(
 
                         log::info!("route upstream route_cfg: {:#?}", route_cfg);
                         ctx.route_mcp = Some(Arc::new(route::ProxyRoute::from(route_cfg)));
-                        // add headers from upstream config
-                        let _ = session
-                            .req_header_mut()
-                            .insert_header("upstream_id", upstream_id);
+
+                        ctx.vars
+                            .insert("upstream_id".to_string(), upstream_id.to_string());
                         for (key, value) in route_meta_info.get_headers() {
                             let _ = session.req_header_mut().insert_header(key, value);
                         }

@@ -8,12 +8,13 @@ use std::collections::HashMap;
 
 use crate::{
     config::{SERVER_NAME, SERVER_VERSION},
+    jsonrpc::{JSONRPCRequest, JSONRPCResponse, LATEST_PROTOCOL_VERSION},
     service::mcp::MCPProxyService,
     sse_event::SseEvent,
     types::{
-        Implementation, InitializeResult, ServerCapabilities, ServerCapabilitiesPrompts, ServerCapabilitiesResources, ServerCapabilitiesTools, 
+        Implementation, InitializeResult, ServerCapabilities, ServerCapabilitiesPrompts,
+        ServerCapabilitiesResources, ServerCapabilitiesTools,
     },
-    jsonrpc::{JSONRPCRequest, JSONRPCResponse, LATEST_PROTOCOL_VERSION}
 };
 
 use http::StatusCode;
@@ -29,11 +30,14 @@ pub async fn send_json_response(
     session_id: &str,
 ) -> Result<()> {
     if stream {
-        let event = SseEvent::new_event(session_id, "message", &serde_json::to_string(res).unwrap());
+        let event =
+            SseEvent::new_event(session_id, "message", &serde_json::to_string(res).unwrap());
         let _ = mcp_proxy.tx.send(event);
         mcp_proxy.response_accepted(session).await?;
     } else {
-        mcp_proxy.response(session, StatusCode::OK, serde_json::to_string(res).unwrap()).await?;
+        mcp_proxy
+            .response(session, StatusCode::OK, serde_json::to_string(res).unwrap())
+            .await?;
     }
     Ok(())
 }
@@ -58,16 +62,12 @@ pub async fn request_processing(
                     completions: Map::new(),
                     experimental: HashMap::new(),
                     logging: Map::new(),
-                    prompts: Some(ServerCapabilitiesPrompts {
-                        list_changed: None,
-                    }),
+                    prompts: Some(ServerCapabilitiesPrompts { list_changed: None }),
                     resources: Some(ServerCapabilitiesResources {
                         subscribe: None,
                         list_changed: None,
                     }),
-                    tools: Some(ServerCapabilitiesTools {
-                        list_changed: None,
-                    }),
+                    tools: Some(ServerCapabilitiesTools { list_changed: None }),
                 },
                 server_info: Implementation {
                     name: SERVER_NAME.to_string(),
@@ -76,8 +76,10 @@ pub async fn request_processing(
                 instructions: None,
             };
 
-            let res =
-                JSONRPCResponse::new(request.id.clone().unwrap(), serde_json::to_value(result).unwrap());
+            let res = JSONRPCResponse::new(
+                request.id.clone().unwrap(),
+                serde_json::to_value(result).unwrap(),
+            );
             let event =
                 SseEvent::new_event(session_id, "message", &serde_json::to_string(&res).unwrap());
 
@@ -91,19 +93,27 @@ pub async fn request_processing(
         | "notifications/cancelled"
         | "notifications/roots/list_changed"
         | "completion/complete" => {
-            return notifications::request_processing(ctx, session_id, mcp_proxy, session, request, true).await
+            return notifications::request_processing(
+                ctx, session_id, mcp_proxy, session, request, true,
+            )
+            .await
         }
 
         "tools/list" | "tools/call" => {
-            return tools::request_processing(ctx, session_id, mcp_proxy, session, request, true).await
+            return tools::request_processing(ctx, session_id, mcp_proxy, session, request, true)
+                .await
         }
 
         "resources/list" | "resources/read" | "resources/templates/list" => {
-            return resources::request_processing(ctx, session_id, mcp_proxy, session, request, true).await
+            return resources::request_processing(
+                ctx, session_id, mcp_proxy, session, request, true,
+            )
+            .await
         }
 
         "prompts/list" | "prompts/get" => {
-            return prompts::request_processing(ctx, session_id, mcp_proxy, session, request, true).await
+            return prompts::request_processing(ctx, session_id, mcp_proxy, session, request, true)
+                .await
         }
 
         _ => {
@@ -132,16 +142,12 @@ pub async fn request_processing_streamable_http(
                     completions: Map::new(),
                     experimental: HashMap::new(),
                     logging: Map::new(),
-                    prompts: Some(ServerCapabilitiesPrompts {
-                        list_changed: None,
-                    }),
+                    prompts: Some(ServerCapabilitiesPrompts { list_changed: None }),
                     resources: Some(ServerCapabilitiesResources {
                         subscribe: None,
                         list_changed: None,
                     }),
-                    tools: Some(ServerCapabilitiesTools {
-                        list_changed: None,
-                    }),
+                    tools: Some(ServerCapabilitiesTools { list_changed: None }),
                 },
                 server_info: Implementation {
                     name: SERVER_NAME.to_string(),
@@ -150,13 +156,19 @@ pub async fn request_processing_streamable_http(
                 instructions: None,
             };
 
-            let res =
-                JSONRPCResponse::new(request.id.clone().unwrap(), serde_json::to_value(result).unwrap());
-            // let event =
-                // SseEvent::new_event(session_id, "message", &serde_json::to_string(&res).unwrap());
-            mcp_proxy.response(session, StatusCode::OK, serde_json::to_string(&res).unwrap()).await?;
-            // let _ = mcp_proxy.tx.send(event);
-            // mcp_proxy.response_accepted(session).await?;
+            let res = JSONRPCResponse::new(
+                request.id.clone().unwrap(),
+                serde_json::to_value(result).unwrap(),
+            );
+
+            mcp_proxy
+                .response(
+                    session,
+                    StatusCode::OK,
+                    serde_json::to_string(&res).unwrap(),
+                )
+                .await?;
+
             Ok(true)
         }
 
@@ -165,19 +177,27 @@ pub async fn request_processing_streamable_http(
         | "notifications/cancelled"
         | "notifications/roots/list_changed"
         | "completion/complete" => {
-            return notifications::request_processing(ctx, session_id, mcp_proxy, session, request, false).await
+            return notifications::request_processing(
+                ctx, session_id, mcp_proxy, session, request, false,
+            )
+            .await
         }
 
         "tools/list" | "tools/call" => {
-            return tools::request_processing(ctx, session_id, mcp_proxy, session, request, false).await
+            return tools::request_processing(ctx, session_id, mcp_proxy, session, request, false)
+                .await
         }
 
         "resources/list" | "resources/read" | "resources/templates/list" => {
-            return resources::request_processing(ctx, session_id, mcp_proxy, session, request, false).await
+            return resources::request_processing(
+                ctx, session_id, mcp_proxy, session, request, false,
+            )
+            .await
         }
 
         "prompts/list" | "prompts/get" => {
-            return prompts::request_processing(ctx, session_id, mcp_proxy, session, request, false).await
+            return prompts::request_processing(ctx, session_id, mcp_proxy, session, request, false)
+                .await
         }
 
         _ => {

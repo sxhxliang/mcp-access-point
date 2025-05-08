@@ -87,11 +87,14 @@ impl ProxyUpstream {
 
             // Spawn the service on the runtime
             runtime.get_handle().spawn(async move {
-                service.start_service( 
-                    #[cfg(unix)] None,
-                    watch_rx, 
-                    1
-                ).await;
+                service
+                    .start_service(
+                        #[cfg(unix)]
+                        None,
+                        watch_rx,
+                        1,
+                    )
+                    .await;
                 info!("Service exited.");
             });
             // Set the runtime lifecycle with ProxyUpstream

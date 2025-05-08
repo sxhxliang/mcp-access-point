@@ -1,3 +1,7 @@
+
+.vscode/
+.venv/
+
 /target
 /web
 /examples

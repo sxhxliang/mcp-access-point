@@ -9,7 +9,6 @@ use serde::{Deserialize, Serialize};
 use tokio::{sync::Mutex, time::sleep};
 use validator::Validate;
 
-
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Etcd {
     #[validate(length(min = 1))]
@@ -188,10 +187,12 @@ impl EtcdConfigSync {
 
 #[async_trait]
 impl Service for EtcdConfigSync {
-    async fn start_service(&mut self,  
+    async fn start_service(
+        &mut self,
         #[cfg(unix)] _fds: Option<ListenFds>,
-        shutdown: ShutdownWatch, 
-        _listeners_per_fd: usize,) {
+        shutdown: ShutdownWatch,
+        _listeners_per_fd: usize,
+    ) {
         self.run_sync_loop(shutdown).await
     }
 

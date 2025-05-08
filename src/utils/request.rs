@@ -1,11 +1,10 @@
-
 use http::{HeaderName, Uri};
 use once_cell::sync::Lazy;
 use pingora::{http::RequestHeader, proxy::Session};
 use regex::Regex;
 use serde_json::Value;
-use url::form_urlencoded;
 use std::{collections::HashMap, str::FromStr};
+use url::form_urlencoded;
 
 use crate::config::UpstreamHashOn;
 
@@ -19,16 +18,14 @@ pub fn is_initialize_request(body: &Value) -> bool {
                 false
             }
         }),
-        Value::Object(obj) => {
-            obj.get("method").and_then(|m| m.as_str()) == Some("initialize")
-        }
+        Value::Object(obj) => obj.get("method").and_then(|m| m.as_str()) == Some("initialize"),
         _ => false,
     }
 }
 
 pub fn query_to_map(uri: &Uri) -> HashMap<String, String> {
     let mut map = HashMap::new();
-    
+
     if let Some(query) = uri.query() {
         for pair in query.split('&') {
             let mut kv = pair.splitn(2, '=');
@@ -37,7 +34,7 @@ pub fn query_to_map(uri: &Uri) -> HashMap<String, String> {
             }
         }
     }
-    
+
     map
 }
 
@@ -55,7 +52,8 @@ pub fn replace_dynamic_params(path: &str, params: &Value) -> String {
             Value::Null => "".to_string(),
             _ => value.to_string(),
         }
-    }).to_string()
+    })
+    .to_string()
 }
 
 pub fn flatten_json(prefix: &str, value: &Value, result: &mut HashMap<String, String>) {
@@ -106,7 +104,7 @@ pub fn json_to_uri_query(value: &Value) -> String {
     new_query.push_str(
         &form_urlencoded::Serializer::new(String::new())
             .extend_pairs(flattened_params.iter())
-            .finish()
+            .finish(),
     );
     new_query
 }

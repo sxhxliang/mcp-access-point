@@ -2,10 +2,7 @@ use pingora::{proxy::Session, Result};
 use pingora_proxy::ProxyHttp;
 
 use crate::{
-    service::mcp::MCPProxyService,
-    sse_event::SseEvent,
-    types::RequestId,
-    jsonrpc::JSONRPCRequest
+    jsonrpc::JSONRPCRequest, service::mcp::MCPProxyService, sse_event::SseEvent, types::RequestId,
 };
 
 // Helper function to send an SseEvent and mark the response as accepted

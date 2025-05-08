@@ -2,12 +2,9 @@ use std::io::{self, Write};
 
 use async_trait::async_trait;
 use env_logger::Builder;
-use pingora::{
-    server::ShutdownWatch,
-    services::Service,
-};
 #[cfg(unix)]
 use pingora::server::ListenFds;
+use pingora::{server::ShutdownWatch, services::Service};
 use tokio::{
     fs::{create_dir_all, metadata, OpenOptions},
     io::{AsyncWriteExt, BufWriter},
@@ -67,10 +64,12 @@ impl Logger {
 
 #[async_trait]
 impl Service for Logger {
-    async fn start_service(&mut self,  
+    async fn start_service(
+        &mut self,
         #[cfg(unix)] _fds: Option<ListenFds>,
-        mut shutdown: ShutdownWatch, 
-        _listeners_per_fd: usize,) {
+        mut shutdown: ShutdownWatch,
+        _listeners_per_fd: usize,
+    ) {
         let log_file_path = &self.config.path;
 
         if let Some(parent) = std::path::Path::new(log_file_path).parent() {
