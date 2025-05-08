@@ -9,7 +9,7 @@ use crate::{
     service::mcp::MCPProxyService,
     types::{
         ListResourceTemplatesResult, ListResourcesResult, ReadResourceResult,
-        ReadResourceResultContentsItem, RequestId, Resource, ResourceContents, ResourceTemplate,
+        ReadResourceResultContentsItem, RequestId, Resource, ResourceTemplate,
         TextResourceContents,
     },
 };

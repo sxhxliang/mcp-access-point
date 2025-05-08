@@ -30,6 +30,14 @@ graph LR
    style C1 fill:#e6ffe6,stroke:#333,color:black,stroke-width:2px
    style C2 fill:#e6ffd6,stroke:#333,color:black,stroke-width:2px
 ```
+### MCP 协议支持
+目前支持 `SSE` 和`Streamable HTTP`协议。
+- ✅ Streamable HTTP(stateless)
+- ✅ SSE 2024-11-05
+
+对于 `SSE` 使用 `IP:PORT/sse`
+对于`Streamable HTTP`使用 `IP:PORT/mcp/`
+
 
 ## 快速开始  
 
@@ -42,9 +50,10 @@ cd mcp-access-point
 cargo run -- -c config.yaml
 
 # 使用inspector调试，先启动服务
-npx @modelcontextprotocol/inspector@0.8.1 node build/index.js
+npx @modelcontextprotocol/inspector node build/index.js
 # 访问 http://127.0.0.1:6274/
 # 选择 see 填入0.0.0.0:8080/sse, 点击connect就可以连接上服务啦
+# 或者选择 "Streamable HTTP" 填入 0.0.0.0:8080/mcp/, 点击connect连接上服务
 ```
  
 

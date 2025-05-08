@@ -49,6 +49,11 @@ pub async fn handle_streamable_http_endpoint(
             } else {
                 match mcp_proxy.parse_json_rpc_request(session).await {
                     Ok(request) => {
+                        // add vars to ctx
+                        ctx.vars.insert(
+                            MCP_REQUEST_ID.to_string(),
+                            request.id.clone().unwrap().to_string(),
+                        );
                         mcp::request_processing_streamable_http(
                             ctx,
                             "session_id",

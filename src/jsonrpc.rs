@@ -1,14 +1,10 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::str::FromStr;
-use std::{borrow::Cow, collections::HashMap};
+use std::borrow::Cow;
 
 use crate::types::RequestId;
 pub const LATEST_PROTOCOL_VERSION: &str = "2024-11-05";
 pub const JSONRPC_VERSION: &str = "2.0";
-
-// pub type Cursor = String;
-// pub type RequestId = i32;
 
 pub const PARSE_ERROR: i32 = -32700;
 pub const INVALID_REQUEST: i32 = -32600;
@@ -28,12 +24,12 @@ pub enum ErrorCode {
     OwnErrorCode = -32000,
 }
 
-// #[derive(Debug, Clone, Serialize, Deserialize)]
-// #[serde(untagged)]
-// pub enum ProgressToken {
-//     String(String),
-//     Number(i64),
-// }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ProgressToken {
+    String(String),
+    Number(i64),
+}
 
 // JSON-RPC
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -71,8 +67,8 @@ pub struct JSONRPCNotification {
 pub struct JSONRPCResponse {
     #[serde(default = "default_jsonrpc_version")]
     pub jsonrpc: String,
-
-    pub id: RequestId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<RequestId>,
 
     pub result: Value,
 }
@@ -86,7 +82,7 @@ impl Default for JSONRPCResponse {
     fn default() -> Self {
         Self {
             jsonrpc: default_jsonrpc_version(),
-            id: RequestId::Integer(0), // default null ID
+            id: Some(RequestId::Integer(0)), // default null ID
             result: Value::Null,
         }
     }
@@ -104,12 +100,16 @@ impl JSONRPCResponse {
     pub fn new(id: RequestId, result: Value) -> Self {
         Self {
             jsonrpc: default_jsonrpc_version(),
-            id: id.clone(),
+            id: Some(id.clone()),
             result,
         }
     }
-    pub fn new_default() -> Self {
-        Self::default()
+    pub fn new_without_id(result: Value) -> Self {
+        Self {
+            jsonrpc: default_jsonrpc_version(),
+            id: None,
+            result,
+        }
     }
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]

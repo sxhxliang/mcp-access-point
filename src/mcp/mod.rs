@@ -7,18 +7,20 @@ mod tools;
 use std::collections::HashMap;
 
 use crate::{
-    config::{SERVER_NAME, SERVER_VERSION},
+    config::{ERROR_MESSAGE, SERVER_NAME, SERVER_VERSION},
     jsonrpc::{JSONRPCRequest, JSONRPCResponse, LATEST_PROTOCOL_VERSION},
     service::mcp::MCPProxyService,
     sse_event::SseEvent,
     types::{
-        Implementation, InitializeResult, ServerCapabilities, ServerCapabilitiesPrompts,
-        ServerCapabilitiesResources, ServerCapabilitiesTools,
+        CallToolResult, CallToolResultContentItem, Implementation, InitializeResult, RequestId,
+        ServerCapabilities, ServerCapabilitiesPrompts, ServerCapabilitiesResources,
+        ServerCapabilitiesTools, TextContent,
     },
 };
 
+use bytes::Bytes;
 use http::StatusCode;
-use pingora::{proxy::Session, Result};
+use pingora::{proxy::Session, Error, ErrorType, Result};
 use pingora_proxy::ProxyHttp;
 use serde_json::Map;
 
@@ -130,6 +132,7 @@ pub async fn request_processing_streamable_http(
     session: &mut Session,
     request: &JSONRPCRequest,
 ) -> Result<bool> {
+    log::debug!("using request: {:#?}", request);
     // Match the request method and delegate processing
     match request.method.as_str() {
         "initialize" => {
@@ -205,4 +208,28 @@ pub async fn request_processing_streamable_http(
             Ok(false) // Gracefully handle unknown methods
         }
     }
+}
+
+// Helper function to create JSON-RPC response
+pub fn create_json_rpc_response(request_id: &str, body: &Option<Bytes>) -> Result<JSONRPCResponse> {
+    let result = CallToolResult {
+        meta: Map::new(),
+        content: vec![CallToolResultContentItem::TextContent(TextContent {
+            type_: "text".to_string(),
+            text: body.as_ref().map_or_else(
+                || ERROR_MESSAGE.to_string(),
+                |b| String::from_utf8_lossy(b).to_string(),
+            ),
+            annotations: None,
+        })],
+        is_error: Some(false),
+    };
+
+    request_id
+        .parse::<i64>()
+        .map_err(|e| {
+            log::error!("Invalid MCP-REQUEST-ID format: {}", e);
+            Error::because(ErrorType::InvalidHTTPHeader, "Invalid MCP-REQUEST-ID", e)
+        })
+        .map(|id| JSONRPCResponse::new(RequestId::from(id), serde_json::to_value(result).unwrap()))
 }

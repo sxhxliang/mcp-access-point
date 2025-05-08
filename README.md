@@ -30,6 +30,14 @@ graph LR
    style C2 fill:#e6ffd6,stroke:#333,color:black,stroke-width:2px
 ```
 
+### Transport Type (Specification)
+Currently supports `SSE` and `Streamable HTTP` protocols.
+- ✅ Streamable HTTP(stateless)
+- ✅ SSE 2024-11-05
+
+use `IP:PORT/sse` for `SSE` 
+use `IP:PORT/mcp/` for `Streamable HTTP` 
+
 ## Quick Start  
 
 ### Installation  
@@ -40,9 +48,10 @@ cd mcp-access-point
 cargo run -- -c config.yaml
 
 # Use inspector for debugging (start service first)
-npx @modelcontextprotocol/inspector@0.8.1 node build/index.js
+npx @modelcontextprotocol/inspector node build/index.js
 # Access http://127.0.0.1:6274/
 # Select "see" and enter 0.0.0.0:8080/sse, then click connect
+# or select "Streamable HTTP" and enter 0.0.0.0:8080/mcp/
 ```
 
 ### Parameter Details:  

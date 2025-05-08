@@ -1,9 +1,8 @@
-use hickory_resolver::proto::op::header;
 use once_cell::sync::Lazy;
 
 use http::{Method, Uri};
 use serde::Deserialize;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value};
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},

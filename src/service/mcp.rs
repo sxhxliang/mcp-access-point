@@ -15,15 +15,15 @@ use pingora_error::{Error, Result};
 use pingora_http::{RequestHeader, ResponseHeader};
 use pingora_proxy::{ProxyHttp, Session};
 
-use serde_json::Map;
 use tokio::sync::broadcast;
 
 use crate::{
     config::{
         CLIENT_MESSAGE_ENDPOINT, CLIENT_SSE_ENDPOINT, CLIENT_STREAMABLE_HTTP_ENDPOINT,
-        ERROR_MESSAGE, SERVER_WITH_AUTH,
+        SERVER_WITH_AUTH,
     },
-    jsonrpc::{JSONRPCRequest, JSONRPCResponse},
+    jsonrpc::JSONRPCRequest,
+    mcp::create_json_rpc_response,
     plugin::ProxyPlugin,
     proxy::{
         global_rule::global_plugin_fetch, route::global_route_match_fetch,
@@ -31,8 +31,6 @@ use crate::{
     },
     service::endpoint::{self, MCP_REQUEST_ID, MCP_SESSION_ID, MCP_STREAMABLE_HTTP},
     sse_event::SseEvent,
-    types::RequestId,
-    types::{CallToolResult, CallToolResultContentItem, TextContent},
     utils,
 };
 
@@ -288,7 +286,7 @@ impl ProxyHttp for MCPProxyService {
             session.req_header().uri.path_and_query()
         );
         let path = session.req_header().uri.path();
-
+        log::debug!("===== Request: {:?}", session.req_header());
         // Handle the request based on the path
         match path {
             CLIENT_STREAMABLE_HTTP_ENDPOINT => {
@@ -408,107 +406,67 @@ impl ProxyHttp for MCPProxyService {
 
         // Log only the size of the body to avoid exposing sensitive data
         if let Some(body) = body {
-            log::debug!("upstream body {:?}", body);
+            log::debug!("upstream body size: {}", body.len());
         } else {
-            log::info!("upstream response Body is None");
+            log::debug!("upstream response Body is None");
         }
         // SSE endpoint processing
         if let (Some(session_id), Some(request_id)) =
             (ctx.vars.get(MCP_SESSION_ID), ctx.vars.get(MCP_REQUEST_ID))
         {
-            // Construct the result object
-            let result = CallToolResult {
-                meta: Map::new(),
-                content: vec![CallToolResultContentItem::TextContent(TextContent {
-                    type_: "text".to_string(),
-                    text: body.as_ref().map_or_else(
-                        || ERROR_MESSAGE.to_string(),
-                        |b| String::from_utf8_lossy(b).to_string(),
-                    ),
-                    annotations: None,
-                })],
-                is_error: Some(false),
-            };
-            // Convert the result to JSON-RPC response
-
-            if let Ok(request_id) = request_id.parse::<i64>() {
-                let res = JSONRPCResponse::new(
-                    RequestId::from(request_id),
-                    serde_json::to_value(result).unwrap(),
-                );
-                let event = SseEvent::new_event(
-                    session_id,
-                    "message",
-                    &serde_json::to_string(&res).unwrap(),
-                );
-                // Send the event (placeholder for actual implementation)
-                if let Err(e) = self.tx.send(event) {
-                    log::error!("Failed to send SSE event: {}", e);
+            match create_json_rpc_response(request_id, body) {
+                Ok(res) => {
+                    let event = SseEvent::new_event(
+                        session_id,
+                        "message",
+                        &serde_json::to_string(&res).unwrap(),
+                    );
+                    if let Err(e) = self.tx.send(event) {
+                        log::error!("Failed to send SSE event: {}", e);
+                    }
                 }
-            } else {
-                log::error!("Invalid MCP-REQUEST-ID format");
+                Err(e) => log::error!("Failed to create SSE response: {}", e),
             }
         }
+
         // Handle mcp streaming http responses
         match ctx.vars.get(MCP_STREAMABLE_HTTP) {
-            Some(http_type) => {
-                match http_type.as_str() {
-                    "stream" => {
-                        // Handle streaming responses
-                        log::debug!("Handling streaming responses");
-                        *body = Some(Bytes::from("Accepted"));
-                    }
-                    "stateless" => {
-                        // Handle stateless responses
-                        log::debug!("Handling stateless responses");
-                        let result = CallToolResult {
-                            meta: Map::new(),
-                            content: vec![CallToolResultContentItem::TextContent(TextContent {
-                                type_: "text".to_string(),
-                                text: body.as_ref().map_or_else(
-                                    || ERROR_MESSAGE.to_string(),
-                                    |b| String::from_utf8_lossy(b).to_string(),
-                                ),
-                                annotations: None,
-                            })],
-                            is_error: Some(false),
-                        };
-                        let res = JSONRPCResponse::new(
-                            RequestId::from(0),
-                            serde_json::to_value(result).unwrap(),
-                        );
-                        // TODO Send the response to the client
-                        let data_body = serde_json::to_string(&res).unwrap();
-                        log::debug!("data_body: {:?}", data_body);
-                        *body = Some(Bytes::copy_from_slice(data_body.as_bytes()));
-                    }
-                    _ => {
-                        log::error!("Invalid http_type value");
+            Some(http_type) => match http_type.as_str() {
+                "stream" => {
+                    log::debug!("Handling streaming responses");
+                    *body = Some(Bytes::from("Accepted"));
+                }
+                "stateless" => {
+                    log::debug!("Handling stateless responses");
+                    if let Some(request_id) = ctx.vars.get(MCP_REQUEST_ID) {
+                        match create_json_rpc_response(request_id, body) {
+                            Ok(res) => {
+                                let data_body = serde_json::to_string(&res).unwrap();
+                                *body = Some(Bytes::copy_from_slice(data_body.as_bytes()));
+                            }
+                            Err(e) => log::error!("Failed to create stateless response: {}", e),
+                        }
+                    } else {
+                        log::error!("MCP-REQUEST-ID not found");
                     }
                 }
-            }
+                _ => log::error!("Invalid http_type value: {}", http_type),
+            },
             None => {
-                // let result = CallToolResult {
-                //     meta: Map::new(),
-                //     content: vec![CallToolResultContentItem::TextContent(TextContent {
-                //         type_: "text".to_string(),
-                //         text: body.as_ref().map_or_else(
-                //             || ERROR_MESSAGE.to_string(),
-                //             |b| String::from_utf8_lossy(b).to_string(),
-                //         ),
-                //         annotations: None,
-                //     })],
-                //     is_error: Some(false),
-                // };
-                // let res =
-                //     JSONRPCResponse::new(RequestId::from(0), serde_json::to_value(result).unwrap());
-                // // *body = Some(Bytes::from(serde_json::to_string(&result).unwrap()));
-                // // session.downstream_session.write_response_header(resp)
-                // let data_body = serde_json::to_string(&res).unwrap();
-                // log::debug!("data_body: {:?}", data_body);
-                // // *body = Some(Bytes::copy_from_slice(data_body.as_bytes()));
+                if let Some(request_id) = ctx.vars.get(MCP_REQUEST_ID) {
+                    match create_json_rpc_response(request_id, body) {
+                        Ok(res) => {
+                            let data_body = serde_json::to_string(&res).unwrap();
+                            *body = Some(Bytes::copy_from_slice(data_body.as_bytes()));
+                        }
+                        Err(e) => log::error!("Failed to create default response: {}", e),
+                    }
+                } else {
+                    log::error!("MCP-REQUEST-ID not found");
+                }
             }
         };
+
         Ok(())
     }
 
@@ -529,15 +487,6 @@ impl ProxyHttp for MCPProxyService {
             .clone()
             .response_body_filter(session, body, end_of_stream, ctx)?;
 
-        if end_of_stream {
-            log::debug!("response_body_filter End of stream reached");
-        }
-        // if end_of_stream {
-        //     // This is the last chunk, we can process the data now
-        //     let json_body: Resp = serde_json::de::from_slice(&ctx.buffer).unwrap();
-        //     let yaml_body = serde_yaml::to_string(&json_body).unwrap();
-        //     *body = Some(Bytes::copy_from_slice(yaml_body.as_bytes()));
-        // }
         Ok(None)
     }
 
