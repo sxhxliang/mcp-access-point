@@ -8,7 +8,7 @@ use url::form_urlencoded;
 
 use crate::config::UpstreamHashOn;
 
-// Helper function to detect initialize requests
+/// Helper function to detect initialize requests
 pub fn is_initialize_request(body: &Value) -> bool {
     match body {
         Value::Array(arr) => arr.iter().any(|msg| {

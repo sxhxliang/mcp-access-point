@@ -7,7 +7,7 @@ use crate::{
 
 // Helper function to send an SseEvent and mark the response as accepted
 async fn process_response(
-    ctx: &mut <MCPProxyService as ProxyHttp>::CTX,
+    _ctx: &mut <MCPProxyService as ProxyHttp>::CTX,
     session_id: &str,
     event_message: &str,
     mcp_proxy: &MCPProxyService,

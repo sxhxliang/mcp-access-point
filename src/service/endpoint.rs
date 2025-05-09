@@ -2,9 +2,15 @@ use crate::{mcp, service::mcp::MCPProxyService, utils};
 use pingora::{proxy::Session, Result};
 use pingora_proxy::ProxyHttp;
 
+/// Constant for identifying streamable HTTP requests in context variables
 pub const MCP_STREAMABLE_HTTP: &str = "streamable_http";
+/// Constant for storing session ID in HTTP headers
 pub const MCP_SESSION_ID: &str = "mcp-session-id";
+/// Constant for storing request ID in context variables
 pub const MCP_REQUEST_ID: &str = "mcp-request-id";
+/// Handles streamable HTTP endpoint requests (both GET and POST methods)
+/// GET: Establishes SSE stream connection
+/// POST: Processes initialization or resuming of a stream
 pub async fn handle_streamable_http_endpoint(
     ctx: &mut <MCPProxyService as ProxyHttp>::CTX,
     mcp_proxy: &MCPProxyService,
@@ -74,14 +80,16 @@ pub async fn handle_streamable_http_endpoint(
     }
 }
 
+/// Handles SSE endpoint requests by delegating to MCPProxyService's SSE response handler
 pub async fn handle_sse_endpoint(
-    ctx: &mut <MCPProxyService as ProxyHttp>::CTX,
+    _ctx: &mut <MCPProxyService as ProxyHttp>::CTX,
     mcp_proxy: &MCPProxyService,
     session: &mut Session,
 ) -> Result<bool> {
     mcp_proxy.response_sse(session).await
 }
 
+/// Handles message endpoint requests by parsing JSON-RPC and processing accordingly
 pub async fn handle_message_endpoint(
     ctx: &mut <MCPProxyService as ProxyHttp>::CTX,
     mcp_proxy: &MCPProxyService,

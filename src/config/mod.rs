@@ -20,21 +20,30 @@ use serde::{Deserialize, Serialize};
 use serde_yaml::Value as YamlValue;
 use validator::{Validate, ValidationError};
 
+/// Server name for the MCP Access Point API gateway.
 pub const SERVER_NAME: &str = "mcp_proxy";
+/// MCP server version for initialization.
 pub const SERVER_VERSION: &str = "1.5";
 
-// 2024-11-05 specification protocol;
+/// 2024-11-05 specification protocol;
+/// Client SSE endpoint for receiving messages from the MCP server.
 pub const CLIENT_SSE_ENDPOINT: &str = "/sse";
+/// Client HTTP endpoint for processing messages from the MCP client.
 pub const CLIENT_MESSAGE_ENDPOINT: &str = "/messages/";
 
-// 2025-03-26 specification protocol;
+/// 2025-03-26 specification protocol;
+/// Client HTTP endpoint for receiving messages from the MCP server.
 pub const CLIENT_STREAMABLE_HTTP_ENDPOINT: &str = "/mcp/";
+/// Default error message for when the MCP server is not reachable.
 pub const ERROR_MESSAGE: &str = "Unable to fetch data for this mcp server.";
+/// Whether the MCP server requires authentication.
 pub const SERVER_WITH_AUTH: bool = false;
 
 /// Trait for types with an ID field, used for unique ID validation.
 pub trait Identifiable {
+    /// Returns the ID of the object.
     fn id(&self) -> &str;
+    /// Sets the ID of the object.
     fn set_id(&mut self, id: String);
 }
 
@@ -58,28 +67,35 @@ impl_identifiable!(Service);
 impl_identifiable!(GlobalRule);
 impl_identifiable!(SSL);
 
+/// Configuration for the MCP Access Point API gateway.
 #[derive(Default, Debug, Serialize, Deserialize, Validate)]
 #[validate(schema(function = "Config::validate_resource_id"))]
 pub struct Config {
+    /// The pingora server default configuration for the MCP Access Point API gateway.
     #[serde(default)]
     pub pingora: ServerConf,
-
+    /// The MCP Access Point API gateway configuration.
     #[validate(nested)]
     pub access_point: AccessPointConfig,
-    // mcp config
+    /// mcp config
     pub mcps: Option<Vec<MCPOpenAPIConfig>>,
+    /// The routes for the MCP Access Point API gateway.
     #[validate(nested)]
     #[serde(default)]
     pub routes: Vec<Route>,
+    /// The upstreams for the MCP Access Point API gateway.
     #[validate(nested)]
     #[serde(default)]
     pub upstreams: Vec<Upstream>,
+    /// The services for the MCP Access Point API gateway.
     #[validate(nested)]
     #[serde(default)]
     pub services: Vec<Service>,
+    /// The global rules for the MCP Access Point API gateway.
     #[validate(nested)]
     #[serde(default)]
     pub global_rules: Vec<GlobalRule>,
+    /// The SSLs for the MCP Access Point API gateway.
     #[validate(nested)]
     #[serde(default)]
     pub ssls: Vec<SSL>,
@@ -87,7 +103,8 @@ pub struct Config {
 
 // Config file load and validation
 impl Config {
-    // Does not have to be async until we want runtime reload
+    /// Does not have to be async until we want runtime reload
+    /// load mcp config from yaml file
     pub fn load_from_yaml<P>(path: P) -> Result<Self>
     where
         P: AsRef<std::path::Path> + std::fmt::Display,
@@ -99,7 +116,7 @@ impl Config {
         Self::from_yaml(&conf_str)
     }
 
-    // config file load entry point
+    /// config file load entry point
     pub fn load_yaml_with_opt_override(opt: &Opt) -> Result<Self> {
         if let Some(path) = &opt.conf {
             let mut conf = Self::load_from_yaml(path)?;
@@ -109,7 +126,7 @@ impl Config {
             Error::e_explain(ReadError, "No path specified")
         }
     }
-
+    /// load mcp config from yaml string
     pub fn from_yaml(conf_str: &str) -> Result<Self> {
         trace!("Read conf file: {conf_str}");
         let conf: Config = serde_yaml::from_str(conf_str).or_err_with(ReadError, || {
@@ -125,11 +142,11 @@ impl Config {
         Ok(conf)
     }
 
-    #[allow(dead_code)]
+    /// serde config to yaml
     pub fn to_yaml(&self) -> String {
         serde_yaml::to_string(self).unwrap()
     }
-
+    /// merge conf with opt
     pub fn merge_with_opt(&mut self, opt: &Opt) {
         if opt.daemon {
             self.pingora.daemon = true;
@@ -157,35 +174,55 @@ impl Config {
     }
 }
 
+/// Configuration for the MCP Access Point API gateway.
 #[derive(Clone, Default, Debug, Serialize, Deserialize, Validate)]
 pub struct AccessPointConfig {
+    /// The address for the MCP Access Point API gateway.
     #[validate(length(min = 1))]
     #[validate(nested)]
     pub listeners: Vec<Listener>,
-
+    /// The ectd configuration for the MCP Access Point API gateway.
+    /// with etcd, the mcp config will be loaded from etcd.
+    /// If not specified, the MCP Access Point API gateway will not use etcd.
     #[validate(nested)]
     pub etcd: Option<Etcd>,
-
+    /// The admin configuration for the MCP Access Point API gateway.
+    /// If not specified, the MCP Access Point API gateway will not use admin.
     #[validate(nested)]
     pub admin: Option<Admin>,
-
+    /// The prometheus configuration for the MCP Access Point API gateway.
+    /// If not specified, the MCP Access Point API gateway will not use prometheus.
     #[validate(nested)]
     pub prometheus: Option<Prometheus>,
-
+    /// The sentry configuration for the MCP Access Point API gateway.
+    /// If not specified, the MCP Access Point API gateway will not use sentry.
     #[validate(nested)]
     pub sentry: Option<Sentry>,
-
+    /// The log configuration for the MCP Access Point API gateway.
+    /// If not specified, the MCP Access Point API gateway will not save logs to a file.
     #[validate(nested)]
     pub log: Option<Log>,
 }
 
+/// Configuration listener for the MCP Access Point API gateway.
+/// It contains the address and port to listen on.
+/// It also contains the TLS configuration if the listener is using TLS.
+/// If the listener is using TLS, it will use the TLS configuration to create a TLS listener.
+/// If the listener is not using TLS, it will use the TCP listener.
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 #[validate(schema(function = "Listener::validate_tls_for_offer_h2"))]
 pub struct Listener {
+    /// The address to listen on.
     pub address: SocketAddr,
+    /// The TLS configuration for the listener.
+    /// If not specified, the listener will not use TLS.
     pub tls: Option<Tls>,
+    /// if  true, the listener will offer HTTP/2 support.
+    /// If not specified, the listener will not offer HTTP/2 support.
     #[serde(default)]
     pub offer_h2: bool,
+    /// if  true, the listener will offer HTTP/2 cleartext support.
+    /// If not specified, the listener will not offer HTTP/2 cleartext support.
     #[serde(default)]
     pub offer_h2c: bool,
 }
@@ -200,28 +237,48 @@ impl Listener {
     }
 }
 
+/// Configuration Tls for mcp server listener.
+/// It contains the path to the certificate and key file.
+/// The certificate and key file are used to create a TLS listener.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Tls {
+    /// The path to the certificate file.
     pub cert_path: String,
+    /// The path to the key file.
     pub key_path: String,
 }
 
+/// Configuration timeout for the mcp server listener.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Validate)]
 pub struct Timeout {
+    /// The timeout for connecting to the mcp server.
     pub connect: u64,
+    /// The timeout for sending data to the mcp server.
     pub send: u64,
+    /// The timeout for reading data from the mcp server.
     pub read: u64,
 }
 
+/// Configuration mcp service for the mcp server.
 #[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize, Validate)]
 #[validate(schema(function = "Service::validate_upstream"))]
 pub struct Service {
+    /// service id for the mcp server.
+    /// The id must be unique. It is used to identify the service.
     #[serde(default)]
     pub id: String,
+    /// service plugins for the mcp server.
     #[serde(default)]
     pub plugins: HashMap<String, YamlValue>,
+    /// upstream for the mcp server.
+    /// if the upstream is not set, the service will be disabled.
+    /// if the upstream_id is not set, the upstream must be set.
     pub upstream: Option<Upstream>,
+    /// upstream id for the mcp server.
+    /// The upstream_id must have been configured in the config.yaml .
+    /// if the upstream is not set, the upstream_id must be set.
     pub upstream_id: Option<String>,
+    /// hosts for the mcp server.
     #[serde(default)]
     pub hosts: Vec<String>,
 }
@@ -235,21 +292,29 @@ impl Service {
         }
     }
 }
-
+/// Global rules apply plugins to all matching mcp requests
 #[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize, Validate)]
 pub struct GlobalRule {
+    /// The id of the global rule.
     #[serde(default)]
     pub id: String,
+    /// The plugins of the global rule.
+    /// The key is the plugin name, the value is the plugin configuration.
     #[serde(default)]
     pub plugins: HashMap<String, YamlValue>,
 }
 
+/// SSL configuration for the mcp server.
 #[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize, Validate)]
 pub struct SSL {
     #[serde(default)]
+    /// The id of the SSL configuration.
     pub id: String,
+    /// The certificate of the SSL configuration.
     pub cert: String,
+    /// The key of the SSL configuration.
     pub key: String,
+    /// The SNIs of the SSL configuration.
     #[validate(length(min = 1))]
     pub snis: Vec<String>,
 }

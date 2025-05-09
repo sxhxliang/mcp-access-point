@@ -45,7 +45,7 @@ impl ResourceManager {
 }
 
 pub async fn request_processing(
-    ctx: &mut <MCPProxyService as ProxyHttp>::CTX,
+    _ctx: &mut <MCPProxyService as ProxyHttp>::CTX,
     session_id: &str,
     mcp_proxy: &MCPProxyService,
     session: &mut Session,

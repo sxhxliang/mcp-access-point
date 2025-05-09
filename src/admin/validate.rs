@@ -1,4 +1,3 @@
-#[warn(dead_code)]
 use http::header;
 use serde::de::DeserializeOwned;
 use validator::Validate;

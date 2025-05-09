@@ -2,6 +2,8 @@
 #![allow(clippy::needless_lifetimes)]
 #![allow(clippy::match_single_binding)]
 #![allow(clippy::clone_on_copy)]
+#![allow(clippy::enum_variant_names)]
+#![allow(irrefutable_let_patterns)]
 
 #[doc = r" Error types."]
 pub mod error {
@@ -55,7 +57,7 @@ pub mod error {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct Annotations {
     #[doc = "Describes who the intended customer of this object or data is.\n\nIt can include multiple entries to indicate content useful for multiple audiences (e.g., `[\"user\", \"assistant\"]`)."]
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
@@ -66,14 +68,6 @@ pub struct Annotations {
 impl ::std::convert::From<&Annotations> for Annotations {
     fn from(value: &Annotations) -> Self {
         value.clone()
-    }
-}
-impl ::std::default::Default for Annotations {
-    fn default() -> Self {
-        Self {
-            audience: Default::default(),
-            priority: Default::default(),
-        }
     }
 }
 #[doc = "Audio provided to or from an LLM."]
@@ -500,7 +494,7 @@ impl ::std::convert::From<&CancelledNotificationParams> for CancelledNotificatio
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ClientCapabilities {
     #[doc = "Experimental, non-standard capabilities that the client supports."]
     #[serde(
@@ -522,15 +516,6 @@ impl ::std::convert::From<&ClientCapabilities> for ClientCapabilities {
         value.clone()
     }
 }
-impl ::std::default::Default for ClientCapabilities {
-    fn default() -> Self {
-        Self {
-            experimental: Default::default(),
-            roots: Default::default(),
-            sampling: Default::default(),
-        }
-    }
-}
 #[doc = "Present if the client supports listing roots."]
 #[doc = r""]
 #[doc = r" <details><summary>JSON schema</summary>"]
@@ -548,7 +533,7 @@ impl ::std::default::Default for ClientCapabilities {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ClientCapabilitiesRoots {
     #[doc = "Whether the client supports notifications for changes to the roots list."]
     #[serde(
@@ -561,13 +546,6 @@ pub struct ClientCapabilitiesRoots {
 impl ::std::convert::From<&ClientCapabilitiesRoots> for ClientCapabilitiesRoots {
     fn from(value: &ClientCapabilitiesRoots) -> Self {
         value.clone()
-    }
-}
-impl ::std::default::Default for ClientCapabilitiesRoots {
-    fn default() -> Self {
-        Self {
-            list_changed: Default::default(),
-        }
     }
 }
 #[doc = "`ClientNotification`"]
@@ -2454,7 +2432,7 @@ impl ::std::convert::From<&JsonrpcErrorError> for JsonrpcErrorError {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct JsonrpcMessage {
     #[serde(
         flatten,
@@ -2496,18 +2474,6 @@ pub struct JsonrpcMessage {
 impl ::std::convert::From<&JsonrpcMessage> for JsonrpcMessage {
     fn from(value: &JsonrpcMessage) -> Self {
         value.clone()
-    }
-}
-impl ::std::default::Default for JsonrpcMessage {
-    fn default() -> Self {
-        Self {
-            subtype_0: Default::default(),
-            subtype_1: Default::default(),
-            subtype_2: Default::default(),
-            subtype_3: Default::default(),
-            subtype_4: Default::default(),
-            subtype_5: Default::default(),
-        }
     }
 }
 #[doc = "`JsonrpcMessageSubtype2Item`"]
@@ -2778,7 +2744,7 @@ impl ::std::convert::From<&JsonrpcRequestParams> for JsonrpcRequestParams {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct JsonrpcRequestParamsMeta {
     #[doc = "If specified, the caller is requesting out-of-band progress notifications for this request (as represented by notifications/progress). The value of this parameter is an opaque token that will be attached to any subsequent notifications. The receiver is not obligated to provide these notifications."]
     #[serde(
@@ -2791,13 +2757,6 @@ pub struct JsonrpcRequestParamsMeta {
 impl ::std::convert::From<&JsonrpcRequestParamsMeta> for JsonrpcRequestParamsMeta {
     fn from(value: &JsonrpcRequestParamsMeta) -> Self {
         value.clone()
-    }
-}
-impl ::std::default::Default for JsonrpcRequestParamsMeta {
-    fn default() -> Self {
-        Self {
-            progress_token: Default::default(),
-        }
     }
 }
 #[doc = "A successful (non-error) response to a request."]
@@ -2895,7 +2854,7 @@ impl ::std::convert::From<&ListPromptsRequest> for ListPromptsRequest {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ListPromptsRequestParams {
     #[doc = "An opaque token representing the current pagination position.\nIf provided, the server should return results starting after this cursor."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -2904,13 +2863,6 @@ pub struct ListPromptsRequestParams {
 impl ::std::convert::From<&ListPromptsRequestParams> for ListPromptsRequestParams {
     fn from(value: &ListPromptsRequestParams) -> Self {
         value.clone()
-    }
-}
-impl ::std::default::Default for ListPromptsRequestParams {
-    fn default() -> Self {
-        Self {
-            cursor: Default::default(),
-        }
     }
 }
 #[doc = "The server's response to a prompts/list request from the client."]
@@ -3023,7 +2975,7 @@ impl ::std::convert::From<&ListResourceTemplatesRequest> for ListResourceTemplat
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ListResourceTemplatesRequestParams {
     #[doc = "An opaque token representing the current pagination position.\nIf provided, the server should return results starting after this cursor."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -3034,13 +2986,6 @@ impl ::std::convert::From<&ListResourceTemplatesRequestParams>
 {
     fn from(value: &ListResourceTemplatesRequestParams) -> Self {
         value.clone()
-    }
-}
-impl ::std::default::Default for ListResourceTemplatesRequestParams {
-    fn default() -> Self {
-        Self {
-            cursor: Default::default(),
-        }
     }
 }
 #[doc = "The server's response to a resources/templates/list request from the client."]
@@ -3154,7 +3099,7 @@ impl ::std::convert::From<&ListResourcesRequest> for ListResourcesRequest {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ListResourcesRequestParams {
     #[doc = "An opaque token representing the current pagination position.\nIf provided, the server should return results starting after this cursor."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -3163,13 +3108,6 @@ pub struct ListResourcesRequestParams {
 impl ::std::convert::From<&ListResourcesRequestParams> for ListResourcesRequestParams {
     fn from(value: &ListResourcesRequestParams) -> Self {
         value.clone()
-    }
-}
-impl ::std::default::Default for ListResourcesRequestParams {
-    fn default() -> Self {
-        Self {
-            cursor: Default::default(),
-        }
     }
 }
 #[doc = "The server's response to a resources/list request from the client."]
@@ -3326,7 +3264,7 @@ impl ::std::convert::From<&ListRootsRequestParams> for ListRootsRequestParams {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ListRootsRequestParamsMeta {
     #[doc = "If specified, the caller is requesting out-of-band progress notifications for this request (as represented by notifications/progress). The value of this parameter is an opaque token that will be attached to any subsequent notifications. The receiver is not obligated to provide these notifications."]
     #[serde(
@@ -3339,13 +3277,6 @@ pub struct ListRootsRequestParamsMeta {
 impl ::std::convert::From<&ListRootsRequestParamsMeta> for ListRootsRequestParamsMeta {
     fn from(value: &ListRootsRequestParamsMeta) -> Self {
         value.clone()
-    }
-}
-impl ::std::default::Default for ListRootsRequestParamsMeta {
-    fn default() -> Self {
-        Self {
-            progress_token: Default::default(),
-        }
     }
 }
 #[doc = "The client's response to a roots/list request from the server.\nThis result contains an array of Root objects, each representing a root directory\nor file that the server can operate on."]
@@ -3447,7 +3378,7 @@ impl ::std::convert::From<&ListToolsRequest> for ListToolsRequest {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ListToolsRequestParams {
     #[doc = "An opaque token representing the current pagination position.\nIf provided, the server should return results starting after this cursor."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -3456,13 +3387,6 @@ pub struct ListToolsRequestParams {
 impl ::std::convert::From<&ListToolsRequestParams> for ListToolsRequestParams {
     fn from(value: &ListToolsRequestParams) -> Self {
         value.clone()
-    }
-}
-impl ::std::default::Default for ListToolsRequestParams {
-    fn default() -> Self {
-        Self {
-            cursor: Default::default(),
-        }
     }
 }
 #[doc = "The server's response to a tools/list request from the client."]
@@ -3737,7 +3661,7 @@ impl ::std::convert::From<&LoggingMessageNotificationParams> for LoggingMessageN
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ModelHint {
     #[doc = "A hint for a model name.\n\nThe client SHOULD treat this as a substring of a model name; for example:\n - `claude-3-5-sonnet` should match `claude-3-5-sonnet-20241022`\n - `sonnet` should match `claude-3-5-sonnet-20241022`, `claude-3-sonnet-20240229`, etc.\n - `claude` should match any Claude model\n\nThe client MAY also map the string to a different provider's model name or a different model family, as long as it fills a similar niche; for example:\n - `gemini-1.5-flash` could match `claude-3-haiku-20240307`"]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -3746,13 +3670,6 @@ pub struct ModelHint {
 impl ::std::convert::From<&ModelHint> for ModelHint {
     fn from(value: &ModelHint) -> Self {
         value.clone()
-    }
-}
-impl ::std::default::Default for ModelHint {
-    fn default() -> Self {
-        Self {
-            name: Default::default(),
-        }
     }
 }
 #[doc = "The server's preferences for model selection, requested of the client during sampling.\n\nBecause LLMs can vary along multiple dimensions, choosing the \"best\" model is\nrarely straightforward.  Different models excel in different areas—some are\nfaster but less capable, others are more capable but more expensive, and so\non. This interface allows servers to express their priorities across multiple\ndimensions to help clients make an appropriate selection for their use case.\n\nThese preferences are always advisory. The client MAY ignore them. It is also\nup to the client to decide how to interpret these preferences and how to\nbalance them against other considerations."]
@@ -3793,7 +3710,7 @@ impl ::std::default::Default for ModelHint {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ModelPreferences {
     #[serde(
         rename = "costPriority",
@@ -3820,16 +3737,6 @@ pub struct ModelPreferences {
 impl ::std::convert::From<&ModelPreferences> for ModelPreferences {
     fn from(value: &ModelPreferences) -> Self {
         value.clone()
-    }
-}
-impl ::std::default::Default for ModelPreferences {
-    fn default() -> Self {
-        Self {
-            cost_priority: Default::default(),
-            hints: Default::default(),
-            intelligence_priority: Default::default(),
-            speed_priority: Default::default(),
-        }
     }
 }
 #[doc = "`Notification`"]
@@ -3961,7 +3868,7 @@ impl ::std::convert::From<&PaginatedRequest> for PaginatedRequest {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct PaginatedRequestParams {
     #[doc = "An opaque token representing the current pagination position.\nIf provided, the server should return results starting after this cursor."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -3970,13 +3877,6 @@ pub struct PaginatedRequestParams {
 impl ::std::convert::From<&PaginatedRequestParams> for PaginatedRequestParams {
     fn from(value: &PaginatedRequestParams) -> Self {
         value.clone()
-    }
-}
-impl ::std::default::Default for PaginatedRequestParams {
-    fn default() -> Self {
-        Self {
-            cursor: Default::default(),
-        }
     }
 }
 #[doc = "`PaginatedResult`"]
@@ -4000,7 +3900,7 @@ impl ::std::default::Default for PaginatedRequestParams {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct PaginatedResult {
     #[doc = "This result property is reserved by the protocol to allow clients and servers to attach additional metadata to their responses."]
     #[serde(
@@ -4020,14 +3920,6 @@ pub struct PaginatedResult {
 impl ::std::convert::From<&PaginatedResult> for PaginatedResult {
     fn from(value: &PaginatedResult) -> Self {
         value.clone()
-    }
-}
-impl ::std::default::Default for PaginatedResult {
-    fn default() -> Self {
-        Self {
-            meta: Default::default(),
-            next_cursor: Default::default(),
-        }
     }
 }
 #[doc = "A ping, issued by either the server or the client, to check that the other party is still alive. The receiver must promptly respond, or else may be disconnected."]
@@ -4130,7 +4022,7 @@ impl ::std::convert::From<&PingRequestParams> for PingRequestParams {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct PingRequestParamsMeta {
     #[doc = "If specified, the caller is requesting out-of-band progress notifications for this request (as represented by notifications/progress). The value of this parameter is an opaque token that will be attached to any subsequent notifications. The receiver is not obligated to provide these notifications."]
     #[serde(
@@ -4143,13 +4035,6 @@ pub struct PingRequestParamsMeta {
 impl ::std::convert::From<&PingRequestParamsMeta> for PingRequestParamsMeta {
     fn from(value: &PingRequestParamsMeta) -> Self {
         value.clone()
-    }
-}
-impl ::std::default::Default for PingRequestParamsMeta {
-    fn default() -> Self {
-        Self {
-            progress_token: Default::default(),
-        }
     }
 }
 #[doc = "An out-of-band notification used to inform the receiver of a progress update for a long-running request."]
@@ -4970,7 +4855,7 @@ impl ::std::convert::From<&RequestParams> for RequestParams {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct RequestParamsMeta {
     #[doc = "If specified, the caller is requesting out-of-band progress notifications for this request (as represented by notifications/progress). The value of this parameter is an opaque token that will be attached to any subsequent notifications. The receiver is not obligated to provide these notifications."]
     #[serde(
@@ -4983,13 +4868,6 @@ pub struct RequestParamsMeta {
 impl ::std::convert::From<&RequestParamsMeta> for RequestParamsMeta {
     fn from(value: &RequestParamsMeta) -> Self {
         value.clone()
-    }
-}
-impl ::std::default::Default for RequestParamsMeta {
-    fn default() -> Self {
-        Self {
-            progress_token: Default::default(),
-        }
     }
 }
 #[doc = "A known resource that the server is capable of reading."]
@@ -5746,7 +5624,7 @@ impl ::std::convert::From<AudioContent> for SamplingMessageContent {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ServerCapabilities {
     #[doc = "Present if the server supports argument autocompletion suggestions."]
     #[serde(default, skip_serializing_if = "::serde_json::Map::is_empty")]
@@ -5775,18 +5653,6 @@ impl ::std::convert::From<&ServerCapabilities> for ServerCapabilities {
         value.clone()
     }
 }
-impl ::std::default::Default for ServerCapabilities {
-    fn default() -> Self {
-        Self {
-            completions: Default::default(),
-            experimental: Default::default(),
-            logging: Default::default(),
-            prompts: Default::default(),
-            resources: Default::default(),
-            tools: Default::default(),
-        }
-    }
-}
 #[doc = "Present if the server offers any prompt templates."]
 #[doc = r""]
 #[doc = r" <details><summary>JSON schema</summary>"]
@@ -5804,7 +5670,7 @@ impl ::std::default::Default for ServerCapabilities {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ServerCapabilitiesPrompts {
     #[doc = "Whether this server supports notifications for changes to the prompt list."]
     #[serde(
@@ -5817,13 +5683,6 @@ pub struct ServerCapabilitiesPrompts {
 impl ::std::convert::From<&ServerCapabilitiesPrompts> for ServerCapabilitiesPrompts {
     fn from(value: &ServerCapabilitiesPrompts) -> Self {
         value.clone()
-    }
-}
-impl ::std::default::Default for ServerCapabilitiesPrompts {
-    fn default() -> Self {
-        Self {
-            list_changed: Default::default(),
-        }
     }
 }
 #[doc = "Present if the server offers any resources to read."]
@@ -5847,7 +5706,7 @@ impl ::std::default::Default for ServerCapabilitiesPrompts {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ServerCapabilitiesResources {
     #[doc = "Whether this server supports notifications for changes to the resource list."]
     #[serde(
@@ -5863,14 +5722,6 @@ pub struct ServerCapabilitiesResources {
 impl ::std::convert::From<&ServerCapabilitiesResources> for ServerCapabilitiesResources {
     fn from(value: &ServerCapabilitiesResources) -> Self {
         value.clone()
-    }
-}
-impl ::std::default::Default for ServerCapabilitiesResources {
-    fn default() -> Self {
-        Self {
-            list_changed: Default::default(),
-            subscribe: Default::default(),
-        }
     }
 }
 #[doc = "Present if the server offers any tools to call."]
@@ -5890,7 +5741,7 @@ impl ::std::default::Default for ServerCapabilitiesResources {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ServerCapabilitiesTools {
     #[doc = "Whether this server supports notifications for changes to the tool list."]
     #[serde(
@@ -5903,13 +5754,6 @@ pub struct ServerCapabilitiesTools {
 impl ::std::convert::From<&ServerCapabilitiesTools> for ServerCapabilitiesTools {
     fn from(value: &ServerCapabilitiesTools) -> Self {
         value.clone()
-    }
-}
-impl ::std::default::Default for ServerCapabilitiesTools {
-    fn default() -> Self {
-        Self {
-            list_changed: Default::default(),
-        }
     }
 }
 #[doc = "`ServerNotification`"]
@@ -6496,7 +6340,7 @@ impl ::std::convert::From<&Tool> for Tool {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ToolAnnotations {
     #[doc = "If true, the tool may perform destructive updates to its environment.\nIf false, the tool performs only additive updates.\n\n(This property is meaningful only when `readOnlyHint == false`)\n\nDefault: true"]
     #[serde(
@@ -6533,17 +6377,6 @@ pub struct ToolAnnotations {
 impl ::std::convert::From<&ToolAnnotations> for ToolAnnotations {
     fn from(value: &ToolAnnotations) -> Self {
         value.clone()
-    }
-}
-impl ::std::default::Default for ToolAnnotations {
-    fn default() -> Self {
-        Self {
-            destructive_hint: Default::default(),
-            idempotent_hint: Default::default(),
-            open_world_hint: Default::default(),
-            read_only_hint: Default::default(),
-            title: Default::default(),
-        }
     }
 }
 #[doc = "A JSON Schema object defining the expected parameters for the tool."]

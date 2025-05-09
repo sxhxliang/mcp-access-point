@@ -1,4 +1,3 @@
-#[warn(dead_code)]
 use async_trait::async_trait;
 use http::header::AsHeaderName;
 use http::{header, HeaderValue};
@@ -83,7 +82,7 @@ impl<Arg: 'static> AsyncHandlerWithArg<Arg> {
     }
 }
 
-// #[derive(Debug)]
+/// HTTP admin server for MCP Access Point
 pub struct RequestData {
     etcd: Arc<Mutex<EtcdClientWrapper>>,
     params: RequestParams,
@@ -91,9 +90,11 @@ pub struct RequestData {
     body_data: Vec<u8>,
 }
 impl RequestData {
+    /// Get header value by key
     pub fn get_header<K: AsHeaderName>(&self, key: K) -> Option<&HeaderValue> {
         self.header.headers.get(key)
     }
+    /// Get header value by key as string
     pub fn get_header_value(&self, key: &str) -> Option<String> {
         self.header
             .headers
@@ -186,7 +187,7 @@ async fn delete_resource_handle(req: RequestData) -> Result<Response<Vec<u8>>, S
         .map_err(|e| e.to_string())?;
     Ok(ResponseHelper::success(Vec::new(), None))
 }
-
+/// AdminHttpApp
 pub struct AdminHttpApp {
     config: Admin,
     etcd: EtcdClientWrapper,
@@ -194,6 +195,7 @@ pub struct AdminHttpApp {
 }
 
 impl AdminHttpApp {
+    /// new admin http app
     pub fn new(config: &AccessPointConfig) -> Self {
         let mut this = Self {
             config: config.admin.clone().unwrap(),
@@ -241,6 +243,7 @@ impl AdminHttpApp {
         }
         self
     }
+    /// Create admin http service
     pub fn admin_http_service(cfg: &AccessPointConfig) -> Service<AdminHttpApp> {
         let app = AdminHttpApp::new(cfg);
         let addr = &app.config.address.to_string();
@@ -254,7 +257,7 @@ async fn read_request_body(http_session: &mut ServerSession) -> Result<Vec<u8>, 
     let body_data = match http_session.read_request_body().await {
         Ok(Some(body_data)) => body_data.to_vec(),
         Ok(None) => vec![], // done
-        Err(e) => return Err("Failed to read request body".to_string()),
+        Err(e) => return Err(e.to_string()),
     };
     Ok(body_data)
 }

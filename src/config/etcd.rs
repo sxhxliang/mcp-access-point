@@ -9,23 +9,36 @@ use serde::{Deserialize, Serialize};
 use tokio::{sync::Mutex, time::sleep};
 use validator::Validate;
 
+/// Etcd configuration structure.
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Etcd {
+    /// The etcd server addresses.
     #[validate(length(min = 1))]
     pub host: Vec<String>,
+    /// The etcd prefix.
     pub prefix: String,
+    /// The etcd timeout.
     pub timeout: Option<u32>,
+    /// The etcd connect timeout.
     pub connect_timeout: Option<u32>,
+    /// The etcd user.
     pub user: Option<String>,
+    /// The etcd password.
     pub password: Option<String>,
 }
 
+/// Etcd error type.
 #[derive(Debug)]
 pub enum EtcdError {
+    /// Etcd client not initialized.
     ClientNotInitialized,
+    /// Connection failed.
     ConnectionFailed(String),
+    /// List operation failed.
     ListOperationFailed(String),
+    /// Watch operation failed.
     WatchOperationFailed(String),
+    /// Other error.
     Other(String),
 }
 
@@ -42,7 +55,7 @@ impl fmt::Display for EtcdError {
 }
 
 impl std::error::Error for EtcdError {}
-
+/// EtcdConfigSync represents a synchronization mechanism for configuration data stored in Etcd.
 pub struct EtcdConfigSync {
     config: Etcd,
     client: Option<Client>,
@@ -51,6 +64,7 @@ pub struct EtcdConfigSync {
 }
 
 impl EtcdConfigSync {
+    /// Creates a new EtcdConfigSync instance.
     pub fn new(config: Etcd, handler: Box<dyn EtcdEventHandler + Send + Sync>) -> Self {
         assert!(
             !config.prefix.is_empty(),
@@ -205,8 +219,11 @@ impl Service for EtcdConfigSync {
     }
 }
 
+/// EtcdEventHandler trait for handling etcd events.
 pub trait EtcdEventHandler {
+    /// Handles an etcd event.
     fn handle_event(&self, event: &Event);
+    /// Handles a list response from etcd.
     fn handle_list_response(&self, response: &GetResponse);
 }
 
@@ -227,6 +244,7 @@ async fn create_client(cfg: &Etcd) -> Result<Client, EtcdError> {
         .map_err(|e| EtcdError::ConnectionFailed(e.to_string()))
 }
 
+/// converts a JSON value to a resource
 pub fn json_to_resource<T>(value: &[u8]) -> Result<T, Box<dyn Error>>
 where
     T: serde::de::DeserializeOwned,
@@ -245,6 +263,7 @@ where
     Ok(resource)
 }
 
+/// EtcdClientWrapper is a wrapper around the etcd client that provides a more convenient interface.
 #[derive(Clone)]
 pub struct EtcdClientWrapper {
     config: Etcd,
@@ -252,6 +271,7 @@ pub struct EtcdClientWrapper {
 }
 
 impl EtcdClientWrapper {
+    /// Creates a new EtcdClientWrapper instance.
     pub fn new(cfg: Etcd) -> Self {
         Self {
             config: cfg,
@@ -274,6 +294,7 @@ impl EtcdClientWrapper {
         Ok(self.client.clone())
     }
 
+    /// get a value from etcd by key.
     pub async fn get(&self, key: &str) -> Result<Option<Vec<u8>>, EtcdError> {
         let client_arc = self.ensure_connected().await?;
         let mut client_guard = client_arc.lock().await;
@@ -288,7 +309,7 @@ impl EtcdClientWrapper {
             .map_err(|e| EtcdError::ListOperationFailed(e.to_string()))
             .map(|resp| resp.kvs().first().map(|kv| kv.value().to_vec()))
     }
-
+    /// put a key-value pair into etcd.
     pub async fn put(&self, key: &str, value: Vec<u8>) -> Result<(), EtcdError> {
         let client_arc = self.ensure_connected().await?;
         let mut client_guard = client_arc.lock().await;
@@ -303,7 +324,7 @@ impl EtcdClientWrapper {
             .map_err(|e| EtcdError::Other(format!("Put operation failed: {}", e)))?;
         Ok(())
     }
-
+    /// delete a key-value pair from etcd.
     pub async fn delete(&self, key: &str) -> Result<(), EtcdError> {
         let client_arc = self.ensure_connected().await?;
         let mut client_guard = client_arc.lock().await;

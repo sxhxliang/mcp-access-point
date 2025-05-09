@@ -1,4 +1,3 @@
-#[warn(dead_code)]
 pub mod http_admin;
 pub mod validate;
 use std::error::Error;

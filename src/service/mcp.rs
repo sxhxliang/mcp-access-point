@@ -39,6 +39,7 @@ use crate::{
 /// Manages the proxying of requests to upstream servers.
 // #[derive(Default)]
 pub struct MCPProxyService {
+    /// SSE event channel
     pub tx: broadcast::Sender<SseEvent>,
 }
 
@@ -68,6 +69,7 @@ impl MCPProxyService {
 
         Ok(true)
     }
+    /// Helper method to send SSE events
     pub fn new(tx: broadcast::Sender<SseEvent>) -> Self {
         Self { tx }
     }
@@ -194,7 +196,7 @@ impl MCPProxyService {
             .await
             .map_err(|e| {
                 log::error!("Failed to read request body: {}", e);
-                return Error::because(ErrorType::ReadError, "Failed to read request body:", e);
+                Error::because(ErrorType::ReadError, "Failed to read request body:", e)
             })?;
 
         if body.is_none() {
@@ -204,7 +206,7 @@ impl MCPProxyService {
 
         serde_json::from_slice::<JSONRPCRequest>(&body.unwrap()).map_err(|e| {
             log::error!("Failed to parse JSON: {}", e);
-            return Error::because(ErrorType::ReadError, "Failed to read request body:", e);
+            Error::because(ErrorType::ReadError, "Failed to read request body:", e)
         })
     }
 }
@@ -442,7 +444,9 @@ impl ProxyHttp for MCPProxyService {
                         match create_json_rpc_response(request_id, body) {
                             Ok(res) => {
                                 let data_body = serde_json::to_string(&res).unwrap();
-                                *body = Some(Bytes::copy_from_slice(data_body.as_bytes()));
+                                if end_of_stream {
+                                    *body = Some(Bytes::copy_from_slice(data_body.as_bytes()));
+                                }
                             }
                             Err(e) => log::error!("Failed to create stateless response: {}", e),
                         }
@@ -457,7 +461,9 @@ impl ProxyHttp for MCPProxyService {
                     match create_json_rpc_response(request_id, body) {
                         Ok(res) => {
                             let data_body = serde_json::to_string(&res).unwrap();
-                            *body = Some(Bytes::copy_from_slice(data_body.as_bytes()));
+                            if end_of_stream {
+                                *body = Some(Bytes::copy_from_slice(data_body.as_bytes()));
+                            }
                         }
                         Err(e) => log::error!("Failed to create default response: {}", e),
                     }
