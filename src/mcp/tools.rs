@@ -9,7 +9,7 @@ use crate::{
     config::{self, global_mcp_route_meta_info_fetch},
     jsonrpc::{CallToolRequestParam, JSONRPCRequest, JSONRPCResponse},
     mcp::send_json_response,
-    openapi::global_openapi_tools_fetch,
+    proxy::mcp::global_openapi_tools_fetch,
     proxy::route,
     service::mcp::MCPProxyService,
     types::{CallToolResult, CallToolResultContentItem, RequestId, TextContent},

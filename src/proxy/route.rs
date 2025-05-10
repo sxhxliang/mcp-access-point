@@ -330,17 +330,27 @@ pub fn global_route_match_fetch() -> Arc<MatchEntry> {
     GLOBAL_ROUTE_MATCH.load().clone()
 }
 
+/// Reloads the global route match by iterating over all routes in the `ROUTE_MAP` and inserting them
+/// into a new `MatchEntry` instance. If any route insertion fails, the error is logged, but the
+/// process continues to ensure that partial failures do not prevent the remaining routes from being
+/// processed. Finally, the newly populated `MatchEntry` is stored in the `GLOBAL_ROUTE_MATCH` as an
+/// `Arc` for shared ownership and thread safety.
+///
+/// This function does not take any parameters and does not return any value.
 pub fn reload_global_route_match() {
+    // Initialize a new `MatchEntry` instance with default values.
     let mut matcher = MatchEntry::default();
 
+    // Iterate over each route in the `ROUTE_MAP` and attempt to insert it into the `matcher`.
     for route in ROUTE_MAP.iter() {
         debug!("Inserting route: {}", route.inner.id);
         if let Err(e) = matcher.insert_route(route.clone()) {
+            // Log an error if the route insertion fails, but continue processing other routes.
             log::error!("Failed to insert route {}: {}", route.inner.id, e);
-            // Continue with other routes to avoid partial failures stopping the process
         }
     }
 
+    // Store the populated `matcher` in the `GLOBAL_ROUTE_MATCH` as an `Arc` for shared access.
     GLOBAL_ROUTE_MATCH.store(Arc::new(matcher));
 }
 

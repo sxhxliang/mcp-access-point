@@ -374,7 +374,7 @@ impl From<config::HealthCheck> for Box<HttpHealthCheck> {
     }
 }
 
-// Define a global upstream map, initialized lazily
+/// Define a global upstream map, initialized lazily
 pub static UPSTREAM_MAP: Lazy<DashMap<String, Arc<ProxyUpstream>>> = Lazy::new(DashMap::new);
 
 /// Loads upstreams from the given configuration.

@@ -7,6 +7,8 @@ use once_cell::sync::Lazy;
 use http::{Method, Uri};
 use serde::{Deserialize, Serialize};
 
+use crate::types::{Prompt, Resource, Tool};
+
 use super::Upstream;
 
 /// Global map to store global rules, initialized lazily.
@@ -69,3 +71,19 @@ pub struct MCPOpenAPIConfig {
     /// Path for the OpenAPI route.
     pub path: String,
 }
+
+/// MCP Meta Info for MCP.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum MCPMetaInfo {
+    ToolInfo(Tool),
+    PromptInfo(Prompt),
+    ResourceInfo(Resource),
+}
+/// implement PartialEq for MCPMetaInfo
+/// alaways return true, because we don't need to compare the meta info.
+impl PartialEq for MCPMetaInfo {
+    fn eq(&self, other: &Self) -> bool {
+        true
+    }
+}
+impl Eq for MCPMetaInfo {}

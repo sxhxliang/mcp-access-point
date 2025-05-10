@@ -22,7 +22,7 @@ use access_point::proxy::{
     upstream::load_static_upstreams,
 };
 use access_point::{
-    admin::http_admin::AdminHttpApp, openapi::reload_global_openapi_tools_from_config,
+    admin::http_admin::AdminHttpApp, proxy::mcp::reload_global_openapi_tools_from_config,
 };
 // use access_point::service::http::HttpService;
 use access_point::service::mcp::MCPProxyService;

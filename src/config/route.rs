@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_yaml::Value as YamlValue;
 use validator::{Validate, ValidationError};
 
-use super::{Timeout, Upstream};
+use super::{MCPMetaInfo, Timeout, Upstream};
 
 /// HTTP Methods.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -90,6 +90,11 @@ pub struct Route {
     /// This ID is used to identify the route in the configuration.
     #[serde(default)]
     pub id: String,
+    /// The description of the route.
+    /// This is a human-readable description of the route.
+    /// If no description is specified, an empty string will be used.
+    /// The description can be used to provide additional information for mcp users.
+    pub mcp_meta: Option<MCPMetaInfo>,
     /// The URI pattern to match requests against.
     /// This can be a single URI or a list of URIs.
     /// If both `uri` and `uris` are specified, `uris` will be used.
