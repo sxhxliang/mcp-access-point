@@ -1,17 +1,12 @@
 use dashmap::DashMap;
-use once_cell::sync::Lazy;
 
-use http::{Method, Uri};
+use http::Method;
 use serde::Deserialize;
 use serde_json::{Map, Value};
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
-use tokio::fs;
+use std::{collections::HashMap, sync::Arc};
 
 use crate::{
-    config::{MCPOpenAPIConfig, MCPRouteMetaInfo, MCP_ROUTE_META_INFO_MAP},
+    config::{MCPRouteMetaInfo, MCPService},
     types::{ListToolsResult, Tool, ToolInputSchema},
 };
 
@@ -20,7 +15,7 @@ pub struct OpenApiSpec {
     pub paths: HashMap<String, PathItem>,
     pub components: Option<Components>,
     pub upstream_id: Option<String>,
-    pub mcp_config: Option<MCPOpenAPIConfig>,
+    pub mcp_config: Option<MCPService>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -222,7 +217,7 @@ impl OpenApiSpec {
         // Safely extract headers with proper error handling
         let mcp_config = self.mcp_config.clone().unwrap();
 
-        let headers = if let Some(headers) = &mcp_config.upstream_config {
+        let headers = if let Some(headers) = &mcp_config.upstream {
             headers.headers.clone()
         } else {
             Some(HashMap::new())
@@ -231,8 +226,8 @@ impl OpenApiSpec {
         // Construct MCPRouteMetaInfo with improved readability
         let mcp_route_meta_info = MCPRouteMetaInfo {
             operation_id: operation_id.to_string(),
-            path: path.parse::<Uri>().unwrap(),
-            method,
+            path: path.to_string(),
+            method: method.to_string(),
             upstream_id: self.upstream_id.clone(), // Consider avoiding clone if possible
             headers,
             // request_body: params.clone(),

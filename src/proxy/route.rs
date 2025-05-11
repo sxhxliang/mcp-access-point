@@ -23,6 +23,16 @@ use super::{
     MapOperations, ProxyPluginExecutor,
 };
 
+/// Fetches an upstream by its ID.
+pub fn route_fetch(id: &str) -> Option<Arc<ProxyRoute>> {
+    match ROUTE_MAP.get(id) {
+        Some(route) => Some(route.value().clone()),
+        None => {
+            log::warn!("Route with id '{}' not found", id);
+            None
+        }
+    }
+}
 /// Proxy route.
 ///
 /// Manages routing of requests to appropriate proxy load balancers.

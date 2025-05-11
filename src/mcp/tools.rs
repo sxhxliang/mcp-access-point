@@ -98,7 +98,7 @@ pub async fn request_processing(
             match route_meta_info {
                 Some(route_meta_info) => {
                     let arguments = &params.arguments.unwrap();
-                    let new_path = replace_dynamic_params(route_meta_info.path.path(), arguments);
+                    let new_path = replace_dynamic_params(route_meta_info.uri().path(), arguments);
                     log::debug!("new_path {:?}", new_path);
                     // let query_params = json_to_uri_query(arguments);
                     let path_and_query = merge_path_query(&new_path, "");
@@ -111,9 +111,9 @@ pub async fn request_processing(
                         let route_cfg = config::Route {
                             id: String::new(),
                             upstream_id: Some(upstream_id.clone()),
-                            uri: Some(route_meta_info.path.path().to_string()),
+                            uri: Some(route_meta_info.uri().path().to_string()),
                             methods: vec![config::HttpMethod::from_http_method(
-                                &route_meta_info.method,
+                                &route_meta_info.method(),
                             )
                             .unwrap()],
                             ..Default::default()
@@ -131,7 +131,7 @@ pub async fn request_processing(
 
                     session
                         .req_header_mut()
-                        .set_method(route_meta_info.method.clone());
+                        .set_method(route_meta_info.method().clone());
                     session
                         .req_header_mut()
                         .set_uri(Uri::from_str(&path_and_query).unwrap());

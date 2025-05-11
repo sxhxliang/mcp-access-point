@@ -6,6 +6,7 @@ use once_cell::sync::Lazy;
 
 use http::{Method, Uri};
 use serde::{Deserialize, Serialize};
+use serde_yaml::Value as YamlValue;
 
 use crate::types::{Prompt, Resource, Tool};
 
@@ -16,14 +17,14 @@ pub static MCP_ROUTE_META_INFO_MAP: Lazy<DashMap<String, Arc<MCPRouteMetaInfo>>>
     Lazy::new(DashMap::new);
 
 /// Global map to store global rules, initialized lazily.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MCPRouteMetaInfo {
     /// OpenAPI Operation ID, unique identifier for the route.
     pub operation_id: String,
     /// OpenAPI Path, the path of the route.
-    pub path: Uri,
+    pub path: String,
     /// OpenAPI Method, the HTTP method of the route.
-    pub method: Method,
+    pub method: String,
     /// Upstream ID, the upstream ID of the route.
     pub upstream_id: Option<String>,
     /// Headers, the additional headers to be added to the request.
@@ -34,6 +35,13 @@ impl MCPRouteMetaInfo {
     /// Get the headers to be added to the request.
     pub fn get_headers(&self) -> HashMap<String, String> {
         self.headers.clone().unwrap_or_default()
+    }
+
+    pub fn uri(&self) -> Uri {
+        self.path.parse::<Uri>().unwrap()
+    }
+    pub fn method(&self) -> Method {
+        Method::from_bytes(self.method.as_bytes()).unwrap()
     }
 }
 
@@ -63,13 +71,24 @@ pub fn global_mcp_route_meta_info_fetch(id: &str) -> Option<Arc<MCPRouteMetaInfo
 }
 /// MCP OpenAPI Config
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
-pub struct MCPOpenAPIConfig {
+pub struct MCPService {
+    #[serde(default)]
+    pub id: String,
     /// Upstream ID for the OpenAPI route.
     pub upstream_id: Option<String>, // upstream id
     /// Upstream configuration for the OpenAPI route.
-    pub upstream_config: Option<Upstream>,
+    pub upstream: Option<Upstream>,
     /// Path for the OpenAPI route.
-    pub path: String,
+    /// if the path is set, the service will be enabled.
+    pub path: Option<String>,
+    /// routes for the mcp server.
+    /// if the routes/route_ids/path arw not set, the service will be disabled.
+    pub routes: Option<Vec<MCPRouteMetaInfo>>,
+    /// routes id for the mcp server.
+    pub route_ids: Option<Vec<String>>,
+    /// service plugins for the mcp server.
+    #[serde(default)]
+    pub plugins: HashMap<String, YamlValue>,
 }
 
 /// MCP Meta Info for MCP.
