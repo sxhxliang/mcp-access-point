@@ -9,8 +9,7 @@ use crate::{
     config::{self, global_mcp_route_meta_info_fetch},
     jsonrpc::{CallToolRequestParam, JSONRPCRequest, JSONRPCResponse},
     mcp::send_json_response,
-    proxy::mcp::global_openapi_tools_fetch,
-    proxy::route,
+    proxy::{mcp::{global_openapi_tools_fetch, global_openapi_tools_fetch_by_id}, route},
     service::mcp::MCPProxyService,
     types::{CallToolResult, CallToolResultContentItem, RequestId, TextContent},
     utils::request::{merge_path_query, replace_dynamic_params},
@@ -27,7 +26,16 @@ pub async fn request_processing(
     let request_id = request.id.clone().unwrap_or(RequestId::Integer(0));
     match request.method.as_str() {
         "tools/list" => {
-            let list_tools = global_openapi_tools_fetch();
+            let list_tools = match ctx.vars.get("MCP_TENANT_ID"){
+                Some(tenant_id) => {
+                    log::debug!("tools/list--tenant_id {:?}", tenant_id);
+                    global_openapi_tools_fetch_by_id(tenant_id)
+                },
+                None => {
+                    log::debug!("tenant_id not found");
+                    global_openapi_tools_fetch()
+                },
+            };
             match list_tools {
                 Some(tools) => {
                     let res =

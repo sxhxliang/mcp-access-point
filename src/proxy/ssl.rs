@@ -134,7 +134,7 @@ pub fn load_static_ssls(config: &config::Config) -> Result<()> {
             }
         })
         .collect::<Result<Vec<_>>>()?;
-
+    log::info!("Reloading SSL resources");
     SSL_MAP.reload_resources(proxy_ssls);
 
     reload_global_ssl_match();

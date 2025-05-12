@@ -4,7 +4,7 @@ use async_stream::stream;
 use async_trait::async_trait;
 use bytes::Bytes;
 use futures::StreamExt;
-use http::{header, StatusCode};
+use http::{header, HeaderValue, StatusCode};
 
 use pingora::{
     modules::http::{compression::ResponseCompressionBuilder, grpc_web::GrpcWeb, HttpModules},
@@ -31,7 +31,7 @@ use crate::{
     },
     service::endpoint::{self, MCP_REQUEST_ID, MCP_SESSION_ID, MCP_STREAMABLE_HTTP},
     sse_event::SseEvent,
-    utils,
+    utils::{self, request::{match_api_path, PathMatch}},
 };
 
 /// Proxy service.
@@ -138,18 +138,26 @@ impl MCPProxyService {
 
     /// Builds SSE message URL with optional auth token
     fn build_sse_message_url(&self, session: &mut Session, session_id: &str) -> Result<String> {
+        let mut base_url = String::new();
+        let mut query_params = format!("session_id={}", session_id);
+
+        // Handle auth token if enabled
         if SERVER_WITH_AUTH {
             let parsed = utils::request::query_to_map(&session.req_header().uri);
-            let token = match parsed.get("token") {
-                Some(data) => data,
-                None => "",
-            };
-            Ok(format!(
-                "{CLIENT_MESSAGE_ENDPOINT}?session_id={session_id}&token={token}"
-            ))
-        } else {
-            Ok(format!("{CLIENT_MESSAGE_ENDPOINT}?session_id={session_id}"))
+            if let Some(token) = parsed.get("token") {
+                query_params.push_str(&format!("&token={}", token));
+            }
         }
+
+        // Handle tenant ID if present
+        if let Some(tenant_id) = session.req_header_mut().remove_header("MCP_TENANT_ID") {
+            let tenant_id = tenant_id.to_str().unwrap();
+            log::debug!("tenant_id: {}", tenant_id);
+            base_url.push_str(&format!("/api/{}", tenant_id));
+        }
+
+        base_url.push_str(CLIENT_MESSAGE_ENDPOINT);
+        Ok(format!("{}?{}", base_url, query_params))
     }
 
     /// Handles SSE event stream
@@ -254,11 +262,13 @@ impl ProxyHttp for MCPProxyService {
 
     /// Filters incoming requests
     async fn request_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> Result<bool> {
+        
         if ctx.route.is_none() {
             log::warn!("Route({:?}) not found", session.req_header().uri);
             if session.req_header().uri.path() != CLIENT_SSE_ENDPOINT
                 && session.req_header().uri.path() != CLIENT_MESSAGE_ENDPOINT
                 && session.req_header().uri.path() != CLIENT_STREAMABLE_HTTP_ENDPOINT
+                && match_api_path(session.req_header().uri.path()) == PathMatch::NoMatch
             {
                 // Handle the case where the route is not found
                 // and the request is for the SSE endpoint
@@ -290,21 +300,46 @@ impl ProxyHttp for MCPProxyService {
         let path = session.req_header().uri.path();
         log::debug!("===== Request: {:?}", session.req_header());
         // Handle the request based on the path
-        match path {
-            CLIENT_STREAMABLE_HTTP_ENDPOINT => {
-                // 2025-03-26 specification protocol;
-                return endpoint::handle_streamable_http_endpoint(ctx, self, session).await;
-            }
-            CLIENT_SSE_ENDPOINT => {
-                // 2024-11-05 specification protocol;
+
+        match match_api_path(path) {
+            PathMatch::Sse(tenant_id) => {
+                log::debug!("SSE path: {:?}", path);
+                ctx.vars.insert("MCP_TENANT_ID".to_string(), tenant_id.clone());
+                let _ =session.req_header_mut().insert_header("MCP_TENANT_ID", tenant_id.clone());
                 return endpoint::handle_sse_endpoint(ctx, self, session).await;
-            }
-            CLIENT_MESSAGE_ENDPOINT => {
-                // 2024-11-05 specification protocol;
+            },
+            PathMatch::Messages(tenant_id) => {
+                log::debug!("Messages path: {:?}", path);
+                ctx.vars.insert("MCP_TENANT_ID".to_string(), tenant_id.clone());
+                let _ =session.req_header_mut().insert_header("MCP_TENANT_ID", tenant_id.clone());
                 return endpoint::handle_message_endpoint(ctx, self, session).await;
-            }
-            _ => Ok(false),
+            },
+            PathMatch::StreamableHttp(tenant_id) => {
+                log::debug!("Streamable HTTP path: {:?}", path);
+                ctx.vars.insert("MCP_TENANT_ID".to_string(), tenant_id.clone());
+                let _ =session.req_header_mut().insert_header("MCP_TENANT_ID", tenant_id.clone());
+                return endpoint::handle_streamable_http_endpoint(ctx, self, session).await;
+            },
+            PathMatch::NoMatch => {
+                log::debug!("No tenant match for path: {:?}", path);
+                match path {
+                    CLIENT_STREAMABLE_HTTP_ENDPOINT => {
+                        // 2025-03-26 specification protocol;
+                        return endpoint::handle_streamable_http_endpoint(ctx, self, session).await;
+                    }
+                    CLIENT_SSE_ENDPOINT => {
+                        // 2024-11-05 specification protocol;
+                        return endpoint::handle_sse_endpoint(ctx, self, session).await;
+                    }
+                    CLIENT_MESSAGE_ENDPOINT => {
+                        // 2024-11-05 specification protocol;
+                        return endpoint::handle_message_endpoint(ctx, self, session).await;
+                    }
+                    _ => Ok(false),
+                }
+            },
         }
+
     }
 
     /// Selects an upstream peer for the request

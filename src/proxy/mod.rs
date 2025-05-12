@@ -101,12 +101,12 @@ where
     fn reload_resources(&self, resources: Vec<Arc<T>>) {
         // Log incoming resources
         for resource in &resources {
-            log::info!("Upstream resource: {}", resource.id());
+            log::info!("Resource: {}", resource.id());
         }
 
         // Build a set of IDs to keep
         let valid_ids: HashSet<String> = resources.iter().map(|r| r.id().to_string()).collect();
-
+        log::info!("Valid IDs: {:?}", valid_ids);
         // Remove entries not in the new set
         self.retain(|key, _| valid_ids.contains(key));
 

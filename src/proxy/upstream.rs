@@ -397,7 +397,7 @@ pub fn load_static_upstreams(config: &config::Config) -> Result<()> {
             }
         })
         .collect::<Result<Vec<_>>>()?;
-
+    log::info!("Loaded {} Upstreams", proxy_upstreams.len());
     // Insert all ProxyUpstream instances into the global map.
     UPSTREAM_MAP.reload_resources(proxy_upstreams);
 

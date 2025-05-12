@@ -99,7 +99,7 @@ pub fn load_static_services(config: &config::Config) -> Result<()> {
             }
         })
         .collect::<Result<Vec<_>>>()?;
-
+    log::info!("Configured {} services", proxy_services.len());
     SERVICE_MAP.reload_resources(proxy_services);
 
     Ok(())

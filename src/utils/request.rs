@@ -8,6 +8,31 @@ use url::form_urlencoded;
 
 use crate::config::UpstreamHashOn;
 
+#[derive(Debug, PartialEq)]
+pub enum PathMatch {
+    Sse(String),       // match /api/{tenant_id}/sse
+    Messages(String),  // match /api/{tenant_id}/messages
+    StreamableHttp(String),       // match /api/{tenant_id}/mcp
+    NoMatch,           // match failed
+}
+
+// 使用 Lazy 初始化正则表达式
+static API_SSE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^/api/(?P<tenant_id>[^/]+)/sse/?$").unwrap());
+static API_MESSAGE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^/api/(?P<tenant_id>[^/]+)/messages/?$").unwrap());
+static API_MCP_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^/api/(?P<tenant_id>[^/]+)/mcp/?$").unwrap());
+
+pub fn match_api_path(path: &str) -> PathMatch {
+    log::debug!("match_api_path: {}", path);
+    if let Some(caps) = API_SSE_RE.captures(path) {
+        PathMatch::Sse(caps["tenant_id"].to_string())
+    } else if let Some(caps) = API_MESSAGE_RE.captures(path) {
+        PathMatch::Messages(caps["tenant_id"].to_string())
+    } else if let Some(caps) = API_MCP_RE.captures(path) {
+        PathMatch::StreamableHttp(caps["tenant_id"].to_string())
+    } else {
+        PathMatch::NoMatch
+    }
+}
 /// Helper function to detect initialize requests
 pub fn is_initialize_request(body: &Value) -> bool {
     match body {
@@ -21,6 +46,10 @@ pub fn is_initialize_request(body: &Value) -> bool {
         Value::Object(obj) => obj.get("method").and_then(|m| m.as_str()) == Some("initialize"),
         _ => false,
     }
+}
+pub fn extract_tenant_id(path: &str) -> Option<String> {
+    let re = Regex::new(r"^/api/(?P<tenant_id>[^/?]+)/sse/?(\?.*)?$").unwrap();
+    re.captures(path).map(|caps| caps["tenant_id"].to_string())
 }
 
 pub fn query_to_map(uri: &Uri) -> HashMap<String, String> {
@@ -280,7 +309,34 @@ pub fn get_client_ip(session: &Session) -> String {
 
     "".to_string()
 }
+#[test]
+fn test_extract_tenant_id() {
+    let paths = vec![
+        "/api/12345/sse",
+        "/api/abc-xyz/sse/",
+        "/api/user123/sse?param=value",
+    ];
 
+    for path in paths {
+        let res = match extract_tenant_id(path) {
+            Some(tenant_id) => true,
+            None => false,
+        };
+        assert_eq!(res, true, "Failed for path: {}", path);
+    }
+    let paths = vec![
+        "/api/invalid_path",
+        "/api/",
+        "/sse",
+    ];
+    for path in paths {
+        let res = match extract_tenant_id(path) {
+            Some(tenant_id) => true,
+            None => false,
+        };
+        assert_eq!(res, false, "Failed for path: {}", path);
+    }
+}
 #[test]
 fn flatten_json_object_with_nested_structure_flattens_correctly() {
     let json_value = serde_json::json!({

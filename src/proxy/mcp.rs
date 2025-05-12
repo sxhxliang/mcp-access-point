@@ -24,6 +24,40 @@ pub static MCP_TOOLS_MAP: Lazy<Arc<Mutex<ListToolsResult>>> = Lazy::new(|| {
     }))
 });
 
+pub struct MCPToolsList {
+    name: String,
+    tools_list: ListToolsResult,
+}
+
+impl Identifiable for MCPToolsList {
+    fn id(&self) -> &str {
+        &self.name
+    }
+
+    fn set_id(&mut self, id: String) {
+        self.name = id;
+    }
+}
+/// Global map to store services, initialized lazily.
+pub static MCP_SERVICE_TOOLS_MAP: Lazy<DashMap<String, Arc<MCPToolsList>>> = Lazy::new(DashMap::new);
+
+pub fn global_openapi_tools_fetch_by_id(id: &str) -> Option<ListToolsResult> {
+    // Lock the Mutex and clone the inner value to return as Arc
+    match MCP_SERVICE_TOOLS_MAP.get(id) {
+        Some(service) => {
+            Some(service.value().tools_list.clone())
+        },
+        None => {
+            log::warn!("Service with id '{}' not found", id);
+            Some(ListToolsResult {
+                tools:vec![],
+                meta: Map::new(),
+                next_cursor: None,
+            })
+        }
+    }
+}
+
 pub fn global_openapi_tools_fetch() -> Option<ListToolsResult> {
     // Lock the Mutex and clone the inner value to return as Arc
     MCP_TOOLS_MAP.lock().ok().map(|tools| tools.clone())
@@ -93,6 +127,10 @@ pub fn reload_global_openapi_tools_from_config(
         next_cursor: None,
         tools: tools.tools.clone(),
     };
+    MCP_SERVICE_TOOLS_MAP.reload_resources(vec![MCPToolsList{
+        tools_list: tools.clone(),
+        name: "global".to_string(),
+    }.into()]);
 
     Ok(tools)
 }
@@ -130,6 +168,11 @@ pub fn reload_global_openapi_tools_from_service_config(
         next_cursor: None,
         tools: tools.tools.clone(),
     };
+
+    MCP_SERVICE_TOOLS_MAP.reload_resources(vec![MCPToolsList{
+        tools_list: tools.clone(),
+        name: service.id.clone(),
+    }.into()]);
     Ok(tools)
 }
 /// Fetches a mcp service by its ID.
@@ -250,7 +293,7 @@ pub fn load_static_mcp_services(config: &config::Config) -> Result<()> {
             }
         })
         .collect::<Result<Vec<_>>>()?;
-
+    log::info!("Loaded {} MCP Service(s)", proxy_mcp_services.len());
     MCP_SERVICE_MAP.reload_resources(proxy_mcp_services);
 
     Ok(())
