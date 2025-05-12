@@ -63,7 +63,7 @@ npx @modelcontextprotocol/inspector node build/index.js
 ```yaml
 # config.yaml example (supports multiple services)
 mcps:
-  - service-1:  # Service identifier
+  - id: service-1  # Service identifier
     upstream_id: 1
     upstream_config: # Upstream service configuration (optional)
       headers:
@@ -75,9 +75,25 @@ mcps:
         "127.0.0.1:8090": 1 # must be the same as upstream id in upstreams
     path: openapi_for_demo_patch1.json # Local OpenAPI file path
 
-  - web-api-2:
+  - id: web-api-2 # Service identifier
     upstream_id: 2
     path: https://petstore.swagger.io/v2/swagger.json  # Supports network paths
+    routes: # custom routes (additional routes)
+      - id: 1
+        operation_id: test_custom_route # Operation identifier
+        uri: /api/v1/{id} # Path to match (e.g., /api/v1/*)
+        method: GET
+        meta:
+          name: test_custom_route
+          description: test by ID
+          inputSchema: # Input schema validation (optional)
+            type: object
+            required:
+              - id
+            properties:
+              id:
+                type: integer
+                minimum: 1
 
 upstreams: # Upstream service configuration must be defined
   - id: 1

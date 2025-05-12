@@ -11,7 +11,7 @@ use sentry::IntoDsn;
 use std::ops::DerefMut;
 use tokio::sync::broadcast;
 
-use access_point::config::{self, etcd::EtcdConfigSync, Config};
+use access_point::admin::http_admin::AdminHttpApp;
 use access_point::logging::Logger;
 use access_point::proxy::{
     event::ProxyEventHandler,
@@ -22,7 +22,8 @@ use access_point::proxy::{
     upstream::load_static_upstreams,
 };
 use access_point::{
-    admin::http_admin::AdminHttpApp, proxy::mcp::reload_global_openapi_tools_from_config,
+    config::{self, etcd::EtcdConfigSync, Config},
+    proxy::mcp::load_static_mcp_services,
 };
 // use access_point::service::http::HttpService;
 use access_point::service::mcp::MCPProxyService;
@@ -58,6 +59,7 @@ fn main() {
         load_static_services(&config).expect("Failed to load static services");
         load_static_global_rules(&config).expect("Failed to load static global rules");
         load_static_routes(&config).expect("Failed to load  static routes");
+        load_static_mcp_services(&config).expect("Failed to load static mcp services");
         load_static_ssls(&config).expect("Failed to load  static ssls");
         None
     };
@@ -81,10 +83,10 @@ fn main() {
 
     // let mcp_config =
     //         Config::load_yaml_with_opt_override(&cli_options).expect("Failed to load configuration");
-    if let Some(mcps) = config.mcps {
-        let _tools =
-            reload_global_openapi_tools_from_config(mcps).expect("Failed to reload openapi tools");
-    }
+    // if let mcps = config.mcps {
+    //     let _tools =
+    //         reload_global_openapi_tools_from_config(mcps).expect("Failed to reload openapi tools");
+    // }
     // println!("total tools : {:#?}", tools.tools.len());
 
     let (tx, _) = broadcast::channel(16);

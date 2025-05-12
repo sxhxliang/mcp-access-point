@@ -223,17 +223,6 @@ impl OpenApiSpec {
             Some(HashMap::new())
         };
 
-        // Construct MCPRouteMetaInfo with improved readability
-        let mcp_route_meta_info = MCPRouteMetaInfo {
-            operation_id: operation_id.to_string(),
-            path: path.to_string(),
-            method: method.to_string(),
-            upstream_id: self.upstream_id.clone(), // Consider avoiding clone if possible
-            headers,
-            // request_body: params.clone(),
-        };
-        mcp_route_metas.insert(operation_id.into(), Arc::new(mcp_route_meta_info));
-
         let mut description = op.summary.clone().unwrap_or_default();
         if op.description.is_some() && op.summary != op.description {
             description.push_str(&format!(
@@ -247,7 +236,16 @@ impl OpenApiSpec {
         //         description.push_str(&format!("\n    {}: {}", param.name, param.description));
         //     }
         // }
-
+        // Construct MCPRouteMetaInfo with improved readability
+        let mcp_route_meta_info = MCPRouteMetaInfo {
+            operation_id: operation_id.to_string(),
+            uri: path.to_string(),
+            method: method.to_string(),
+            upstream_id: self.upstream_id.clone(), // Consider avoiding clone if possible
+            headers,
+            ..Default::default() // request_body: params.clone(),
+        };
+        mcp_route_metas.insert(operation_id.into(), Arc::new(mcp_route_meta_info));
         let mut properties = HashMap::new();
         let mut required = Vec::new();
 

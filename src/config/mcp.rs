@@ -8,7 +8,7 @@ use http::{Method, Uri};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value as YamlValue;
 
-use crate::types::{Prompt, Resource, Tool};
+use crate::types::{Prompt, Resource, Tool, ToolInputSchema};
 
 use super::Upstream;
 
@@ -17,12 +17,14 @@ pub static MCP_ROUTE_META_INFO_MAP: Lazy<DashMap<String, Arc<MCPRouteMetaInfo>>>
     Lazy::new(DashMap::new);
 
 /// Global map to store global rules, initialized lazily.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MCPRouteMetaInfo {
     /// OpenAPI Operation ID, unique identifier for the route.
     pub operation_id: String,
     /// OpenAPI Path, the path of the route.
-    pub path: String,
+    #[serde(default)]
+    pub meta: MCPMetaInfo,
+    pub uri: String,
     /// OpenAPI Method, the HTTP method of the route.
     pub method: String,
     /// Upstream ID, the upstream ID of the route.
@@ -38,7 +40,7 @@ impl MCPRouteMetaInfo {
     }
 
     pub fn uri(&self) -> Uri {
-        self.path.parse::<Uri>().unwrap()
+        self.uri.parse::<Uri>().unwrap()
     }
     pub fn method(&self) -> Method {
         Method::from_bytes(self.method.as_bytes()).unwrap()
@@ -93,11 +95,27 @@ pub struct MCPService {
 
 /// MCP Meta Info for MCP.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged, rename_all = "lowercase")]
 pub enum MCPMetaInfo {
     ToolInfo(Tool),
     PromptInfo(Prompt),
     ResourceInfo(Resource),
 }
+impl Default for MCPMetaInfo {
+    fn default() -> Self {
+        Self::ToolInfo(Tool {
+            name: "".to_string(),
+            annotations: None,
+            description: None,
+            input_schema: ToolInputSchema {
+                properties: HashMap::new(),
+                required: Vec::new(),
+                type_: "object".to_string(),
+            },
+        })
+    }
+}
+
 /// implement PartialEq for MCPMetaInfo
 /// alaways return true, because we don't need to compare the meta info.
 impl PartialEq for MCPMetaInfo {

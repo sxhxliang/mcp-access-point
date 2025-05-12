@@ -25,9 +25,30 @@ mcps:
   #       "127.0.0.1:8090": 1 # must be the same as upstream id in upstreams
   #   path: openapi_for_demo_patch1.json # Local OpenAPI file path
 
-  - web-api-2:
+  - id: remote_openapi
     upstream_id: 2
     path: https://petstore.swagger.io/v2/swagger.json  # Supports network paths
+    routes: # custom_routes
+      - id: 1
+        operation_id: test_custom_route # Operation identifier
+        uri: /api/v1/{id} # Path to match (e.g., /api/v1/*)
+        method: GET
+        meta:
+          name: test_custom_route
+          description: test by ID
+          inputSchema: # Input schema validation (optional)
+            type: object
+            required:
+              - id
+            properties:
+              id:
+                type: integer
+                minimum: 1
+
+routes: # Route configuration must be defined
+  - id: 1
+    uri: /api/v1/* # Path to match (e.g., /api/v1/*)
+    upstream_id: 1 # Upstream service identifier (must be the same as upstream id in upstreams)
 
 upstreams: # Upstream service configuration must be defined
   - id: 1
@@ -37,3 +58,15 @@ upstreams: # Upstream service configuration must be defined
   - id: 2 # another upstream service 
     nodes:
       "127.0.0.1:8091": 1
+# Services group upstream and plugins, reusable by routes
+services:
+  - id: 1
+    upstream_id: 2
+    plugins:
+      limit-count:
+        key_type: head
+        key: Host
+        time_window: 1
+        count: 1
+        rejected_code: 429
+        rejected_msg: "Please slow down!"

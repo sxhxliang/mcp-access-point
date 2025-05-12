@@ -78,7 +78,8 @@ pub struct Config {
     #[validate(nested)]
     pub access_point: AccessPointConfig,
     /// mcp config
-    pub mcps: Option<Vec<MCPService>>,
+    #[serde(default)]
+    pub mcps: Vec<MCPService>,
     /// The routes for the MCP Access Point API gateway.
     #[validate(nested)]
     #[serde(default)]

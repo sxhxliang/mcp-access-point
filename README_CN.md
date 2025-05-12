@@ -85,7 +85,22 @@ mcps:
   - web-api-2:
     upstream_id: 2
     path: https://petstore.swagger.io/v2/swagger.json  # 支持网络路径
-
+    routes: # custom routes (additional routes)
+      - id: 1
+        operation_id: test_custom_route # Operation identifier
+        uri: /api/v1/{id} # Path to match (e.g., /api/v1/*)
+        method: GET
+        meta:
+          name: test_custom_route
+          description: test by ID
+          inputSchema: # Input schema validation (optional)
+            type: object
+            required:
+              - id
+            properties:
+              id:
+                type: integer
+                minimum: 1
 upstreams: # 必须定义上游服务配置
   - id: 1
     nodes: #（例如：web服务器或API服务器）
