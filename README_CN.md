@@ -2,9 +2,9 @@
 
 `MCP Access Point`是一款轻量级的协议转换网关工具，专门用于在传统`HTTP`服务与`MCP`（模型上下文协议）客户端之间建立通信桥梁。它使得MCP客户端无需任何服务端接口改造，即可直接与现有HTTP服务进行交互。  
 <p align="center">
-  <a href="./README.md"><img alt="README in English" src="https://img.shields.io/badge/English-d9d9d9"></a>
-  <a href="./README_CN.md"><img alt="简体中文版自述文件" src="https://img.shields.io/badge/简体中文-d9d9d9"></a>
-
+  <a href="./README.md"><img alt="README in English" src="https://img.shields.io/badge/English-4578DA"></a>
+  <a href="./README_CN.md"><img alt="简体中文版" src="https://img.shields.io/badge/简体中文-F40002"></a>
+  <a href="https://deepwiki.com/sxhxliang/mcp-access-point"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
 </p>
 
 ## 简介
