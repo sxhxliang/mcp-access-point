@@ -4,7 +4,7 @@ use async_stream::stream;
 use async_trait::async_trait;
 use bytes::Bytes;
 use futures::StreamExt;
-use http::{header, HeaderValue, StatusCode};
+use http::{header, StatusCode};
 
 use pingora::{
     modules::http::{compression::ResponseCompressionBuilder, grpc_web::GrpcWeb, HttpModules},
@@ -31,7 +31,10 @@ use crate::{
     },
     service::endpoint::{self, MCP_REQUEST_ID, MCP_SESSION_ID, MCP_STREAMABLE_HTTP},
     sse_event::SseEvent,
-    utils::{self, request::{match_api_path, PathMatch}},
+    utils::{
+        self,
+        request::{match_api_path, PathMatch},
+    },
 };
 
 /// Proxy service.
@@ -262,7 +265,6 @@ impl ProxyHttp for MCPProxyService {
 
     /// Filters incoming requests
     async fn request_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> Result<bool> {
-        
         if ctx.route.is_none() {
             log::warn!("Route({:?}) not found", session.req_header().uri);
             if session.req_header().uri.path() != CLIENT_SSE_ENDPOINT
@@ -298,28 +300,37 @@ impl ProxyHttp for MCPProxyService {
             session.req_header().uri.path_and_query()
         );
         let path = session.req_header().uri.path();
-        log::debug!("===== Request: {:?}", session.req_header());
+        // log::debug!("===== Request: {:?}", session.req_header());
         // Handle the request based on the path
 
         match match_api_path(path) {
             PathMatch::Sse(tenant_id) => {
                 log::debug!("SSE path: {:?}", path);
-                ctx.vars.insert("MCP_TENANT_ID".to_string(), tenant_id.clone());
-                let _ =session.req_header_mut().insert_header("MCP_TENANT_ID", tenant_id.clone());
+                ctx.vars
+                    .insert("MCP_TENANT_ID".to_string(), tenant_id.clone());
+                let _ = session
+                    .req_header_mut()
+                    .insert_header("MCP_TENANT_ID", tenant_id.clone());
                 return endpoint::handle_sse_endpoint(ctx, self, session).await;
-            },
+            }
             PathMatch::Messages(tenant_id) => {
                 log::debug!("Messages path: {:?}", path);
-                ctx.vars.insert("MCP_TENANT_ID".to_string(), tenant_id.clone());
-                let _ =session.req_header_mut().insert_header("MCP_TENANT_ID", tenant_id.clone());
+                ctx.vars
+                    .insert("MCP_TENANT_ID".to_string(), tenant_id.clone());
+                let _ = session
+                    .req_header_mut()
+                    .insert_header("MCP_TENANT_ID", tenant_id.clone());
                 return endpoint::handle_message_endpoint(ctx, self, session).await;
-            },
+            }
             PathMatch::StreamableHttp(tenant_id) => {
                 log::debug!("Streamable HTTP path: {:?}", path);
-                ctx.vars.insert("MCP_TENANT_ID".to_string(), tenant_id.clone());
-                let _ =session.req_header_mut().insert_header("MCP_TENANT_ID", tenant_id.clone());
+                ctx.vars
+                    .insert("MCP_TENANT_ID".to_string(), tenant_id.clone());
+                let _ = session
+                    .req_header_mut()
+                    .insert_header("MCP_TENANT_ID", tenant_id.clone());
                 return endpoint::handle_streamable_http_endpoint(ctx, self, session).await;
-            },
+            }
             PathMatch::NoMatch => {
                 log::debug!("No tenant match for path: {:?}", path);
                 match path {
@@ -337,9 +348,8 @@ impl ProxyHttp for MCPProxyService {
                     }
                     _ => Ok(false),
                 }
-            },
+            }
         }
-
     }
 
     /// Selects an upstream peer for the request
@@ -348,6 +358,7 @@ impl ProxyHttp for MCPProxyService {
         session: &mut Session,
         ctx: &mut Self::CTX,
     ) -> Result<Box<HttpPeer>> {
+        // log::debug!("upstream_peer{:?}", ctx.route);
         let peer = match ctx.route.clone().as_ref() {
             Some(route) => route.select_http_peer(session),
             None => {

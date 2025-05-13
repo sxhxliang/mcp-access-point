@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use dashmap::DashMap;
 use once_cell::sync::Lazy;
@@ -6,23 +6,14 @@ use pingora_error::Result;
 use serde_json::Map;
 
 use crate::{
-    config::{self, Identifiable, MCPService, MCP_ROUTE_META_INFO_MAP},
+    config::{self, Identifiable, MCP_ROUTE_META_INFO_MAP},
     openapi::OpenApiSpec,
-    plugin::ProxyPlugin,
+    plugin::{build_plugin, ProxyPlugin},
     types::{ListToolsResult, Tool},
     utils::file::read_from_local_or_remote,
 };
 
 use super::{route::ProxyRoute, upstream::ProxyUpstream, MapOperations};
-
-/// Global map to store global rules, initialized lazily.
-pub static MCP_TOOLS_MAP: Lazy<Arc<Mutex<ListToolsResult>>> = Lazy::new(|| {
-    Arc::new(Mutex::new(ListToolsResult {
-        meta: Map::new(),
-        next_cursor: None,
-        tools: vec![],
-    }))
-});
 
 pub struct MCPToolsList {
     name: String,
@@ -39,110 +30,44 @@ impl Identifiable for MCPToolsList {
     }
 }
 /// Global map to store services, initialized lazily.
-pub static MCP_SERVICE_TOOLS_MAP: Lazy<DashMap<String, Arc<MCPToolsList>>> = Lazy::new(DashMap::new);
+pub static MCP_SERVICE_TOOLS_MAP: Lazy<DashMap<String, Arc<MCPToolsList>>> =
+    Lazy::new(DashMap::new);
 
 pub fn global_openapi_tools_fetch_by_id(id: &str) -> Option<ListToolsResult> {
-    // Lock the Mutex and clone the inner value to return as Arc
-    match MCP_SERVICE_TOOLS_MAP.get(id) {
-        Some(service) => {
-            Some(service.value().tools_list.clone())
-        },
-        None => {
+    MCP_SERVICE_TOOLS_MAP
+        .get(id)
+        .map(|service| service.value().tools_list.clone())
+        .or_else(|| {
             log::warn!("Service with id '{}' not found", id);
-            Some(ListToolsResult {
-                tools:vec![],
-                meta: Map::new(),
-                next_cursor: None,
-            })
-        }
-    }
+            Some(ListToolsResult::default())
+        })
 }
 
 pub fn global_openapi_tools_fetch() -> Option<ListToolsResult> {
-    // Lock the Mutex and clone the inner value to return as Arc
-    MCP_TOOLS_MAP.lock().ok().map(|tools| tools.clone())
+    let mut tools = ListToolsResult::default();
+    MCP_SERVICE_TOOLS_MAP
+        .iter()
+        .for_each(|service| tools.tools.extend(service.value().tools_list.tools.clone()));
+    Some(tools)
 }
 
-pub fn reload_global_openapi_tools(
-    openapi_content: String,
-) -> Result<ListToolsResult, Box<dyn std::error::Error>> {
-    let spec: OpenApiSpec = OpenApiSpec::new(openapi_content)?;
-    let (tools, mcp_route_metas) = spec.load_openapi()?;
-    for (key, value) in mcp_route_metas {
-        MCP_ROUTE_META_INFO_MAP.insert(key, value);
-    }
-    // Lock the Mutex and update the global tools map
-    let mut map = MCP_TOOLS_MAP.lock().map_err(|e| e.to_string())?;
-    *map = ListToolsResult {
-        meta: Map::new(),
-        next_cursor: None,
-        tools: tools.tools.clone(),
-    };
-
-    Ok(tools)
-}
-
-pub fn reload_global_openapi_tools_from_config(
-    mcp_cfgs: Vec<MCPService>,
-) -> Result<ListToolsResult, Box<dyn std::error::Error>> {
-    let mut tools: ListToolsResult = ListToolsResult {
-        meta: Map::new(),
-        next_cursor: None,
-        tools: vec![],
-    };
-    for mcp_cfg in mcp_cfgs {
-        if mcp_cfg.path.is_none() {
-            log::warn!("No path found in openapi config");
-            continue; // Skip if path is not give
-        }
-        let (_, content) = read_from_local_or_remote(&mcp_cfg.path.clone().unwrap())?;
-        let mut spec: OpenApiSpec = OpenApiSpec::new(content)?;
-
-        if let Some(upstream_id) = mcp_cfg.upstream_id.clone() {
-            spec.upstream_id = Some(upstream_id);
-        } else {
-            log::warn!("No upstream_id found in openapi content");
-        }
-
-        spec.mcp_config = Some(mcp_cfg);
-
-        if tools.tools.is_empty() {
-            let (new_tools, mcp_route_metas) = spec.load_openapi()?;
-            tools = new_tools;
-            for (key, value) in mcp_route_metas {
-                MCP_ROUTE_META_INFO_MAP.insert(key, value);
-            }
-        } else {
-            let (new_tools, mcp_route_metas) = spec.load_openapi()?;
-            tools.tools.extend(new_tools.tools); // Append new tool
-            for (key, value) in mcp_route_metas {
-                MCP_ROUTE_META_INFO_MAP.insert(key, value);
-            }
-        }
-    }
-    // Lock the Mutex and update the global tools map
-    let mut map = MCP_TOOLS_MAP.lock().map_err(|e| e.to_string())?;
-    *map = ListToolsResult {
-        meta: Map::new(),
-        next_cursor: None,
-        tools: tools.tools.clone(),
-    };
-    MCP_SERVICE_TOOLS_MAP.reload_resources(vec![MCPToolsList{
-        tools_list: tools.clone(),
-        name: "global".to_string(),
-    }.into()]);
-
-    Ok(tools)
-}
-
+/// Global map to store mcp services
+/// key: service id, value: MCPToolsList
 pub fn reload_global_openapi_tools_from_service_config(
     service: &config::MCPService,
-) -> Result<ListToolsResult, Box<dyn std::error::Error>> {
+) -> Result<
+    (
+        ListToolsResult,
+        DashMap<String, Arc<config::MCPRouteMetaInfo>>,
+    ),
+    Box<dyn std::error::Error>,
+> {
     let mut tools: ListToolsResult = ListToolsResult {
         meta: Map::new(),
         next_cursor: None,
         tools: vec![],
     };
+    let meta_info: DashMap<String, Arc<config::MCPRouteMetaInfo>> = DashMap::new();
 
     if let Some(path) = &service.path {
         let (_, content) = read_from_local_or_remote(path)?;
@@ -152,28 +77,18 @@ pub fn reload_global_openapi_tools_from_service_config(
             let (new_tools, mcp_route_metas) = spec.load_openapi()?;
             tools = new_tools;
             for (key, value) in mcp_route_metas {
-                MCP_ROUTE_META_INFO_MAP.insert(key, value);
+                meta_info.insert(key, value);
             }
         } else {
             let (new_tools, mcp_route_metas) = spec.load_openapi()?;
             tools.tools.extend(new_tools.tools); // Append new tool
             for (key, value) in mcp_route_metas {
-                MCP_ROUTE_META_INFO_MAP.insert(key, value);
+                meta_info.insert(key, value);
             }
         }
     }
-    let mut map = MCP_TOOLS_MAP.lock().map_err(|e| e.to_string())?;
-    *map = ListToolsResult {
-        meta: Map::new(),
-        next_cursor: None,
-        tools: tools.tools.clone(),
-    };
 
-    MCP_SERVICE_TOOLS_MAP.reload_resources(vec![MCPToolsList{
-        tools_list: tools.clone(),
-        name: service.id.clone(),
-    }.into()]);
-    Ok(tools)
+    Ok((tools, meta_info))
 }
 /// Fetches a mcp service by its ID.
 pub fn mcp_service_fetch(id: &str) -> Option<Arc<ProxyMCPService>> {
@@ -222,28 +137,64 @@ impl ProxyMCPService {
         log::info!("mcp service:\n {:#?}", service);
         // 配置 routes
         let mut tools: Vec<Tool> = Vec::new();
-        if let Some(ref routes_config) = service.routes {
+        let mut tools_meta_info: DashMap<String, Arc<config::MCPRouteMetaInfo>> = DashMap::new();
+        // Configure upstream
+        // if let Some(upstream_config) = &service.upstream {
+        //     let proxy_upstream =
+        //         ProxyUpstream::new_with_health_check(upstream_config.clone(), work_stealing)?;
+        //         proxy_mcp_service.upstream = Some(Arc::new(proxy_upstream));
+        // }
+        // Load plugins
+        // for (name, value) in &service.plugins {
+        //     let plugin = build_plugin(name, value.clone())?;
+        //     proxy_mcp_service.plugins.push(plugin);
+        // }
+        //  Configure routes
+        if let Some(routes_config) = &service.routes {
             for cfg in routes_config {
-                MCP_ROUTE_META_INFO_MAP.insert(cfg.operation_id.clone(), Arc::new(cfg.clone()));
+                let mut cfg = cfg.clone();
+                if cfg.upstream_id.is_none() {
+                    cfg.upstream_id = service.upstream_id.clone();
+                };
                 match &cfg.meta {
                     config::MCPMetaInfo::ToolInfo(tool) => tools.push(tool.clone()),
                     config::MCPMetaInfo::PromptInfo(prompt) => todo!(),
                     config::MCPMetaInfo::ResourceInfo(resource) => todo!(),
                 };
+                tools_meta_info.insert(cfg.operation_id.clone(), Arc::new(cfg));
             }
         }
-
+        // configure openapi tools
         if service.path.is_some() {
-            if let Ok(other_tools) = reload_global_openapi_tools_from_service_config(&service) {
+            if let Ok((other_tools, other_meta_info)) =
+                reload_global_openapi_tools_from_service_config(&service)
+            {
                 tools.extend(other_tools.tools); // Append new tool
+                tools_meta_info.extend(other_meta_info);
             }
         }
-        let mut map = MCP_TOOLS_MAP.lock().map_err(|e| e.to_string()).unwrap();
-        *map = ListToolsResult {
+        
+        let list_tools = ListToolsResult {
             meta: Map::new(),
             next_cursor: None,
             tools: tools.clone(),
         };
+
+        //  insert meta info to global map
+        //  tool call from meta info by operation_id
+        for pair in tools_meta_info.into_iter() {
+            MCP_ROUTE_META_INFO_MAP.insert(pair.0, pair.1);
+        }
+        //  insert tools to global map
+        // list tools from global map by service id
+        MCP_SERVICE_TOOLS_MAP.insert(
+            service.id.clone(),
+            MCPToolsList {
+                tools_list: list_tools,
+                name: service.id.clone(),
+            }
+            .into(),
+        );
 
         // 配置 upstream
         if let Some(ref upstream_config) = service.upstream {
@@ -254,20 +205,23 @@ impl ProxyMCPService {
 
         Ok(proxy_mcp_service)
     }
-
+    pub fn get_tools(&self) -> Option<ListToolsResult> {
+        global_openapi_tools_fetch_by_id(self.id())
+    }
+    pub fn get_meta_info(&self, operation_id: &str) -> Option<Arc<config::MCPRouteMetaInfo>> {
+        MCP_ROUTE_META_INFO_MAP
+            .get(operation_id)
+            .map(|route| route.value().clone())
+    }
     // pub fn resolve_route(&self, route_id: &str) -> Option<Route> {
     //     self.routes.get(route_id).clone()
     // }
     /// Gets the Route for the service.
     pub fn resolve_upstream(&self) -> Option<Arc<ProxyUpstream>> {
-        self.routes.as_ref().and_then(|routes| {
-            if routes.is_empty() {
-                return None; // No routes, return None
-            }
-
-            let first_route = &routes[0]; // Get the first route
-            first_route.upstream.clone() // Return the upstream from the first route
-        })
+        self.routes
+            .as_ref()?
+            .first()
+            .and_then(|route| route.upstream.clone())
     }
 }
 

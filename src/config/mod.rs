@@ -60,7 +60,7 @@ macro_rules! impl_identifiable {
         }
     };
 }
-
+impl_identifiable!(MCPService);
 impl_identifiable!(Route);
 impl_identifiable!(Upstream);
 impl_identifiable!(Service);

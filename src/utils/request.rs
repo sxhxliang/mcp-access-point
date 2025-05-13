@@ -10,16 +10,19 @@ use crate::config::UpstreamHashOn;
 
 #[derive(Debug, PartialEq)]
 pub enum PathMatch {
-    Sse(String),       // match /api/{tenant_id}/sse
-    Messages(String),  // match /api/{tenant_id}/messages
-    StreamableHttp(String),       // match /api/{tenant_id}/mcp
-    NoMatch,           // match failed
+    Sse(String),            // match /api/{tenant_id}/sse
+    Messages(String),       // match /api/{tenant_id}/messages
+    StreamableHttp(String), // match /api/{tenant_id}/mcp
+    NoMatch,                // match failed
 }
 
 // 使用 Lazy 初始化正则表达式
-static API_SSE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^/api/(?P<tenant_id>[^/]+)/sse/?$").unwrap());
-static API_MESSAGE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^/api/(?P<tenant_id>[^/]+)/messages/?$").unwrap());
-static API_MCP_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^/api/(?P<tenant_id>[^/]+)/mcp/?$").unwrap());
+static API_SSE_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^/api/(?P<tenant_id>[^/]+)/sse/?$").unwrap());
+static API_MESSAGE_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^/api/(?P<tenant_id>[^/]+)/messages/?$").unwrap());
+static API_MCP_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^/api/(?P<tenant_id>[^/]+)/mcp/?$").unwrap());
 
 pub fn match_api_path(path: &str) -> PathMatch {
     log::debug!("match_api_path: {}", path);
@@ -322,19 +325,15 @@ fn test_extract_tenant_id() {
             Some(tenant_id) => true,
             None => false,
         };
-        assert_eq!(res, true, "Failed for path: {}", path);
+        assert!(res, "Failed for path: {}", path);
     }
-    let paths = vec![
-        "/api/invalid_path",
-        "/api/",
-        "/sse",
-    ];
+    let paths = vec!["/api/invalid_path", "/api/", "/sse"];
     for path in paths {
         let res = match extract_tenant_id(path) {
             Some(tenant_id) => true,
             None => false,
         };
-        assert_eq!(res, false, "Failed for path: {}", path);
+        assert!(!res, "Failed for path: {}", path);
     }
 }
 #[test]

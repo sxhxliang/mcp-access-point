@@ -29,7 +29,7 @@ mcps:
     upstream_id: 2
     path: https://petstore.swagger.io/v2/swagger.json  # Supports network paths
   - id: test3
-    upstream_id: 2
+    upstream_id: 3
     routes: # custom_routes
       - id: 1
         operation_id: test_custom_route # Operation identifier
@@ -56,10 +56,33 @@ upstreams: # Upstream service configuration must be defined
   - id: 1
     nodes: #（e.g., a web server or API server)）
       "127.0.0.1:8090": 1 # address with weight
+      "baidu.com": 2
+    type: roundrobin # Load balancing algorithm (roundrobin, random, ip_hash)
 
   - id: 2 # another upstream service 
     nodes:
       "127.0.0.1:8091": 1
+    type: roundrobin
+
+  - id: 3 # another upstream service
+    nodes:
+      "www.baidu.com": 1
+    type: roundrobin
+    # checks:
+    #   active:
+    #     type: https
+    #     timeout: 1
+    #     host: www.baidu.com
+    #     http_path: /
+    #     https_verify_certificate: true
+    #     req_headers: ["User-Agent: curl/7.29.0"]
+    #     healthy:
+    #       interval: 5
+    #       http_statuses: [200, 201]
+    #       successes: 2
+    #     unhealthy:
+    #       http_failures: 5
+    #       tcp_failures: 2
 # Services group upstream and plugins, reusable by routes
 services:
   - id: 1

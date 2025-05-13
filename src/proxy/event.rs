@@ -4,11 +4,12 @@ use etcd_client::{Event, GetResponse};
 
 use crate::config::{
     etcd::{json_to_resource, EtcdEventHandler},
-    GlobalRule, Identifiable, Route, Service, Upstream, SSL,
+    GlobalRule, Identifiable, MCPService, Route, Service, Upstream, SSL,
 };
 
 use super::{
     global_rule::{reload_global_plugin, ProxyGlobalRule, GLOBAL_RULE_MAP},
+    mcp::{ProxyMCPService, MCP_SERVICE_MAP},
     route::{reload_global_route_match, ProxyRoute, ROUTE_MAP},
     service::{ProxyService, SERVICE_MAP},
     ssl::{reload_global_ssl_match, ProxySSL, SSL_MAP},
@@ -38,6 +39,12 @@ impl Identifiable for Route {
 // Trait to compare proxy types with their inner configuration types
 trait InnerComparable<T> {
     fn inner_equals(&self, other: &T) -> bool;
+}
+
+impl InnerComparable<MCPService> for ProxyMCPService {
+    fn inner_equals(&self, other: &MCPService) -> bool {
+        self.inner == *other
+    }
 }
 
 impl InnerComparable<Route> for ProxyRoute {
@@ -142,6 +149,15 @@ impl ProxyEventHandler {
         }
     }
 
+    fn handle_mcp_services(&self, response: &GetResponse) {
+        self.handle_list_resource(
+            response,
+            "mcp_services",
+            &*MCP_SERVICE_MAP,
+            ProxyMCPService::new_with_routes_upstream_and_plugins,
+            None,
+        );
+    }
     fn handle_routes(&self, response: &GetResponse) {
         self.handle_list_resource(
             response,
@@ -229,7 +245,14 @@ impl ProxyEventHandler {
             }
         }
     }
-
+    fn handle_mcp_service_event(&self, event: &Event) {
+        self.handle_resource(
+            event,
+            "mcp_services",
+            &*MCP_SERVICE_MAP,
+            ProxyMCPService::new_with_routes_upstream_and_plugins,
+        );
+    }
     fn handle_route_event(&self, event: &Event) {
         self.handle_resource(
             event,

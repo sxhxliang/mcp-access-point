@@ -64,11 +64,13 @@ pub async fn request_processing(
                     completions: Map::new(),
                     experimental: HashMap::new(),
                     logging: Map::new(),
-                    prompts: Some(ServerCapabilitiesPrompts { list_changed: None }),
-                    resources: Some(ServerCapabilitiesResources {
-                        subscribe: None,
-                        list_changed: None,
-                    }),
+                    prompts:None,
+                    resources:None,
+                    // prompts: Some(ServerCapabilitiesPrompts { list_changed: None }),
+                    // resources: Some(ServerCapabilitiesResources {
+                    //     subscribe: None,
+                    //     list_changed: None,
+                    // }),
                     tools: Some(ServerCapabilitiesTools { list_changed: None }),
                 },
                 server_info: Implementation {

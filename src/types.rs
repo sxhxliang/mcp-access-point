@@ -3420,7 +3420,7 @@ impl ::std::convert::From<&ListToolsRequestParams> for ListToolsRequestParams {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ListToolsResult {
     #[doc = "This result property is reserved by the protocol to allow clients and servers to attach additional metadata to their responses."]
     #[serde(

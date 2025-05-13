@@ -17,7 +17,7 @@ pub static MCP_ROUTE_META_INFO_MAP: Lazy<DashMap<String, Arc<MCPRouteMetaInfo>>>
     Lazy::new(DashMap::new);
 
 /// Global map to store global rules, initialized lazily.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct MCPRouteMetaInfo {
     /// OpenAPI Operation ID, unique identifier for the route.
     pub operation_id: String,
@@ -72,7 +72,7 @@ pub fn global_mcp_route_meta_info_fetch(id: &str) -> Option<Arc<MCPRouteMetaInfo
     }
 }
 /// MCP OpenAPI Config
-#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MCPService {
     #[serde(default)]
     pub id: String,
