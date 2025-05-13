@@ -383,7 +383,7 @@ pub fn load_static_routes(config: &config::Config) -> Result<()> {
             }
         })
         .collect::<Result<Vec<_>>>()?;
-
+    log::info!("Loaded {} routes from config", proxy_routes.len());
     ROUTE_MAP.reload_resources(proxy_routes);
 
     reload_global_route_match();

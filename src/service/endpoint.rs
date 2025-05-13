@@ -106,10 +106,13 @@ pub async fn handle_message_endpoint(
             // add vars to ctx
             ctx.vars
                 .insert(MCP_SESSION_ID.to_string(), session_id.to_string());
-            ctx.vars.insert(
-                MCP_REQUEST_ID.to_string(),
-                request.id.clone().unwrap().to_string(),
-            );
+
+            if request.id.is_some() {
+                ctx.vars.insert(
+                    MCP_REQUEST_ID.to_string(),
+                    request.id.clone().unwrap().to_string(),
+                );
+            }
 
             return mcp::request_processing(ctx, session_id, mcp_proxy, session, &request.clone())
                 .await;

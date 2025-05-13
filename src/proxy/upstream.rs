@@ -28,6 +28,7 @@ use super::{discovery::HybridDiscovery, MapOperations};
 
 /// Fetches an upstream by its ID.
 pub fn upstream_fetch(id: &str) -> Option<Arc<ProxyUpstream>> {
+    log::debug!("Fetches an upstream by its ID: {}", id);
     match UPSTREAM_MAP.get(id) {
         Some(upstream) => Some(upstream.value().clone()),
         None => {
@@ -397,7 +398,7 @@ pub fn load_static_upstreams(config: &config::Config) -> Result<()> {
             }
         })
         .collect::<Result<Vec<_>>>()?;
-
+    log::info!("Loaded {} Upstreams", proxy_upstreams.len());
     // Insert all ProxyUpstream instances into the global map.
     UPSTREAM_MAP.reload_resources(proxy_upstreams);
 

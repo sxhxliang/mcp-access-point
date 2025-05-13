@@ -8,6 +8,7 @@ use http::{header, StatusCode};
 
 use pingora::{
     modules::http::{compression::ResponseCompressionBuilder, grpc_web::GrpcWeb, HttpModules},
+    protocols::http::compression::Algorithm,
     ErrorType,
 };
 use pingora_core::upstreams::peer::HttpPeer;
@@ -25,13 +26,13 @@ use crate::{
     jsonrpc::JSONRPCRequest,
     mcp::create_json_rpc_response,
     plugin::ProxyPlugin,
-    proxy::{
-        global_rule::global_plugin_fetch, route::global_route_match_fetch,
-        upstream::upstream_fetch, ProxyContext,
-    },
+    proxy::{global_rule::global_plugin_fetch, route::global_route_match_fetch, ProxyContext},
     service::endpoint::{self, MCP_REQUEST_ID, MCP_SESSION_ID, MCP_STREAMABLE_HTTP},
     sse_event::SseEvent,
-    utils,
+    utils::{
+        self,
+        request::{match_api_path, PathMatch},
+    },
 };
 
 /// Proxy service.
@@ -138,18 +139,26 @@ impl MCPProxyService {
 
     /// Builds SSE message URL with optional auth token
     fn build_sse_message_url(&self, session: &mut Session, session_id: &str) -> Result<String> {
+        let mut base_url = String::new();
+        let mut query_params = format!("session_id={}", session_id);
+
+        // Handle auth token if enabled
         if SERVER_WITH_AUTH {
             let parsed = utils::request::query_to_map(&session.req_header().uri);
-            let token = match parsed.get("token") {
-                Some(data) => data,
-                None => "",
-            };
-            Ok(format!(
-                "{CLIENT_MESSAGE_ENDPOINT}?session_id={session_id}&token={token}"
-            ))
-        } else {
-            Ok(format!("{CLIENT_MESSAGE_ENDPOINT}?session_id={session_id}"))
+            if let Some(token) = parsed.get("token") {
+                query_params.push_str(&format!("&token={}", token));
+            }
         }
+
+        // Handle tenant ID if present
+        if let Some(tenant_id) = session.req_header_mut().remove_header("MCP_TENANT_ID") {
+            let tenant_id = tenant_id.to_str().unwrap();
+            log::debug!("tenant_id: {}", tenant_id);
+            base_url.push_str(&format!("/api/{}", tenant_id));
+        }
+
+        base_url.push_str(CLIENT_MESSAGE_ENDPOINT);
+        Ok(format!("{}?{}", base_url, query_params))
     }
 
     /// Handles SSE event stream
@@ -259,6 +268,7 @@ impl ProxyHttp for MCPProxyService {
             if session.req_header().uri.path() != CLIENT_SSE_ENDPOINT
                 && session.req_header().uri.path() != CLIENT_MESSAGE_ENDPOINT
                 && session.req_header().uri.path() != CLIENT_STREAMABLE_HTTP_ENDPOINT
+                && match_api_path(session.req_header().uri.path()) == PathMatch::NoMatch
             {
                 // Handle the case where the route is not found
                 // and the request is for the SSE endpoint
@@ -288,22 +298,55 @@ impl ProxyHttp for MCPProxyService {
             session.req_header().uri.path_and_query()
         );
         let path = session.req_header().uri.path();
-        log::debug!("===== Request: {:?}", session.req_header());
+        // log::debug!("===== Request: {:?}", session.req_header());
         // Handle the request based on the path
-        match path {
-            CLIENT_STREAMABLE_HTTP_ENDPOINT => {
-                // 2025-03-26 specification protocol;
-                return endpoint::handle_streamable_http_endpoint(ctx, self, session).await;
-            }
-            CLIENT_SSE_ENDPOINT => {
-                // 2024-11-05 specification protocol;
+
+        match match_api_path(path) {
+            PathMatch::Sse(tenant_id) => {
+                log::debug!("SSE path: {:?}", path);
+                ctx.vars
+                    .insert("MCP_TENANT_ID".to_string(), tenant_id.clone());
+                let _ = session
+                    .req_header_mut()
+                    .insert_header("MCP_TENANT_ID", tenant_id.clone());
                 return endpoint::handle_sse_endpoint(ctx, self, session).await;
             }
-            CLIENT_MESSAGE_ENDPOINT => {
-                // 2024-11-05 specification protocol;
+            PathMatch::Messages(tenant_id) => {
+                log::debug!("Messages path: {:?}", path);
+                ctx.vars
+                    .insert("MCP_TENANT_ID".to_string(), tenant_id.clone());
+                let _ = session
+                    .req_header_mut()
+                    .insert_header("MCP_TENANT_ID", tenant_id.clone());
                 return endpoint::handle_message_endpoint(ctx, self, session).await;
             }
-            _ => Ok(false),
+            PathMatch::StreamableHttp(tenant_id) => {
+                log::debug!("Streamable HTTP path: {:?}", path);
+                ctx.vars
+                    .insert("MCP_TENANT_ID".to_string(), tenant_id.clone());
+                let _ = session
+                    .req_header_mut()
+                    .insert_header("MCP_TENANT_ID", tenant_id.clone());
+                return endpoint::handle_streamable_http_endpoint(ctx, self, session).await;
+            }
+            PathMatch::NoMatch => {
+                log::debug!("No tenant match for path: {:?}", path);
+                match path {
+                    CLIENT_STREAMABLE_HTTP_ENDPOINT => {
+                        // 2025-03-26 specification protocol;
+                        return endpoint::handle_streamable_http_endpoint(ctx, self, session).await;
+                    }
+                    CLIENT_SSE_ENDPOINT => {
+                        // 2024-11-05 specification protocol;
+                        return endpoint::handle_sse_endpoint(ctx, self, session).await;
+                    }
+                    CLIENT_MESSAGE_ENDPOINT => {
+                        // 2024-11-05 specification protocol;
+                        return endpoint::handle_message_endpoint(ctx, self, session).await;
+                    }
+                    _ => Ok(false),
+                }
+            }
         }
     }
 
@@ -313,26 +356,22 @@ impl ProxyHttp for MCPProxyService {
         session: &mut Session,
         ctx: &mut Self::CTX,
     ) -> Result<Box<HttpPeer>> {
+        // log::debug!("upstream_peer{:?}", ctx.route);
         let peer = match ctx.route.clone().as_ref() {
             Some(route) => route.select_http_peer(session),
             None => {
-                let upstream_id = ctx.vars.get("upstream_id").unwrap();
-                // TODO upstream_id is null, need to find the upstream_id from the route_params
-                log::info!("upstream_peer upstream_id: {:?}", upstream_id);
-                let upstream = upstream_fetch(upstream_id);
-                match upstream {
-                    Some(_upstream) => {
-                        log::info!("upstream_peer upstream found ");
-                    }
-                    None => {
-                        log::warn!("upstream_peer upstream not found");
-                    }
-                };
-
+                //  Handle the case where the common route is not found
+                log::debug!(
+                    "upstream_peer upstream_id: {:#?}",
+                    ctx.route_mcp.clone().unwrap().inner
+                );
+                //  handle the mcp route
+                // ctx.route_mcp configuration is set in the request_filter phase
+                // see details in the src/mcp/tools.rs file
+                // and is used to select the upstream peer for the request.
                 ctx.route_mcp.clone().unwrap().select_http_peer(session)
             }
         };
-        // log::info!("upstream_peer: {:?}", ctx.route_mcp.unwrap().inner);
 
         if let Ok(ref peer) = peer {
             ctx.vars
@@ -386,6 +425,19 @@ impl ProxyHttp for MCPProxyService {
         upstream_response
             .insert_header("Transfer-Encoding", "Chunked")
             .unwrap();
+        
+        // get content encoding, 
+        // will be used to decompress the response body in the upstream_response_body_filter phase
+        // see details in the upstream_response_body_filter function
+        if let Some(encoding) = upstream_response.headers.get("content-encoding") {
+            log::debug!("Content-Encoding: {:?}", encoding.to_str());
+            // insert content-encoding to ctx.vars
+            // will be used in the upstream_response_body_filter phase
+            ctx.vars.insert(
+                "content-encoding".to_string(),
+                encoding.to_str().unwrap().to_string(),
+            );
+        }
 
         // execute plugins
         ctx.plugin
@@ -412,6 +464,12 @@ impl ProxyHttp for MCPProxyService {
         } else {
             log::debug!("upstream response Body is None");
         }
+        // Decode the body if it is encoded
+        // denpend on the encoding type in the ctx.vars
+        if let Some(encoding) = decode_body(ctx, body) {
+            *body = Some(encoding);
+        }
+
         // SSE endpoint processing
         if let (Some(session_id), Some(request_id)) =
             (ctx.vars.get(MCP_SESSION_ID), ctx.vars.get(MCP_REQUEST_ID))
@@ -451,7 +509,7 @@ impl ProxyHttp for MCPProxyService {
                             Err(e) => log::error!("Failed to create stateless response: {}", e),
                         }
                     } else {
-                        log::error!("MCP-REQUEST-ID not found");
+                        log::warn!("MCP-REQUEST-ID not found");
                     }
                 }
                 _ => log::error!("Invalid http_type value: {}", http_type),
@@ -527,5 +585,24 @@ impl ProxyHttp for MCPProxyService {
             }
         }
         e
+    }
+}
+
+/// Decodes response body based on content-encoding header
+fn decode_body(ctx: &<MCPProxyService as ProxyHttp>::CTX, body: &Option<Bytes>) -> Option<Bytes> {
+    match ctx.vars.get("content-encoding") {
+        Some(content_encoding) => {
+            log::debug!("Content-Encoding: {:?}", content_encoding);
+
+            if content_encoding.contains("gzip") {
+                let mut decompressor = Algorithm::Gzip.decompressor(true).unwrap();
+                decompressor
+                    .encode(body.as_ref().unwrap().iter().as_slice(), true)
+                    .ok()
+            } else {
+                body.clone()
+            }
+        }
+        None => body.clone(),
     }
 }

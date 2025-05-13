@@ -9,10 +9,12 @@ use crate::{
     config::{self, global_mcp_route_meta_info_fetch},
     jsonrpc::{CallToolRequestParam, JSONRPCRequest, JSONRPCResponse},
     mcp::send_json_response,
-    proxy::mcp::global_openapi_tools_fetch,
-    proxy::route,
+    proxy::{
+        mcp::{global_openapi_tools_fetch, mcp_service_fetch},
+        route,
+    },
     service::mcp::MCPProxyService,
-    types::{CallToolResult, CallToolResultContentItem, RequestId, TextContent},
+    types::{CallToolResult, CallToolResultContentItem, ListToolsResult, RequestId, TextContent},
     utils::request::{merge_path_query, replace_dynamic_params},
 };
 
@@ -27,7 +29,19 @@ pub async fn request_processing(
     let request_id = request.id.clone().unwrap_or(RequestId::Integer(0));
     match request.method.as_str() {
         "tools/list" => {
-            let list_tools = global_openapi_tools_fetch();
+            let list_tools = match ctx.vars.get("MCP_TENANT_ID") {
+                Some(tenant_id) => {
+                    log::debug!("tools/list--tenant_id {:?}", tenant_id);
+                    match mcp_service_fetch(tenant_id) {
+                        Some(mcp_service) => mcp_service.get_tools(),
+                        None => Some(ListToolsResult::default()),
+                    }
+                }
+                None => {
+                    log::debug!("tenant_id not found");
+                    global_openapi_tools_fetch()
+                }
+            };
             match list_tools {
                 Some(tools) => {
                     let res =
@@ -42,9 +56,6 @@ pub async fn request_processing(
             }
         }
         "tools/call" => {
-            let _ = session
-                .req_header_mut()
-                .insert_header("upstream_peer", "127.0.0.1:8090");
             log::debug!("uri {}", session.req_header().uri.path());
 
             let req_params = match request.params.clone() {
@@ -91,9 +102,20 @@ pub async fn request_processing(
             };
             log::debug!("params {:?}", params);
             // match route_proxy
-            let route_meta_info = global_mcp_route_meta_info_fetch(&params.name);
-
-            log::debug!("route_meta_info {:?}", route_meta_info);
+            // let route_meta_info = global_mcp_route_meta_info_fetch(&params.name);
+            let route_meta_info = match ctx.vars.get("MCP_TENANT_ID") {
+                Some(tenant_id) => {
+                    log::debug!("tools/call--tenant_id {:?}", tenant_id);
+                    mcp_service_fetch(tenant_id)
+                        .unwrap()
+                        .get_meta_info(&params.name)
+                }
+                None => {
+                    log::debug!("tenant_id not found");
+                    global_mcp_route_meta_info_fetch(&params.name)
+                }
+            };
+            log::debug!("route_meta_info {:#?}", route_meta_info);
             log::debug!("tools/call");
             match route_meta_info {
                 Some(route_meta_info) => {
@@ -119,8 +141,8 @@ pub async fn request_processing(
                             ..Default::default()
                         };
 
-                        log::info!("route upstream route_cfg: {:#?}", route_cfg);
-                        ctx.route_mcp = Some(Arc::new(route::ProxyRoute::from(route_cfg)));
+                        // log::info!("route upstream route_cfg: {:#?}", route_cfg);
+                        ctx.route = Some(Arc::new(route::ProxyRoute::from(route_cfg)));
 
                         ctx.vars
                             .insert("upstream_id".to_string(), upstream_id.to_string());
