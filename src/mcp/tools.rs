@@ -142,7 +142,7 @@ pub async fn request_processing(
                         };
 
                         // log::info!("route upstream route_cfg: {:#?}", route_cfg);
-                        ctx.route_mcp = Some(Arc::new(route::ProxyRoute::from(route_cfg)));
+                        ctx.route = Some(Arc::new(route::ProxyRoute::from(route_cfg)));
 
                         ctx.vars
                             .insert("upstream_id".to_string(), upstream_id.to_string());

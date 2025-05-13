@@ -8,6 +8,7 @@ use http::{header, StatusCode};
 
 use pingora::{
     modules::http::{compression::ResponseCompressionBuilder, grpc_web::GrpcWeb, HttpModules},
+    protocols::http::compression::Algorithm,
     ErrorType,
 };
 use pingora_core::upstreams::peer::HttpPeer;
@@ -424,6 +425,19 @@ impl ProxyHttp for MCPProxyService {
         upstream_response
             .insert_header("Transfer-Encoding", "Chunked")
             .unwrap();
+        
+        // get content encoding, 
+        // will be used to decompress the response body in the upstream_response_body_filter phase
+        // see details in the upstream_response_body_filter function
+        if let Some(encoding) = upstream_response.headers.get("content-encoding") {
+            log::debug!("Content-Encoding: {:?}", encoding.to_str());
+            // insert content-encoding to ctx.vars
+            // will be used in the upstream_response_body_filter phase
+            ctx.vars.insert(
+                "content-encoding".to_string(),
+                encoding.to_str().unwrap().to_string(),
+            );
+        }
 
         // execute plugins
         ctx.plugin
@@ -450,6 +464,12 @@ impl ProxyHttp for MCPProxyService {
         } else {
             log::debug!("upstream response Body is None");
         }
+        // Decode the body if it is encoded
+        // denpend on the encoding type in the ctx.vars
+        if let Some(encoding) = decode_body(ctx, body) {
+            *body = Some(encoding);
+        }
+
         // SSE endpoint processing
         if let (Some(session_id), Some(request_id)) =
             (ctx.vars.get(MCP_SESSION_ID), ctx.vars.get(MCP_REQUEST_ID))
@@ -489,7 +509,7 @@ impl ProxyHttp for MCPProxyService {
                             Err(e) => log::error!("Failed to create stateless response: {}", e),
                         }
                     } else {
-                        log::error!("MCP-REQUEST-ID not found");
+                        log::warn!("MCP-REQUEST-ID not found");
                     }
                 }
                 _ => log::error!("Invalid http_type value: {}", http_type),
@@ -565,5 +585,24 @@ impl ProxyHttp for MCPProxyService {
             }
         }
         e
+    }
+}
+
+/// Decodes response body based on content-encoding header
+fn decode_body(ctx: &<MCPProxyService as ProxyHttp>::CTX, body: &Option<Bytes>) -> Option<Bytes> {
+    match ctx.vars.get("content-encoding") {
+        Some(content_encoding) => {
+            log::debug!("Content-Encoding: {:?}", content_encoding);
+
+            if content_encoding.contains("gzip") {
+                let mut decompressor = Algorithm::Gzip.decompressor(true).unwrap();
+                decompressor
+                    .encode(body.as_ref().unwrap().iter().as_slice(), true)
+                    .ok()
+            } else {
+                body.clone()
+            }
+        }
+        None => body.clone(),
     }
 }

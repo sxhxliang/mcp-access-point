@@ -27,17 +27,18 @@ mcps:
 
   - id: test2
     upstream_id: 2
-    path: https://petstore.swagger.io/v2/swagger.json  # Supports network paths
+    path: https://petstore.swagger.io/v2/swagger.json  # Supports remote OpenAPI files
+
   - id: test3
     upstream_id: 3
     routes: # custom_routes
       - id: 1
-        operation_id: test_custom_route # Operation identifier
+        operation_id: get_weather # Operation identifier
         uri: /points/{latitude},{longitude} # Path to match (e.g., /api/v1/*)
         method: GET
         meta:
-          name: test_custom_route
-          description: test by ID
+          name: get_weather
+          description: get weather by latitude and longitude
           inputSchema: # Input schema validation (optional)
             type: object
             required:
@@ -55,18 +56,17 @@ mcps:
 
 routes: # Route configuration must be defined
   - id: 1
-    uri: /points/{lat},{lon} # Path to match
+    uri: /points/{orderId} # Path to match
     upstream_id: 3 # Upstream service identifier (must be the same as upstream id in upstreams)
 
 upstreams: # Upstream service configuration must be defined
   - id: 1
     nodes: #（e.g., a web server or API server)）
       "127.0.0.1:8090": 1 # address with weight
-      "baidu.com": 2
     type: roundrobin # Load balancing algorithm (roundrobin, random, ip_hash)
 
   - id: 2 # another upstream service 
-    nodes:
+    nodes: # if nodes is domains, pass_host must be rewrite, and upstream_host must be set to override host header
       "127.0.0.1:8091": 1
     type: roundrobin
 
@@ -75,32 +75,5 @@ upstreams: # Upstream service configuration must be defined
       "api.weather.gov": 1
     type: roundrobin
     scheme: https # supports http and https
-    pass_host: rewrite
-    upstream_host: api.weather.gov
-    # checks:
-    #   active:
-    #     type: https
-    #     timeout: 1
-    #     host: www.baidu.com
-    #     http_path: /
-    #     https_verify_certificate: true
-    #     req_headers: ["User-Agent: curl/7.29.0"]
-    #     healthy:
-    #       interval: 5
-    #       http_statuses: [200, 201]
-    #       successes: 2
-    #     unhealthy:
-    #       http_failures: 5
-    #       tcp_failures: 2
-# Services group upstream and plugins, reusable by routes
-services:
-  - id: 1
-    upstream_id: 2
-    plugins:
-      limit-count:
-        key_type: head
-        key: Host
-        time_window: 1
-        count: 1
-        rejected_code: 429
-        rejected_msg: "Please slow down!"
+    pass_host: rewrite # set to rewrite to upstream_host, when nodes are domains
+    upstream_host: api.weather.gov # set to override host header
