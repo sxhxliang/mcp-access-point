@@ -13,7 +13,7 @@ access_point:
     - address: 0.0.0.0:8080 # listen on all interfaces
 
 mcps:
-  - id: test1 # Service identifier
+  - id: service-1 # Service identifier
     upstream_id: 1
     upstream_config: # Upstream service configuration (optional)
       headers:
@@ -25,11 +25,11 @@ mcps:
         "127.0.0.1:8090": 1 # must be the same as upstream id in upstreams
     path: openapi_for_demo_patch1.json # Local OpenAPI file path
 
-  - id: test2
+  - id: service-2
     upstream_id: 2
     path: https://petstore.swagger.io/v2/swagger.json  # Supports remote OpenAPI files
 
-  - id: test3
+  - id: service-3
     upstream_id: 3
     routes: # custom_routes
       - id: 1

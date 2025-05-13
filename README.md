@@ -1,6 +1,6 @@
 # MCP Access Point  
 
-`MCP` Access Point is a lightweight protocol conversion gateway tool designed to establish a communication bridge between traditional `HTTP` services and `MCP` (Model Context Protocol) clients. It enables MCP clients to interact directly with existing HTTP services without requiring any server-side interface modifications.  
+`MCP Access Point` is a lightweight protocol conversion gateway tool designed to establish a communication bridge between traditional `HTTP` services and `MCP` (Model Context Protocol) clients. It enables MCP clients to interact directly with existing HTTP services without requiring any server-side interface modifications.  
 <p align="center">
   <a href="./README.md"><img alt="README in English" src="https://img.shields.io/badge/English-d9d9d9"></a>
   <a href="./README_CN.md"><img alt="简体中文版" src="https://img.shields.io/badge/简体中文-d9d9d9"></a>
@@ -20,10 +20,12 @@ This mode allows clients like `Cursor Desktop` to communicate with remote HTTP s
 
 ```mermaid
 graph LR
-   A["Cursor Desktop"] <--> |sse| B["MCP Access Point"]
+   A["Cursor Desktop"] <--> |SSE| B["MCP Access Point"]
+   A2["Other Desktop"] <--> |Streamable Http| B["MCP Access Point"]
    B <--> |http 127.0.0.1:8090| C1["Existing API Server"]
-   B <--> |http api.example.com| C2["Existing API Server"]
-
+   B <--> |https//api.example.com| C2["Existing API Server"]
+  
+   style A2 fill:#ffe6f9,stroke:#333,color:black,stroke-width:2px
    style A fill:#ffe6f9,stroke:#333,color:black,stroke-width:2px
    style B fill:#e6e6af,stroke:#333,color:black,stroke-width:2px
    style C1 fill:#e6ffe6,stroke:#333,color:black,stroke-width:2px
@@ -31,12 +33,24 @@ graph LR
 ```
 
 ### Transport Type (Specification)
-Currently supports `SSE` and `Streamable HTTP` protocols.
-- ✅ Streamable HTTP(stateless)
+Currently supports `SSE` and `Streamable HTTP` protocols:
+- ✅ Streamable HTTP (stateless) 2024-03-26
+  - All services: `ip:port/mcp/`
+  - Single service: `ip:port/api/{service_id}/mcp/`
+  
 - ✅ SSE 2024-11-05
+  - All services: `ip:port/sse`
+  - Single service: `ip:port/api/{service_id}/sse/`
 
 use `IP:PORT/sse` for `SSE` 
 use `IP:PORT/mcp/` for `Streamable HTTP` 
+
+## Core Features  
+- **Protocol Conversion**: Seamless conversion between HTTP and MCP protocols  
+- **Zero-Intrusive Integration**: Full compatibility with existing HTTP services  
+- **Client Empowerment**: Enables MCP clients to directly call standard HTTP services  
+- **Lightweight Proxy**: Minimalist architecture with efficient protocol conversion  
+- **Multi-tenancy**: Independent configuration and endpoints for each tenant
 
 ## Quick Start  
 
@@ -54,68 +68,118 @@ npx @modelcontextprotocol/inspector node build/index.js
 # or select "Streamable HTTP" and enter 0.0.0.0:8080/mcp/
 ```
 
-### Parameter Details:  
-1.  **`-c config.yaml`**  
-   - `-c` (or `--config`) specifies the configuration file path (`config.yaml`).  
-   - This file defines multiple MCP services and their configurations.  
+### Multi-tenancy Support
+The MCP Access Gateway supports multi-tenancy, where each tenant can configure multiple MCP services accessible via:
+- `/api/{mcp-service-id}/sse` (for SSE)
+- `/api/{mcp-service-id}/mcp` (for Streamable HTTP)
 
-#### config.yaml Example  
+Example configuration:
+```yaml
+# config.yaml example (supports multiple services)
+
+mcps:
+  - id: service-1 # Access via /api/service-1/sse or /api/service-1/mcp
+    ... # Service configuration
+  - id: service-2 # Access via /api/service-2/sse or /api/service-2/mcp
+    ... # Service configuration
+  - id: service-3 # Access via /api/service-3/sse or /api/service-3/mcp
+    ... # Service configuration
+```
+
+To access all services simultaneously, use:
+- `0.0.0.0:8080/mcp/` (Streamable HTTP)
+- `0.0.0.0:8080/sse` (SSE)
+
+### Configuration Details
+1. **`-c config.yaml`**
+   - `-c` (or `--config`) specifies the configuration file path (`config.yaml`).
+   - This file defines the APIs that the MCP Access Point will proxy and convert.
+
+### config.yaml Example
+The configuration file supports multi-tenancy, allowing independent configuration of upstream services and routing rules for each MCP service. Key configuration items include:
+
+1. **mcps** - MCP service list
+   - `id`: Unique service identifier used to generate access paths
+   - `upstream_id`: Associated upstream service ID
+   - `path`: OpenAPI specification file path (local or remote)
+   - `routes`: Custom routing configuration (optional)
+   - `upstream`: Upstream service specific configuration (optional)
+
+2. **upstreams** - Upstream service configuration
+   - `id`: Upstream service ID
+   - `nodes`: Backend node addresses and weights
+   - `type`: Load balancing algorithm (roundrobin/random/ip_hash)
+   - `scheme`: Upstream protocol (http/https)
+   - `pass_host`: HTTP Host header handling
+   - `upstream_host`: Override Host header value
+
+Complete configuration example:
 ```yaml
 # config.yaml example (supports multiple services)
 mcps:
-  - id: service-1  # Service identifier
+  - id: service-1 # Unique identifier, accessible via /api/service-1/sse or /api/service-1/mcp
     upstream_id: 1
-    upstream_config: # Upstream service configuration (optional)
-      headers:
+    upstream: # Optional upstream configuration
+      headers: # Custom headers
         X-API-Key: "12345-abcdef"
         Authorization: "Bearer token123"
         User-Agent: "MyApp/1.0"
         Accept: "application/json"
       nodes:
-        "127.0.0.1:8090": 1 # must be the same as upstream id in upstreams
-    path: openapi_for_demo_patch1.json # Local OpenAPI file path
+        "127.0.0.1:8090": 1 # Must match upstream ID
+    path: openapi_for_demo_patch1.json # Local OpenAPI spec path
 
-  - id: web-api-2 # Service identifier
+  - id: service-2 # Unique identifier
     upstream_id: 2
-    path: https://petstore.swagger.io/v2/swagger.json  # Supports network paths
-    routes: # custom routes (additional routes)
+    path: https://petstore.swagger.io/v2/swagger.json # Remote OpenAPI spec
+
+  - id: service-3 
+    upstream_id: 3
+    routes: # Custom routing
       - id: 1
-        operation_id: test_custom_route # Operation identifier
-        uri: /api/v1/{id} # Path to match (e.g., /api/v1/*)
+        operation_id: get_weather
+        uri: /points/{latitude},{longitude}
         method: GET
         meta:
-          name: test_custom_route
-          description: test by ID
-          inputSchema: # Input schema validation (optional)
+          name: Get Weather
+          description: Retrieve weather information by coordinates
+          inputSchema: # Optional input validation
             type: object
             required:
-              - id
+              - latitude
+              - longitude
             properties:
-              id:
-                type: integer
-                minimum: 1
+              latitude:
+                type: number
+                minimum: -90
+                maximum: 90
+              longitude:
+                type: number
+                minimum: -180
+                maximum: 180
 
-upstreams: # Upstream service configuration must be defined
+upstreams: # Required upstream configuration
   - id: 1
-    nodes: #（e.g., a web server or API server)）
-      "127.0.0.1:8090": 1 # address with weight
+    nodes: # Backend nodes (IP or domain)
+      "127.0.0.1:8090": 1 # Format: address:weight
 
-  - id: 2 # another upstream service 
+  - id: 2 
     nodes:
       "127.0.0.1:8091": 1
+
+  - id: 3 
+    nodes:
+      "api.weather.gov": 1
+    type: roundrobin # Load balancing algorithm
+    scheme: https # Protocol
+    pass_host: rewrite # Host header handling
+    upstream_host: api.weather.gov # Override Host
 ```
 
-To run the MCP Access Point using the configuration file, use the following command:
+To run the MCP Access Gateway with config file:
 ```bash
 cargo run -- -c config.yaml
 ```
-
-## Core Features  
-
-- **Protocol Conversion**: Seamless conversion between HTTP and MCP protocols  
-- **Zero-Intrusive Integration**: Full compatibility with existing HTTP services  
-- **Client Empowerment**: Enables MCP clients to directly call standard HTTP services  
-- **Lightweight Proxy**: Minimalist architecture with efficient protocol conversion  
 
 ## Running via Docker  
 

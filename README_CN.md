@@ -1,6 +1,6 @@
-# MCP接入网关  
+# MCP Access Point
 
-`MCP`接入网关是一款轻量级的协议转换网关工具，专门用于在传统`HTTP`服务与`MCP`（模型上下文协议）客户端之间建立通信桥梁。它使得MCP客户端无需任何服务端接口改造，即可直接与现有HTTP服务进行交互。  
+`MCP Access Point`是一款轻量级的协议转换网关工具，专门用于在传统`HTTP`服务与`MCP`（模型上下文协议）客户端之间建立通信桥梁。它使得MCP客户端无需任何服务端接口改造，即可直接与现有HTTP服务进行交互。  
 <p align="center">
   <a href="./README.md"><img alt="README in English" src="https://img.shields.io/badge/English-d9d9d9"></a>
   <a href="./README_CN.md"><img alt="简体中文版自述文件" src="https://img.shields.io/badge/简体中文-d9d9d9"></a>
@@ -21,10 +21,12 @@
 
 ```mermaid
 graph LR
-   A["Cursor Desktop"] <--> |sse| B["MCP Access Point"]
+   A["Cursor Desktop"] <--> |SSE| B["MCP Access Point"]
+   A2["Other Desktop"] <--> |Streamable Http| B["MCP Access Point"]
    B <--> |http 127.0.0.1:8090| C1["Existing API Server"]
-   B <--> |http api.example.com| C2["Existing API Server"]
-
+   B <--> |https//api.example.com| C2["Existing API Server"]
+  
+   style A2 fill:#ffe6f9,stroke:#333,color:black,stroke-width:2px
    style A fill:#ffe6f9,stroke:#333,color:black,stroke-width:2px
    style B fill:#e6e6af,stroke:#333,color:black,stroke-width:2px
    style C1 fill:#e6ffe6,stroke:#333,color:black,stroke-width:2px
@@ -32,11 +34,21 @@ graph LR
 ```
 ### MCP 协议支持
 目前支持 `SSE` 和`Streamable HTTP`协议。
-- ✅ Streamable HTTP(stateless)
+- ✅ Streamable HTTP(stateless) 2024-03-26
+  -  所有服务使用 `ip:port/mcp/`
+  -  单服务使用 `ip:port/api/{service_id}/mcp/`
+  
 - ✅ SSE 2024-11-05
+  - 所有服务 `SSE` 使用 `ip:port/sse`
+  - 单服务 `SSE` 使用 `ip:port/api/{service_id}sse/`
 
-对于 `SSE` 使用 `IP:PORT/sse`
-对于`Streamable HTTP`使用 `IP:PORT/mcp/`
+## 核心特性  
+
+- **协议转换**：实现HTTP与MCP协议的无缝转换  
+- **零侵入式接入**：完全兼容现有HTTP服务，无需任何改造  
+- **客户端赋能**：让MCP生态客户端能够直接调用标准HTTP服务  
+- **轻量级代理**：极简架构设计，协议转换高效透明  
+- **多租户模式**：支持多租户，每个租户可独立配置MCP服务，独立 url 接入
 
 
 ## 快速开始  
@@ -55,73 +67,118 @@ npx @modelcontextprotocol/inspector node build/index.js
 # 选择 see 填入0.0.0.0:8080/sse, 点击connect就可以连接上服务啦
 # 或者选择 "Streamable HTTP" 填入 0.0.0.0:8080/mcp/, 点击connect连接上服务
 ```
- 
+
+### 多租户支持
+MCP接入网关支持多租户，每个租户可以配置多个MCP服务，
+通过/api/{mcp-service-id}/sse （SSE）或者/api/{mcp-service-id}/mcp（Streamable HTTP）访问服务
+看下面例子，比如可以通过/api/service-1/mcp访问服务2，通过/api/service-2/mcp访问服务3。
+```yaml
+# config.yaml 示例 (支持多服务配置)
+
+mcps:
+  - id: service-1 # /api/service-1/sse 或者 /api/service-1/mcp
+    ... # 服务配置
+  - id: service-2 # /api/service-2/sse 或者 /api/service-2/mcp
+    ... # 服务配置
+  - id: service-3 # /api/service-3/sse 或者 /api/service-3/mcp
+    ... # 服务配置
+```
+同时获取 3 个服务的 MCP 接口
+使用0.0.0.0:8080/mcp/或者0.0.0.0:8080/sse 即可访问所有服务。
+具体参数请查看 config.yaml
 
 ### 参数详解：  
 1. **`-c config.yaml`**
    - `-c`（或 `--config`）指定配置文件路径（`config.yaml`）。  
    - 该文件定义了 MCP 接入点要代理转换的 API。
 
-#### 使用config.yaml示例
-如果使用`config.yaml`，可以配置多个MCP服务，每个MCP服务对应一个`upstream`和`path`。
-path 为`openapi.json`的路径，可以使用相对路径或者绝对路径，也可以是网络路径，如：`https://petstore.swagger.io/v2/swagger.json`
+### 使用config.yaml示例
+配置文件支持多租户模式，每个MCP服务可以独立配置上游服务和路由规则。主要配置项包括：
+
+1. **mcps** - MCP服务列表
+   - `id`: 服务唯一标识，用于生成访问路径(/api/{id}/sse 或 /api/{id}/mcp)
+   - `upstream_id`: 关联的上游服务ID
+   - `path`: OpenAPI规范文件路径(本地或远程)
+   - `routes`: 自定义路由配置(可选)
+   - `upstream`: 上游服务特定配置(可选)
+
+2. **upstreams** - 上游服务配置
+   - `id`: 上游服务ID
+   - `nodes`: 后端节点地址及权重
+   - `type`: 负载均衡算法(roundrobin/random/ip_hash)
+   - `scheme`: 上游http 服务协议类型(http/https)
+   - `pass_host`: http host 处理方式
+   - `upstream_host`: 覆盖的http host值
+
+完整配置示例：
 
 ```yaml
 # config.yaml 示例 (支持多服务配置)
 
 mcps:
-  - service-1:  # 服务标识符
+  - id: service-1 # 唯一标识，可通过 /api/service-1/sse 或 /api/service-1/mcp 独立访问
     upstream_id: 1
-    upstream_config: # 上游服务配置（可选）
-      headers:
+    upstream: # 上游服务配置（可选）
+      headers: # 自定义请求头
         X-API-Key: "12345-abcdef"
         Authorization: "Bearer token123"
         User-Agent: "MyApp/1.0"
         Accept: "application/json"
       nodes:
         "127.0.0.1:8090": 1 # 必须与upstreams中的上游ID一致
-    path: openapi_for_demo_patch1.json # 本地OpenAPI文件路径
+    path: openapi_for_demo_patch1.json # 本地OpenAPI规范文件路径
 
-  - web-api-2:
+  - id: service-2 # 唯一标识
     upstream_id: 2
-    path: https://petstore.swagger.io/v2/swagger.json  # 支持网络路径
-    routes: # custom routes (additional routes)
+    path: https://petstore.swagger.io/v2/swagger.json  # 支持远程OpenAPI规范
+
+  - id: service-3 
+    upstream_id: 3
+    routes: # 自定义路由配置
       - id: 1
-        operation_id: test_custom_route # Operation identifier
-        uri: /api/v1/{id} # Path to match (e.g., /api/v1/*)
+        operation_id: get_weather # 操作标识符
+        uri: /points/{latitude},{longitude} # 路径匹配规则
         method: GET
         meta:
-          name: test_custom_route
-          description: test by ID
-          inputSchema: # Input schema validation (optional)
+          name: 获取天气
+          description: 根据经纬度获取天气信息
+          inputSchema: # 输入参数校验（可选）
             type: object
-            required:
-              - id
-            properties:
-              id:
-                type: integer
-                minimum: 1
-upstreams: # 必须定义上游服务配置
-  - id: 1
-    nodes: #（例如：web服务器或API服务器）
-      "127.0.0.1:8090": 1 # 地址及权重
+            required: # 必填字段
+              - latitude
+              - longitude
+            properties: # 字段定义
+              latitude:
+                type: number
+                minimum: -90   # 纬度最小值
+                maximum: 90    # 纬度最大值
+              longitude:
+                type: number
+                minimum: -180  # 经度最小值
+                maximum: 180   # 经度最大值
 
-  - id: 2 # 另一个上游服务 
+upstreams: # 上游服务配置（必填）
+  - id: 1
+    nodes: # 后端节点（支持IP或域名）
+      "127.0.0.1:8090": 1 # 格式：地址:权重
+
+  - id: 2 
     nodes:
       "127.0.0.1:8091": 1
+
+  - id: 3 
+    nodes:
+      "api.weather.gov": 1
+    type: roundrobin    # 负载均衡算法（支持轮询/随机/IP哈希）
+    scheme: https       # 协议类型（支持http/https）
+    pass_host: rewrite  # Host头处理方式（设置为rewrite时使用upstream_host覆盖）
+    upstream_host: api.weather.gov # 覆盖的Host头值
 ```
 
 要使用配置文件运行 MCP 接入网关，请按运行以下命令:
 ```bash
 cargo run -- -c config.yaml
 ```
-
-## 核心特性  
-
-- **协议转换**：实现HTTP与MCP协议的无缝转换  
-- **零侵入式接入**：完全兼容现有HTTP服务，无需任何改造  
-- **客户端赋能**：让MCP生态客户端能够直接调用标准HTTP服务  
-- **轻量级代理**：极简架构设计，协议转换高效透明  
 
 ## 使用Docker运行
 
