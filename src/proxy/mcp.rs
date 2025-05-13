@@ -8,7 +8,7 @@ use serde_json::Map;
 use crate::{
     config::{self, Identifiable, MCP_ROUTE_META_INFO_MAP},
     openapi::OpenApiSpec,
-    plugin::{build_plugin, ProxyPlugin},
+    plugin::ProxyPlugin,
     types::{ListToolsResult, Tool},
     utils::file::read_from_local_or_remote,
 };
@@ -72,7 +72,7 @@ pub fn reload_global_openapi_tools_from_service_config(
     if let Some(path) = &service.path {
         let (_, content) = read_from_local_or_remote(path)?;
         let mut spec: OpenApiSpec = OpenApiSpec::new(content)?;
-        spec.mcp_config = Some(service.clone());
+        spec.set_mcp_config(service.clone());
         if tools.tools.is_empty() {
             let (new_tools, mcp_route_metas) = spec.load_openapi()?;
             tools = new_tools;
@@ -155,13 +155,15 @@ impl ProxyMCPService {
                 let mut cfg = cfg.clone();
                 if cfg.upstream_id.is_none() {
                     cfg.upstream_id = service.upstream_id.clone();
+                    log::info!("route:\n {:#?}", cfg);
                 };
+
                 match &cfg.meta {
                     config::MCPMetaInfo::ToolInfo(tool) => tools.push(tool.clone()),
                     config::MCPMetaInfo::PromptInfo(prompt) => todo!(),
                     config::MCPMetaInfo::ResourceInfo(resource) => todo!(),
                 };
-                tools_meta_info.insert(cfg.operation_id.clone(), Arc::new(cfg));
+                tools_meta_info.insert(cfg.operation_id.clone(), Arc::new(cfg.clone()));
             }
         }
         // configure openapi tools
@@ -173,7 +175,7 @@ impl ProxyMCPService {
                 tools_meta_info.extend(other_meta_info);
             }
         }
-        
+
         let list_tools = ListToolsResult {
             meta: Map::new(),
             next_cursor: None,
@@ -185,6 +187,7 @@ impl ProxyMCPService {
         for pair in tools_meta_info.into_iter() {
             MCP_ROUTE_META_INFO_MAP.insert(pair.0, pair.1);
         }
+        // log::info!("tools_meta_info: {:#?}", MCP_ROUTE_META_INFO_MAP);
         //  insert tools to global map
         // list tools from global map by service id
         MCP_SERVICE_TOOLS_MAP.insert(

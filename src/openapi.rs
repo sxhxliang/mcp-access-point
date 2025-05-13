@@ -95,6 +95,14 @@ impl OpenApiSpec {
         let spec: OpenApiSpec = serde_json::from_str(&content)?;
         Ok(spec)
     }
+
+    pub fn set_mcp_config(&mut self, mcp_config: MCPService) {
+        if mcp_config.upstream_id.is_none() {
+            panic!("upstream or upstream_id is required");
+        }
+        self.upstream_id = mcp_config.upstream_id.clone();
+        self.mcp_config = Some(mcp_config);
+    }
     pub fn load_openapi(
         &self,
     ) -> Result<(ListToolsResult, DashMap<String, Arc<MCPRouteMetaInfo>>), Box<dyn std::error::Error>>

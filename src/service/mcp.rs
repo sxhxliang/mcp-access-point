@@ -25,10 +25,7 @@ use crate::{
     jsonrpc::JSONRPCRequest,
     mcp::create_json_rpc_response,
     plugin::ProxyPlugin,
-    proxy::{
-        global_rule::global_plugin_fetch, route::global_route_match_fetch,
-        upstream::upstream_fetch, ProxyContext,
-    },
+    proxy::{global_rule::global_plugin_fetch, route::global_route_match_fetch, ProxyContext},
     service::endpoint::{self, MCP_REQUEST_ID, MCP_SESSION_ID, MCP_STREAMABLE_HTTP},
     sse_event::SseEvent,
     utils::{
@@ -362,23 +359,18 @@ impl ProxyHttp for MCPProxyService {
         let peer = match ctx.route.clone().as_ref() {
             Some(route) => route.select_http_peer(session),
             None => {
-                let upstream_id = ctx.vars.get("upstream_id").unwrap();
-                // TODO upstream_id is null, need to find the upstream_id from the route_params
-                log::info!("upstream_peer upstream_id: {:?}", upstream_id);
-                let upstream = upstream_fetch(upstream_id);
-                match upstream {
-                    Some(_upstream) => {
-                        log::info!("upstream_peer upstream found ");
-                    }
-                    None => {
-                        log::warn!("upstream_peer upstream not found");
-                    }
-                };
-
+                //  Handle the case where the common route is not found
+                log::debug!(
+                    "upstream_peer upstream_id: {:#?}",
+                    ctx.route_mcp.clone().unwrap().inner
+                );
+                //  handle the mcp route
+                // ctx.route_mcp configuration is set in the request_filter phase
+                // see details in the src/mcp/tools.rs file
+                // and is used to select the upstream peer for the request.
                 ctx.route_mcp.clone().unwrap().select_http_peer(session)
             }
         };
-        // log::info!("upstream_peer: {:?}", ctx.route_mcp.unwrap().inner);
 
         if let Ok(ref peer) = peer {
             ctx.vars

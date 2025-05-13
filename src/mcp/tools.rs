@@ -56,9 +56,6 @@ pub async fn request_processing(
             }
         }
         "tools/call" => {
-            let _ = session
-                .req_header_mut()
-                .insert_header("upstream_peer", "127.0.0.1:8090");
             log::debug!("uri {}", session.req_header().uri.path());
 
             let req_params = match request.params.clone() {
@@ -144,8 +141,8 @@ pub async fn request_processing(
                             ..Default::default()
                         };
 
-                        log::info!("route upstream route_cfg: {:#?}", route_cfg);
-                        ctx.route = Some(Arc::new(route::ProxyRoute::from(route_cfg)));
+                        // log::info!("route upstream route_cfg: {:#?}", route_cfg);
+                        ctx.route_mcp = Some(Arc::new(route::ProxyRoute::from(route_cfg)));
 
                         ctx.vars
                             .insert("upstream_id".to_string(), upstream_id.to_string());

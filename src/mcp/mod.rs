@@ -64,8 +64,8 @@ pub async fn request_processing(
                     completions: Map::new(),
                     experimental: HashMap::new(),
                     logging: Map::new(),
-                    prompts:None,
-                    resources:None,
+                    prompts: None,
+                    resources: None,
                     // prompts: Some(ServerCapabilitiesPrompts { list_changed: None }),
                     // resources: Some(ServerCapabilitiesResources {
                     //     subscribe: None,

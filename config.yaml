@@ -33,7 +33,7 @@ mcps:
     routes: # custom_routes
       - id: 1
         operation_id: test_custom_route # Operation identifier
-        uri: /api/v1/{id} # Path to match (e.g., /api/v1/*)
+        uri: /points/{latitude},{longitude} # Path to match (e.g., /api/v1/*)
         method: GET
         meta:
           name: test_custom_route
@@ -41,16 +41,22 @@ mcps:
           inputSchema: # Input schema validation (optional)
             type: object
             required:
-              - id
+              - latitude
+              - longitude
             properties:
-              id:
-                type: integer
-                minimum: 1
+              latitude:
+                type: number
+                minimum: -90
+                maximum: 90
+              longitude:
+                type: number
+                minimum: -180
+                maximum: 180
 
 routes: # Route configuration must be defined
   - id: 1
-    uri: /api/v1/* # Path to match (e.g., /api/v1/*)
-    upstream_id: 1 # Upstream service identifier (must be the same as upstream id in upstreams)
+    uri: /points/{lat},{lon} # Path to match
+    upstream_id: 3 # Upstream service identifier (must be the same as upstream id in upstreams)
 
 upstreams: # Upstream service configuration must be defined
   - id: 1
@@ -66,8 +72,11 @@ upstreams: # Upstream service configuration must be defined
 
   - id: 3 # another upstream service
     nodes:
-      "www.baidu.com": 1
+      "api.weather.gov": 1
     type: roundrobin
+    scheme: https # supports http and https
+    pass_host: rewrite
+    upstream_host: api.weather.gov
     # checks:
     #   active:
     #     type: https
