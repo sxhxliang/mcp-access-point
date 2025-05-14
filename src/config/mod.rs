@@ -155,6 +155,10 @@ impl Config {
     }
 
     fn validate_resource_id(&self) -> Result<(), ValidationError> {
+        if self.mcps.iter().any(|mcp| mcp.id.is_empty()) {
+            return Err(ValidationError::new("mcp_id_required"));
+        }
+
         if self.upstreams.iter().any(|upstream| upstream.id.is_empty()) {
             return Err(ValidationError::new("upstream_id_required"));
         }

@@ -118,14 +118,6 @@ mcps:
 mcps:
   - id: service-1 # 唯一标识，可通过 /api/service-1/sse 或 /api/service-1/mcp 独立访问
     upstream_id: 1
-    upstream: # 上游服务配置（可选）
-      headers: # 自定义请求头
-        X-API-Key: "12345-abcdef"
-        Authorization: "Bearer token123"
-        User-Agent: "MyApp/1.0"
-        Accept: "application/json"
-      nodes:
-        "127.0.0.1:8090": 1 # 必须与upstreams中的上游ID一致
     path: openapi_for_demo_patch1.json # 本地OpenAPI规范文件路径
 
   - id: service-2 # 唯一标识
@@ -159,6 +151,11 @@ mcps:
 
 upstreams: # 上游服务配置（必填）
   - id: 1
+    headers: # 自定义请求头
+      X-API-Key: "12345-abcdef"
+      Authorization: "Bearer token123"
+      User-Agent: "MyApp/1.0"
+      Accept: "application/json"
     nodes: # 后端节点（支持IP或域名）
       "127.0.0.1:8090": 1 # 格式：地址:权重
 

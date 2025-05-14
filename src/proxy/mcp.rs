@@ -139,11 +139,11 @@ impl ProxyMCPService {
         let mut tools: Vec<Tool> = Vec::new();
         let mut tools_meta_info: DashMap<String, Arc<config::MCPRouteMetaInfo>> = DashMap::new();
         // Configure upstream
-        // if let Some(upstream_config) = &service.upstream {
-        //     let proxy_upstream =
-        //         ProxyUpstream::new_with_health_check(upstream_config.clone(), work_stealing)?;
-        //         proxy_mcp_service.upstream = Some(Arc::new(proxy_upstream));
-        // }
+        if let Some(upstream_config) = &service.upstream {
+            let proxy_upstream =
+                ProxyUpstream::new_with_health_check(upstream_config.clone(), work_stealing)?;
+            proxy_mcp_service.upstream = Some(Arc::new(proxy_upstream));
+        }
         // Load plugins
         // for (name, value) in &service.plugins {
         //     let plugin = build_plugin(name, value.clone())?;

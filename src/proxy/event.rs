@@ -313,6 +313,7 @@ impl EtcdEventHandler for ProxyEventHandler {
                 Ok((_, key_type)) => {
                     log::info!("Processing PUT event for key: {}", key);
                     match key_type.as_str() {
+                        "mcp_services" => self.handle_mcp_service_event(event),
                         "routes" => self.handle_route_event(event),
                         "upstreams" => self.handle_upstream_event(event),
                         "services" => self.handle_service_event(event),
@@ -327,6 +328,9 @@ impl EtcdEventHandler for ProxyEventHandler {
                 Ok((id, key_type)) => {
                     log::info!("Processing DELETE event for {}: {}", key_type, id);
                     match key_type.as_str() {
+                        "mcp_services" => {
+                            MCP_SERVICE_MAP.remove(&id);
+                        }
                         "routes" => {
                             ROUTE_MAP.remove(&id);
                             reload_global_route_match();
@@ -354,6 +358,7 @@ impl EtcdEventHandler for ProxyEventHandler {
     }
 
     fn handle_list_response(&self, response: &GetResponse) {
+        self.handle_mcp_services(response);
         self.handle_ssls(response);
         self.handle_upstreams(response);
         self.handle_services(response);

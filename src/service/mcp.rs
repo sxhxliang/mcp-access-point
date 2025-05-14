@@ -381,7 +381,10 @@ impl ProxyHttp for MCPProxyService {
         peer
     }
 
-    // Modify the request before it is sent to the upstream
+    /// Modify the request before it is sent to the upstream
+    ///
+    /// This method is called before the request is sent to the upstream.
+    /// It modifies the request header
     async fn upstream_request_filter(
         &self,
         session: &mut Session,
@@ -400,14 +403,21 @@ impl ProxyHttp for MCPProxyService {
             .upstream_request_filter(session, upstream_request, ctx)
             .await?;
 
-        // rewrite host header
+        // rewrite host header and headers
         if let Some(upstream) = ctx.route.as_ref().and_then(|r| r.resolve_upstream()) {
             upstream.upstream_host_rewrite(upstream_request);
+            // rewrite or insert headers
+            // user defined headers in the configuration file will overwrite the headers in the upstream
+            for (key, value) in upstream.inner.headers.clone().unwrap_or_default().iter() {
+                upstream_request.insert_header(key.to_string(), value)?;
+            }
         }
         log::info!("upstream host: {:?}", upstream_request.headers);
         Ok(())
     }
 
+    /// Modify the response before it is sent to the client.
+    /// Get the content encoding from the response header
     async fn response_filter(
         &self,
         session: &mut Session,
@@ -425,8 +435,8 @@ impl ProxyHttp for MCPProxyService {
         upstream_response
             .insert_header("Transfer-Encoding", "Chunked")
             .unwrap();
-        
-        // get content encoding, 
+
+        // get content encoding,
         // will be used to decompress the response body in the upstream_response_body_filter phase
         // see details in the upstream_response_body_filter function
         if let Some(encoding) = upstream_response.headers.get("content-encoding") {
@@ -445,6 +455,10 @@ impl ProxyHttp for MCPProxyService {
             .response_filter(session, upstream_response, ctx)
             .await
     }
+
+    /// Filters the upstream response body.
+    /// This method is called after the response body is received from the upstream.
+    /// It decodes the response body if it is encoded.
     fn upstream_response_body_filter(
         &self,
         session: &mut Session,
@@ -464,16 +478,18 @@ impl ProxyHttp for MCPProxyService {
         } else {
             log::debug!("upstream response Body is None");
         }
-        // Decode the body if it is encoded
-        // denpend on the encoding type in the ctx.vars
-        if let Some(encoding) = decode_body(ctx, body) {
-            *body = Some(encoding);
-        }
+
 
         // SSE endpoint processing
         if let (Some(session_id), Some(request_id)) =
             (ctx.vars.get(MCP_SESSION_ID), ctx.vars.get(MCP_REQUEST_ID))
         {
+            // Decode the body if it is encoded
+            // denpend on the encoding type in the ctx.vars
+            if let Some(encoding) = decode_body(ctx, body) {
+                log::debug!("Decoding body {:?}",  String::from_utf8_lossy(&encoding).to_string());
+                *body = Some(encoding);
+            }
             match create_json_rpc_response(request_id, body) {
                 Ok(res) => {
                     let event = SseEvent::new_event(
@@ -497,6 +513,12 @@ impl ProxyHttp for MCPProxyService {
                     *body = Some(Bytes::from("Accepted"));
                 }
                 "stateless" => {
+                    // Decode the body if it is encoded
+                    // denpend on the encoding type in the ctx.vars
+                    if let Some(encoding) = decode_body(ctx, body) {
+                        log::debug!("Decoding body {:?}",  String::from_utf8_lossy(&encoding).to_string());
+                        *body = Some(encoding);
+                    }
                     log::debug!("Handling stateless responses");
                     if let Some(request_id) = ctx.vars.get(MCP_REQUEST_ID) {
                         match create_json_rpc_response(request_id, body) {
@@ -516,6 +538,12 @@ impl ProxyHttp for MCPProxyService {
             },
             None => {
                 if let Some(request_id) = ctx.vars.get(MCP_REQUEST_ID) {
+                    // Decode the body if it is encoded
+                    // denpend on the encoding type in the ctx.vars
+                    if let Some(encoding) = decode_body(ctx, body) {
+                        log::debug!("Decoding body {:?}",  String::from_utf8_lossy(&encoding).to_string());
+                        *body = Some(encoding);
+                    }
                     match create_json_rpc_response(request_id, body) {
                         Ok(res) => {
                             let data_body = serde_json::to_string(&res).unwrap();
@@ -534,6 +562,8 @@ impl ProxyHttp for MCPProxyService {
         Ok(())
     }
 
+    /// Filters the response body.
+    /// This method is called after the response body is received from the upstream.
     fn response_body_filter(
         &self,
         session: &mut Session,

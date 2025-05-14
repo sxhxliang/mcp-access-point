@@ -120,14 +120,6 @@ Complete configuration example:
 mcps:
   - id: service-1 # Unique identifier, accessible via /api/service-1/sse or /api/service-1/mcp
     upstream_id: 1
-    upstream: # Optional upstream configuration
-      headers: # Custom headers
-        X-API-Key: "12345-abcdef"
-        Authorization: "Bearer token123"
-        User-Agent: "MyApp/1.0"
-        Accept: "application/json"
-      nodes:
-        "127.0.0.1:8090": 1 # Must match upstream ID
     path: openapi_for_demo_patch1.json # Local OpenAPI spec path
 
   - id: service-2 # Unique identifier
@@ -161,6 +153,11 @@ mcps:
 
 upstreams: # Required upstream configuration
   - id: 1
+    headers: # Headers to send to upstream service
+      X-API-Key: "12345-abcdef"        # API key
+      Authorization: "Bearer token123" # Bearer token
+      User-Agent: "MyApp/1.0"          # User agent
+      Accept: "application/json"       # Accept header
     nodes: # Backend nodes (IP or domain)
       "127.0.0.1:8090": 1 # Format: address:weight
 
@@ -203,7 +200,7 @@ docker run -d --name mcp-access-point --rm \
   -p 8080:8080 \
   -e port=8080 \
   -v /path/to/your/config.yaml:/app/config/config.yaml \
-  sxhxliang/mcp-access-point:latest
+  liangshihua/mcp-access-point:latest
 ```
 
 ### Environment Variables  
