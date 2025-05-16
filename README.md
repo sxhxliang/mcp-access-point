@@ -120,7 +120,7 @@ Complete configuration example:
 mcps:
   - id: service-1 # Unique identifier, accessible via /api/service-1/sse or /api/service-1/mcp
     upstream_id: 1
-    path: openapi_for_demo_patch1.json # Local OpenAPI spec path
+    path: config/openapi_for_demo_patch1.json # Local OpenAPI spec path
 
   - id: service-2 # Unique identifier
     upstream_id: 2

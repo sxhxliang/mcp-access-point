@@ -118,7 +118,7 @@ mcps:
 mcps:
   - id: service-1 # 唯一标识，可通过 /api/service-1/sse 或 /api/service-1/mcp 独立访问
     upstream_id: 1
-    path: openapi_for_demo_patch1.json # 本地OpenAPI规范文件路径
+    path: config/openapi_for_demo_patch1.json # 本地OpenAPI规范文件路径
 
   - id: service-2 # 唯一标识
     upstream_id: 2
