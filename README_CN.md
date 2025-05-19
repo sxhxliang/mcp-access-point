@@ -42,6 +42,10 @@ graph LR
   - 所有服务 `SSE` 使用 `ip:port/sse`
   - 单服务 `SSE` 使用 `ip:port/api/{service_id}sse/`
 
+### 支持的客户端
+- ✅ [MCP Inspector](https://github.com/modelcontextprotocol/inspector)
+- ✅ [Cursor Desktop](https://docs.cursor.com/context/model-context-protocol)
+
 ## 核心特性  
 
 - **协议转换**：实现HTTP与MCP协议的无缝转换  

@@ -46,6 +46,10 @@ Currently supports `SSE` and `Streamable HTTP` protocols:
 use `IP:PORT/sse` for `SSE` 
 use `IP:PORT/mcp/` for `Streamable HTTP` 
 
+### Supported MCP clients
+- ✅ [MCP Inspector](https://github.com/modelcontextprotocol/inspector)
+- ✅ [Cursor Desktop](https://docs.cursor.com/context/model-context-protocol)
+
 ## Core Features  
 - **Protocol Conversion**: Seamless conversion between HTTP and MCP protocols  
 - **Zero-Intrusive Integration**: Full compatibility with existing HTTP services  

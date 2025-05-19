@@ -264,7 +264,7 @@ impl ProxyHttp for MCPProxyService {
     /// Filters incoming requests
     async fn request_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> Result<bool> {
         if ctx.route.is_none() {
-            log::warn!("Route({:?}) not found", session.req_header().uri);
+            log::debug!("Route({:?}) not found, check MCP services", session.req_header().uri);
             if session.req_header().uri.path() != CLIENT_SSE_ENDPOINT
                 && session.req_header().uri.path() != CLIENT_MESSAGE_ENDPOINT
                 && session.req_header().uri.path() != CLIENT_STREAMABLE_HTTP_ENDPOINT
