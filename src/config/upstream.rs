@@ -26,7 +26,8 @@ pub struct Upstream {
     /// The key is the backend service address, and the value is the weight of the node.
     /// Each node must have an address and a port.
     /// The address can be an IP address or a domain name.
-    #[validate(length(min = 1), custom(function = "Upstream::validate_nodes_keys"))]
+    #[validate(custom(function = "Upstream::validate_nodes_keys"))]
+    #[serde(default)]
     pub nodes: HashMap<String, u32>, // backend service address
     /// `type` is the loadbalancer type.
     /// contains: RoundRobin, Random, Fnv, Ketama.
@@ -58,6 +59,62 @@ pub struct Upstream {
 }
 
 impl Upstream {
+    /// 合并两个Upstream对象
+    pub fn merge(&mut self, other: Upstream) {
+        // 合并简单字段
+        if !other.id.is_empty() {
+            self.id = other.id;
+        }
+        if other.retries.is_some() {
+            self.retries = other.retries;
+        }
+        if other.retry_timeout.is_some() {
+            self.retry_timeout = other.retry_timeout;
+        }
+        if other.timeout.is_some() {
+            self.timeout = other.timeout;
+        }
+        if other.r#type != SelectionType::default() {
+            self.r#type = other.r#type;
+        }
+        if other.hash_on != UpstreamHashOn::default() {
+            self.hash_on = other.hash_on;
+        }
+        if other.key != Self::default_key() {
+            self.key = other.key;
+        }
+        if other.scheme != UpstreamScheme::default() {
+            self.scheme = other.scheme;
+        }
+        if other.pass_host != UpstreamPassHost::default() {
+            self.pass_host = other.pass_host;
+        }
+        if other.upstream_host.is_some() {
+            self.upstream_host = other.upstream_host;
+        }
+        
+        // 合并nodes
+        for (k, v) in other.nodes {
+            self.nodes.insert(k, v);
+        }
+        
+        // 合并headers
+        if let Some(other_headers) = other.headers {
+            if let Some(headers) = &mut self.headers {
+                for (k, v) in other_headers {
+                    headers.insert(k, v);
+                }
+            } else {
+                self.headers = Some(other_headers);
+            }
+        }
+        
+        // 合并checks
+        if other.checks.is_some() {
+            self.checks = other.checks;
+        }
+    }
+    
     fn default_key() -> String {
         "uri".to_string()
     }
@@ -259,4 +316,68 @@ pub enum UpstreamPassHost {
     PASS,
     /// REWRITE is the rewrite pass host.
     REWRITE,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_merge_all_fields_set() {
+        let mut base = Upstream {
+            id: "base_id".to_string(),
+            retries: Some(1),
+            retry_timeout: Some(1000),
+            timeout: Some(Timeout { connect: 3000, send: 12, read: 12 }),
+            r#type: SelectionType::default(),
+            hash_on: UpstreamHashOn::default(),
+            key: Upstream::default_key(),
+            scheme: UpstreamScheme::default(),
+            pass_host: UpstreamPassHost::default(),
+            upstream_host: None,
+            nodes: HashMap::new(),
+            headers: None,
+            checks: None,
+        };
+
+        let other = Upstream {
+            id: "new_id".to_string(),
+            retries: Some(3),
+            retry_timeout: Some(2000),
+            timeout: Some(Timeout { connect: 6000, send: 12, read: 12 }),
+            r#type: SelectionType::RoundRobin,
+            hash_on: UpstreamHashOn::HEAD,
+            key: "custom_key".to_string(),
+            scheme: UpstreamScheme::HTTPS,
+            pass_host: UpstreamPassHost::REWRITE,
+            upstream_host: Some("host.com".to_string()),
+            nodes: {
+                let mut map = HashMap::new();
+                map.insert("node1".to_string(), 1 );
+                map
+            },
+            headers: {
+                let mut map = HashMap::new();
+                map.insert("header1".to_string(), "value1".to_string());
+                Some(map)
+            },
+            checks: None
+        };
+
+        base.merge(other);
+
+        assert_eq!(base.id, "new_id");
+        assert_eq!(base.retries, Some(3));
+        assert_eq!(base.retry_timeout, Some(2000));
+        assert_eq!(base.timeout, Some(Timeout { connect: 6000, send: 12, read: 12 }));
+        assert_eq!(base.r#type, SelectionType::RoundRobin);
+        assert_eq!(base.hash_on, UpstreamHashOn::HEAD);
+        assert_eq!(base.key, "custom_key");
+        assert_eq!(base.scheme, UpstreamScheme::HTTPS);
+        assert_eq!(base.pass_host, UpstreamPassHost::REWRITE);
+        assert_eq!(base.upstream_host.unwrap(), "host.com");
+        assert_eq!(base.nodes.len(), 1);
+        assert_eq!(base.headers.as_ref().unwrap().len(), 1);
+        assert_eq!(base.checks, None);
+    }
 }

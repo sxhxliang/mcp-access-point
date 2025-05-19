@@ -20,8 +20,7 @@ use pingora_runtime::Runtime;
 use tokio::sync::watch;
 
 use crate::{
-    config::{self, Identifiable},
-    utils::request::request_selector_key,
+    config::{self, Identifiable}, types::error, utils::request::request_selector_key
 };
 
 use super::{discovery::HybridDiscovery, MapOperations};
@@ -386,6 +385,12 @@ pub fn load_static_upstreams(config: &config::Config) -> Result<()> {
         .iter()
         .map(|upstream| {
             info!("Configuring Upstream: {}", upstream.id);
+            if upstream.nodes.len() == 0 {
+                log::error!("Must have at least one node for Upstream configuration: {}", upstream.id);
+                // panic!("Must have at least one node for Upstream configuration: {}", upstream.id);
+                eprintln!("[ERROR] Upstream '{}' has empty nodes configuration", upstream.id);
+                std::process::exit(1);
+            }
             match ProxyUpstream::new_with_health_check(
                 upstream.clone(),
                 config.pingora.work_stealing,

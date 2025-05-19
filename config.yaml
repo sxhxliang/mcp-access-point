@@ -11,11 +11,30 @@ access_point:
   # listener on TCP or TLS
   listeners:
     - address: 0.0.0.0:8080 # listen on all interfaces
+  # Optional: Enable etcd for dynamic configuration
+  # etcd:
+  #   host:
+  #     - "http://127.0.0.1:2379"
+  #   prefix: /pingsix # Prefix for all keys in etcd
 
+  # # Optional: Enable Admin API (requires etcd)
+  # admin:
+  #   address: "0.0.0.0:9181" # Admin API listening address
+  #   api_key: "pingsix_admin_key" # Secure your Admin API
+
+  # # Optional: Prometheus metrics endpoint
+  # prometheus:
+  #   address: 0.0.0.0:9091
 mcps:
   - id: service-1 # Service identifier
     upstream_id: 1 # Upstream service identifier (must be the same as upstream id in upstreams)
     path: openapi_for_demo_patch1.json # Local OpenAPI file path
+    upstream: # Upstream service configuration must be defined
+      headers: # Headers to send to upstream service
+        X-API-Key: "12345-abcdef"        # API key
+        Authorization: "Bearer token123" # Bearer token
+        User-Agent: "MyApp/1.0"          # User agent
+        Accept: "application/json"       # Accept header
 
   - id: service-2
     upstream_id: 2

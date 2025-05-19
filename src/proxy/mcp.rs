@@ -6,11 +6,7 @@ use pingora_error::Result;
 use serde_json::Map;
 
 use crate::{
-    config::{self, Identifiable, MCP_ROUTE_META_INFO_MAP},
-    openapi::OpenApiSpec,
-    plugin::ProxyPlugin,
-    types::{ListToolsResult, Tool},
-    utils::file::read_from_local_or_remote,
+    config::{self, Identifiable, MCP_ROUTE_META_INFO_MAP}, openapi::OpenApiSpec, plugin::ProxyPlugin, proxy::upstream::upstream_fetch, types::{ListToolsResult, Tool}, utils::file::read_from_local_or_remote
 };
 
 use super::{route::ProxyRoute, upstream::ProxyUpstream, MapOperations};
@@ -139,9 +135,21 @@ impl ProxyMCPService {
         let mut tools: Vec<Tool> = Vec::new();
         let mut tools_meta_info: DashMap<String, Arc<config::MCPRouteMetaInfo>> = DashMap::new();
         // Configure upstream
-        if let Some(upstream_config) = &service.upstream {
+        if let Some(upstream_config) = &service.upstream.clone() {
+            let mut upstream_config = upstream_config.clone();
+            if let Some(upstream_id) = &service.upstream_id {
+                // need initialize upstream config from upstream config with upstream id
+                // if upstream config has upstream id, the upstream config will be merged with upstream config with upstream id
+                let upstream = upstream_fetch(upstream_id);
+                if upstream.is_none() {
+                    log::warn!("upstream with id '{}' not found", upstream_id);
+                    // panic!("upstream with id '{}' not found", upstream_id);
+                }
+                upstream_config.merge(upstream.unwrap().inner.clone());
+            }
+
             let proxy_upstream =
-                ProxyUpstream::new_with_health_check(upstream_config.clone(), work_stealing)?;
+                ProxyUpstream::new_with_health_check(upstream_config, work_stealing)?;
             proxy_mcp_service.upstream = Some(Arc::new(proxy_upstream));
         }
         // Load plugins
@@ -221,10 +229,9 @@ impl ProxyMCPService {
     // }
     /// Gets the Route for the service.
     pub fn resolve_upstream(&self) -> Option<Arc<ProxyUpstream>> {
-        self.routes
-            .as_ref()?
-            .first()
-            .and_then(|route| route.upstream.clone())
+        self.upstream
+            .clone()
+            .or_else(|| self.inner.upstream_id.as_deref().and_then(upstream_fetch))
     }
 }
 

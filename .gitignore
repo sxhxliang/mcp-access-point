@@ -1,7 +1,7 @@
 
 .vscode/
 .venv/
-
+/docs
 /target
 /web
 /examples
