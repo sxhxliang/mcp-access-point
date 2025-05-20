@@ -7,21 +7,20 @@ mod tools;
 use std::collections::HashMap;
 
 use crate::{
-    config::{ERROR_MESSAGE, SERVER_NAME, SERVER_VERSION},
+    config::{SERVER_NAME, SERVER_VERSION},
     jsonrpc::{JSONRPCRequest, JSONRPCResponse, LATEST_PROTOCOL_VERSION},
     service::mcp::MCPProxyService,
     sse_event::SseEvent,
     types::{
-        CallToolResult, CallToolResultContentItem, Implementation, InitializeResult, RequestId,
-        ServerCapabilities, ServerCapabilitiesPrompts, ServerCapabilitiesResources,
-        ServerCapabilitiesTools, TextContent,
+        Implementation, InitializeResult,
+        ServerCapabilities,
+        ServerCapabilitiesTools,
     },
 };
 
-use bytes::Bytes;
 use http::StatusCode;
-use pingora::{proxy::Session, Error, ErrorType, Result};
-use pingora_proxy::ProxyHttp;
+use pingora::Result;
+use pingora_proxy::{ProxyHttp, Session};
 use serde_json::Map;
 
 pub async fn send_json_response(
@@ -147,11 +146,13 @@ pub async fn request_processing_streamable_http(
                     completions: Map::new(),
                     experimental: HashMap::new(),
                     logging: Map::new(),
-                    prompts: Some(ServerCapabilitiesPrompts { list_changed: None }),
-                    resources: Some(ServerCapabilitiesResources {
-                        subscribe: None,
-                        list_changed: None,
-                    }),
+                    prompts: None,
+                    resources: None,
+                    // prompts: Some(ServerCapabilitiesPrompts { list_changed: None }),
+                    // resources: Some(ServerCapabilitiesResources {
+                    //     subscribe: None,
+                    //     list_changed: None,
+                    // }),
                     tools: Some(ServerCapabilitiesTools { list_changed: None }),
                 },
                 server_info: Implementation {
@@ -210,28 +211,4 @@ pub async fn request_processing_streamable_http(
             Ok(false) // Gracefully handle unknown methods
         }
     }
-}
-
-// Helper function to create JSON-RPC response
-pub fn create_json_rpc_response(request_id: &str, body: &Option<Bytes>) -> Result<JSONRPCResponse> {
-    let result = CallToolResult {
-        meta: Map::new(),
-        content: vec![CallToolResultContentItem::TextContent(TextContent {
-            type_: "text".to_string(),
-            text: body.as_ref().map_or_else(
-                || ERROR_MESSAGE.to_string(),
-                |b| String::from_utf8_lossy(b).to_string(),
-            ),
-            annotations: None,
-        })],
-        is_error: Some(false),
-    };
-
-    request_id
-        .parse::<i64>()
-        .map_err(|e| {
-            log::error!("Invalid MCP-REQUEST-ID format: {}", e);
-            Error::because(ErrorType::InvalidHTTPHeader, "Invalid MCP-REQUEST-ID", e)
-        })
-        .map(|id| JSONRPCResponse::new(RequestId::from(id), serde_json::to_value(result).unwrap()))
 }

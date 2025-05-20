@@ -1,8 +1,8 @@
 use std::{str::FromStr, sync::Arc};
 
 use http::Uri;
-use pingora::{proxy::Session, Result};
-use pingora_proxy::ProxyHttp;
+use pingora::Result;
+use pingora_proxy::{Session, ProxyHttp};
 use serde_json::Map;
 
 use crate::{
@@ -138,6 +138,7 @@ pub async fn request_processing(
                                 &route_meta_info.method(),
                             )
                             .unwrap()],
+                            headers: route_meta_info.headers.clone(),
                             ..Default::default()
                         };
 

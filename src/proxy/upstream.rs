@@ -20,7 +20,8 @@ use pingora_runtime::Runtime;
 use tokio::sync::watch;
 
 use crate::{
-    config::{self, Identifiable}, types::error, utils::request::request_selector_key
+    config::{self, Identifiable},
+    utils::request::request_selector_key,
 };
 
 use super::{discovery::HybridDiscovery, MapOperations};
@@ -139,6 +140,14 @@ impl ProxyUpstream {
                     .insert_header(http::header::HOST, host)
                     .unwrap();
             }
+        }
+    }
+
+    /// rewrite or insert headers
+    /// user defined headers in the configuration file will overwrite the headers in the upstream
+    pub fn upstream_header_rewrite(&self, upstream_request: &mut RequestHeader) {
+        for (key, value) in self.inner.headers.clone().unwrap_or_default().iter() {
+            let _ = upstream_request.insert_header(key.to_string(), value);
         }
     }
 
@@ -385,10 +394,16 @@ pub fn load_static_upstreams(config: &config::Config) -> Result<()> {
         .iter()
         .map(|upstream| {
             info!("Configuring Upstream: {}", upstream.id);
-            if upstream.nodes.len() == 0 {
-                log::error!("Must have at least one node for Upstream configuration: {}", upstream.id);
+            if upstream.nodes.is_empty() {
+                log::error!(
+                    "Must have at least one node for Upstream configuration: {}",
+                    upstream.id
+                );
                 // panic!("Must have at least one node for Upstream configuration: {}", upstream.id);
-                eprintln!("[ERROR] Upstream '{}' has empty nodes configuration", upstream.id);
+                eprintln!(
+                    "[ERROR] Upstream '{}' has empty nodes configuration",
+                    upstream.id
+                );
                 std::process::exit(1);
             }
             match ProxyUpstream::new_with_health_check(

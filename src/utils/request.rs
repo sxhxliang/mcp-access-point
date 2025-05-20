@@ -1,6 +1,7 @@
 use http::{HeaderName, Uri};
 use once_cell::sync::Lazy;
-use pingora::{http::RequestHeader, proxy::Session};
+use pingora::http::RequestHeader;
+use pingora_proxy::Session;
 use regex::Regex;
 use serde_json::Value;
 use std::{collections::HashMap, str::FromStr};

@@ -1,8 +1,13 @@
+use bytes::Bytes;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Map, Value};
 use std::borrow::Cow;
 
-use crate::types::RequestId;
+use crate::{
+    config::ERROR_MESSAGE,
+    types::{CallToolResult, CallToolResultContentItem, RequestId, TextContent},
+};
+use pingora::{Error, ErrorType, Result};
 pub const LATEST_PROTOCOL_VERSION: &str = "2024-11-05";
 pub const JSONRPC_VERSION: &str = "2.0";
 
@@ -125,4 +130,28 @@ pub struct JSONRPCErrorDetails {
     pub message: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<Value>,
+}
+
+// Helper function to create JSON-RPC response
+pub fn create_json_rpc_response(request_id: &str, body: &Option<Bytes>) -> Result<JSONRPCResponse> {
+    let result = CallToolResult {
+        meta: Map::new(),
+        content: vec![CallToolResultContentItem::TextContent(TextContent {
+            type_: "text".to_string(),
+            text: body.as_ref().map_or_else(
+                || ERROR_MESSAGE.to_string(),
+                |b| String::from_utf8_lossy(b).to_string(),
+            ),
+            annotations: None,
+        })],
+        is_error: Some(false),
+    };
+
+    request_id
+        .parse::<i64>()
+        .map_err(|e| {
+            log::error!("Invalid MCP-REQUEST-ID format: {}", e);
+            Error::because(ErrorType::InvalidHTTPHeader, "Invalid MCP-REQUEST-ID", e)
+        })
+        .map(|id| JSONRPCResponse::new(RequestId::from(id), serde_json::to_value(result).unwrap()))
 }

@@ -2045,7 +2045,8 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 [[package]]
 name = "pingora"
 version = "0.5.0"
-source = "git+https://github.com/sxhxliang/pingora.git?branch=main#f73ccef04f6987ad1847b0665a0a1bc8c26bea14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0d793bb3f61d3aacb02b10d0e32724f5b4f1d3fcf2f51efc4188a1a6a5810606"
 dependencies = [
  "pingora-cache",
  "pingora-core",
@@ -2058,7 +2059,8 @@ dependencies = [
 [[package]]
 name = "pingora-cache"
 version = "0.5.0"
-source = "git+https://github.com/sxhxliang/pingora.git?branch=main#f73ccef04f6987ad1847b0665a0a1bc8c26bea14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dcb4b85ca73955092e7e2a6654304f6ee7868d38792f442733a197cbb3ac5f75"
 dependencies = [
  "ahash",
  "async-trait",
@@ -2092,7 +2094,8 @@ dependencies = [
 [[package]]
 name = "pingora-core"
 version = "0.5.0"
-source = "git+https://github.com/sxhxliang/pingora.git?branch=main#f73ccef04f6987ad1847b0665a0a1bc8c26bea14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2298292e2dbd156294bcc8dd2ec34507277c78bab31bfe3aecc1cab9b1f91dff"
 dependencies = [
  "ahash",
  "async-trait",
@@ -2141,12 +2144,14 @@ dependencies = [
 [[package]]
 name = "pingora-error"
 version = "0.5.0"
-source = "git+https://github.com/sxhxliang/pingora.git?branch=main#f73ccef04f6987ad1847b0665a0a1bc8c26bea14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca838db1ee9beef844d6db7e2e85e0006b50bb6bf8f19c96fb64bf2567e59039"
 
 [[package]]
 name = "pingora-header-serde"
 version = "0.5.0"
-source = "git+https://github.com/sxhxliang/pingora.git?branch=main#f73ccef04f6987ad1847b0665a0a1bc8c26bea14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "659b46bad022e1b4a3ee6b12739e4e597ccca5e3652c9cbfb06155686c94adbe"
 dependencies = [
  "bytes",
  "http",
@@ -2161,7 +2166,8 @@ dependencies = [
 [[package]]
 name = "pingora-http"
 version = "0.5.0"
-source = "git+https://github.com/sxhxliang/pingora.git?branch=main#f73ccef04f6987ad1847b0665a0a1bc8c26bea14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f15f9fa5ae034435adfe2b94620e25dee7b0859c2460acec499163de3d299f1"
 dependencies = [
  "bytes",
  "http",
@@ -2171,7 +2177,8 @@ dependencies = [
 [[package]]
 name = "pingora-ketama"
 version = "0.5.0"
-source = "git+https://github.com/sxhxliang/pingora.git?branch=main#f73ccef04f6987ad1847b0665a0a1bc8c26bea14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e672fab42518ae10cbcbed2e4532c46744b222425c12886d2e6ae2ffd64b1e74"
 dependencies = [
  "crc32fast",
 ]
@@ -2179,7 +2186,8 @@ dependencies = [
 [[package]]
 name = "pingora-limits"
 version = "0.5.0"
-source = "git+https://github.com/sxhxliang/pingora.git?branch=main#f73ccef04f6987ad1847b0665a0a1bc8c26bea14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a719a8cb5558ca06bd6076c97b8905d500ea556da89e132ba53d4272844f95b9"
 dependencies = [
  "ahash",
 ]
@@ -2187,7 +2195,8 @@ dependencies = [
 [[package]]
 name = "pingora-load-balancing"
 version = "0.5.0"
-source = "git+https://github.com/sxhxliang/pingora.git?branch=main#f73ccef04f6987ad1847b0665a0a1bc8c26bea14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c6fe587777e321fbead02352aa089e9965f6e3b87a944d12d7dfd3717fac4b1"
 dependencies = [
  "arc-swap",
  "async-trait",
@@ -2208,7 +2217,8 @@ dependencies = [
 [[package]]
 name = "pingora-lru"
 version = "0.5.0"
-source = "git+https://github.com/sxhxliang/pingora.git?branch=main#f73ccef04f6987ad1847b0665a0a1bc8c26bea14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32f1c33f6ce9ca9b8e81190796f7d4d543d1ab2a310097d884ebe48ce5d33c4d"
 dependencies = [
  "arrayvec",
  "hashbrown 0.15.3",
@@ -2219,7 +2229,8 @@ dependencies = [
 [[package]]
 name = "pingora-openssl"
 version = "0.5.0"
-source = "git+https://github.com/sxhxliang/pingora.git?branch=main#f73ccef04f6987ad1847b0665a0a1bc8c26bea14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c82984830763c614e2f5950efbfb0b6f92fd59610ce656be35abf0fb8232308"
 dependencies = [
  "foreign-types",
  "libc",
@@ -2231,7 +2242,8 @@ dependencies = [
 [[package]]
 name = "pingora-pool"
 version = "0.5.0"
-source = "git+https://github.com/sxhxliang/pingora.git?branch=main#f73ccef04f6987ad1847b0665a0a1bc8c26bea14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a74589c2e4f089d00fde78030e2d51b44406341e1e43b0bdb5456b93b4459937"
 dependencies = [
  "crossbeam-queue",
  "log",
@@ -2245,7 +2257,8 @@ dependencies = [
 [[package]]
 name = "pingora-proxy"
 version = "0.5.0"
-source = "git+https://github.com/sxhxliang/pingora.git?branch=main#f73ccef04f6987ad1847b0665a0a1bc8c26bea14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d12839bb50f9716db46b6bafc2ea9cf0de504dee857ff79d7a96dc64f46063a"
 dependencies = [
  "async-trait",
  "bytes",
@@ -2266,7 +2279,8 @@ dependencies = [
 [[package]]
 name = "pingora-runtime"
 version = "0.5.0"
-source = "git+https://github.com/sxhxliang/pingora.git?branch=main#f73ccef04f6987ad1847b0665a0a1bc8c26bea14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e720a120466e8f61a64384deff6d7a52de6df6a4c54b0046c70c9cf0eaad1092"
 dependencies = [
  "once_cell",
  "rand 0.8.5",
@@ -2277,7 +2291,8 @@ dependencies = [
 [[package]]
 name = "pingora-timeout"
 version = "0.5.0"
-source = "git+https://github.com/sxhxliang/pingora.git?branch=main#f73ccef04f6987ad1847b0665a0a1bc8c26bea14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7fd4538cb5a3ae793c63126fc21e77e20778742931e31a5ac64e75b3ca10d176"
 dependencies = [
  "once_cell",
  "parking_lot",

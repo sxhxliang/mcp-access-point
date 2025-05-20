@@ -92,12 +92,12 @@ impl Upstream {
         if other.upstream_host.is_some() {
             self.upstream_host = other.upstream_host;
         }
-        
+
         // 合并nodes
         for (k, v) in other.nodes {
             self.nodes.insert(k, v);
         }
-        
+
         // 合并headers
         if let Some(other_headers) = other.headers {
             if let Some(headers) = &mut self.headers {
@@ -108,13 +108,13 @@ impl Upstream {
                 self.headers = Some(other_headers);
             }
         }
-        
+
         // 合并checks
         if other.checks.is_some() {
             self.checks = other.checks;
         }
     }
-    
+
     fn default_key() -> String {
         "uri".to_string()
     }
@@ -328,7 +328,11 @@ mod tests {
             id: "base_id".to_string(),
             retries: Some(1),
             retry_timeout: Some(1000),
-            timeout: Some(Timeout { connect: 3000, send: 12, read: 12 }),
+            timeout: Some(Timeout {
+                connect: 3000,
+                send: 12,
+                read: 12,
+            }),
             r#type: SelectionType::default(),
             hash_on: UpstreamHashOn::default(),
             key: Upstream::default_key(),
@@ -344,7 +348,11 @@ mod tests {
             id: "new_id".to_string(),
             retries: Some(3),
             retry_timeout: Some(2000),
-            timeout: Some(Timeout { connect: 6000, send: 12, read: 12 }),
+            timeout: Some(Timeout {
+                connect: 6000,
+                send: 12,
+                read: 12,
+            }),
             r#type: SelectionType::RoundRobin,
             hash_on: UpstreamHashOn::HEAD,
             key: "custom_key".to_string(),
@@ -353,7 +361,7 @@ mod tests {
             upstream_host: Some("host.com".to_string()),
             nodes: {
                 let mut map = HashMap::new();
-                map.insert("node1".to_string(), 1 );
+                map.insert("node1".to_string(), 1);
                 map
             },
             headers: {
@@ -361,7 +369,7 @@ mod tests {
                 map.insert("header1".to_string(), "value1".to_string());
                 Some(map)
             },
-            checks: None
+            checks: None,
         };
 
         base.merge(other);
@@ -369,7 +377,14 @@ mod tests {
         assert_eq!(base.id, "new_id");
         assert_eq!(base.retries, Some(3));
         assert_eq!(base.retry_timeout, Some(2000));
-        assert_eq!(base.timeout, Some(Timeout { connect: 6000, send: 12, read: 12 }));
+        assert_eq!(
+            base.timeout,
+            Some(Timeout {
+                connect: 6000,
+                send: 12,
+                read: 12
+            })
+        );
         assert_eq!(base.r#type, SelectionType::RoundRobin);
         assert_eq!(base.hash_on, UpstreamHashOn::HEAD);
         assert_eq!(base.key, "custom_key");

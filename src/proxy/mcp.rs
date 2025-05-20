@@ -6,7 +6,12 @@ use pingora_error::Result;
 use serde_json::Map;
 
 use crate::{
-    config::{self, Identifiable, MCP_ROUTE_META_INFO_MAP}, openapi::OpenApiSpec, plugin::ProxyPlugin, proxy::upstream::upstream_fetch, types::{ListToolsResult, Tool}, utils::file::read_from_local_or_remote
+    config::{self, Identifiable, MCP_ROUTE_META_INFO_MAP},
+    openapi::OpenApiSpec,
+    plugin::ProxyPlugin,
+    proxy::upstream::upstream_fetch,
+    types::{ListToolsResult, Tool},
+    utils::file::read_from_local_or_remote,
 };
 
 use super::{route::ProxyRoute, upstream::ProxyUpstream, MapOperations};

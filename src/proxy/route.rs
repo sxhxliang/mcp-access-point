@@ -109,6 +109,10 @@ impl ProxyRoute {
             })
     }
 
+    pub fn get_headers(&self) -> HashMap<String, String> {
+        self.inner.headers.clone().unwrap_or_default()
+    }
+
     /// Gets the list of hosts for the route.
     fn get_hosts(&self) -> Vec<String> {
         let hosts = self.inner.get_hosts();

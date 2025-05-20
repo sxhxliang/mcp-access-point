@@ -23,8 +23,7 @@ use crate::{
         CLIENT_MESSAGE_ENDPOINT, CLIENT_SSE_ENDPOINT, CLIENT_STREAMABLE_HTTP_ENDPOINT,
         SERVER_WITH_AUTH,
     },
-    jsonrpc::JSONRPCRequest,
-    mcp::create_json_rpc_response,
+    jsonrpc::{JSONRPCRequest, create_json_rpc_response},
     plugin::ProxyPlugin,
     proxy::{global_rule::global_plugin_fetch, route::global_route_match_fetch, ProxyContext},
     service::endpoint::{self, MCP_REQUEST_ID, MCP_SESSION_ID, MCP_STREAMABLE_HTTP},
@@ -44,6 +43,13 @@ pub struct MCPProxyService {
     pub tx: broadcast::Sender<SseEvent>,
 }
 
+/// HTTP proxy service implementation.
+/// Implements the response handling logic for the proxy service.
+/// This includes:
+/// - Parses JSON-RPC request from session body
+/// - handling JSON-RPC requests and delegating to the appropriate handler.
+/// - handling SSE (Server-Sent Events) connections.
+/// - building and sending HTTP responses to clients.
 impl MCPProxyService {
     /// Helper method to build and send HTTP responses
     async fn build_and_send_response(
@@ -199,6 +205,10 @@ impl MCPProxyService {
     }
     /// Parses JSON-RPC request from session body
     pub async fn parse_json_rpc_request(&self, session: &mut Session) -> Result<JSONRPCRequest> {
+        // Read request body
+        // You can only read the body once, so if you read it you have to send a response.
+        // enable buffer would cache the request body, so that the request_body_filter will work fine
+        session.enable_retry_buffering();
         let body = session
             .downstream_session
             .read_request_body()
@@ -218,8 +228,49 @@ impl MCPProxyService {
             Error::because(ErrorType::ReadError, "Failed to read request body:", e)
         })
     }
+    // Helper function to avoid code duplication
+    pub fn handle_json_rpc_response(
+        &self,
+        ctx: &<MCPProxyService as ProxyHttp>::CTX,
+        request_id: &str,
+        body: &mut Option<Bytes>,
+        end_of_stream: bool,
+        session_id: Option<String>,
+    ) {
+        // Decode the body if it is encoded
+        // denpend on the encoding type in the ctx.vars
+        if let Some(encoding) = decode_body(ctx, body) {
+            log::debug!(
+                "Decoding body {:?}",
+                String::from_utf8_lossy(&encoding).to_string()
+            );
+            *body = Some(encoding);
+        }
+        match create_json_rpc_response(request_id, body) {
+            Ok(res) => match serde_json::to_string(&res) {
+                Ok(json_res) => match session_id {
+                    Some(session_id) => {
+                        let event = SseEvent::new_event(session_id.as_str(), "message", &json_res);
+                        if let Err(e) = self.tx.send(event) {
+                            log::error!("Failed to send SSE event: {}", e);
+                        }
+                    }
+                    None => {
+                        if end_of_stream {
+                            *body = Some(Bytes::copy_from_slice(json_res.as_bytes()));
+                        }
+                    }
+                },
+                Err(e) => log::error!("Failed to serialize JSON response: {}", e),
+            },
+            Err(e) => log::error!("Failed to create JSON-RPC response: {}", e),
+        }
+    }
 }
 
+/// Implementation of ProxyHttp trait for MCPProxyService.
+/// This implementation handles the HTTP requests and responses.
+/// It uses the ProxyContext to store the context information.
 #[async_trait]
 impl ProxyHttp for MCPProxyService {
     type CTX = ProxyContext;
@@ -264,15 +315,18 @@ impl ProxyHttp for MCPProxyService {
     /// Filters incoming requests
     async fn request_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> Result<bool> {
         if ctx.route.is_none() {
-            log::debug!("Route({:?}) not found, check MCP services", session.req_header().uri);
-            if session.req_header().uri.path() != CLIENT_SSE_ENDPOINT
-                && session.req_header().uri.path() != CLIENT_MESSAGE_ENDPOINT
-                && session.req_header().uri.path() != CLIENT_STREAMABLE_HTTP_ENDPOINT
-                && match_api_path(session.req_header().uri.path()) == PathMatch::NoMatch
-            {
-                // Handle the case where the route is not found
-                // and the request is for the SSE endpoint
-                log::warn!("Route not found, responding with 404");
+            let uri = &session.req_header().uri;
+            log::debug!("Route({:?}) not found, check MCP services", uri);
+
+            let path = uri.path();
+            let is_known_endpoint = path == CLIENT_SSE_ENDPOINT
+                || path == CLIENT_MESSAGE_ENDPOINT
+                || path == CLIENT_STREAMABLE_HTTP_ENDPOINT
+                || match_api_path(path) != PathMatch::NoMatch;
+
+            if !is_known_endpoint {
+                // Handle unknown route case
+                log::warn!("Route not found for path: {}", path);
                 session
                     .respond_error(StatusCode::NOT_FOUND.as_u16())
                     .await?;
@@ -330,7 +384,10 @@ impl ProxyHttp for MCPProxyService {
                 return endpoint::handle_streamable_http_endpoint(ctx, self, session).await;
             }
             PathMatch::NoMatch => {
-                log::debug!("No tenant match for path: {:?}", path);
+                log::debug!(
+                    "No tenant match for path: {:?}, using global mcp endpoint.",
+                    path
+                );
                 match path {
                     CLIENT_STREAMABLE_HTTP_ENDPOINT => {
                         // 2025-03-26 specification protocol;
@@ -405,12 +462,17 @@ impl ProxyHttp for MCPProxyService {
 
         // rewrite host header and headers
         if let Some(upstream) = ctx.route.as_ref().and_then(|r| r.resolve_upstream()) {
-            upstream.upstream_host_rewrite(upstream_request);
             // rewrite or insert headers
-            // user defined headers in the configuration file will overwrite the headers in the upstream
-            for (key, value) in upstream.inner.headers.clone().unwrap_or_default().iter() {
-                upstream_request.insert_header(key.to_string(), value)?;
+            upstream.upstream_header_rewrite(upstream_request);
+            upstream.upstream_host_rewrite(upstream_request);
+        }
+        //  insert headers from route configuration
+        //  see details in the src/config/route.rs file
+        for header in ctx.route.as_ref().unwrap().get_headers() {
+            if header.0 == "Host" {
+                continue;
             }
+            upstream_request.insert_header(header.0, header.1.as_str())?;
         }
         log::info!("upstream host: {:?}", upstream_request.headers);
         Ok(())
@@ -479,30 +541,17 @@ impl ProxyHttp for MCPProxyService {
             log::debug!("upstream response Body is None");
         }
 
-
         // SSE endpoint processing
         if let (Some(session_id), Some(request_id)) =
             (ctx.vars.get(MCP_SESSION_ID), ctx.vars.get(MCP_REQUEST_ID))
         {
-            // Decode the body if it is encoded
-            // denpend on the encoding type in the ctx.vars
-            if let Some(encoding) = decode_body(ctx, body) {
-                log::debug!("Decoding body {:?}",  String::from_utf8_lossy(&encoding).to_string());
-                *body = Some(encoding);
-            }
-            match create_json_rpc_response(request_id, body) {
-                Ok(res) => {
-                    let event = SseEvent::new_event(
-                        session_id,
-                        "message",
-                        &serde_json::to_string(&res).unwrap(),
-                    );
-                    if let Err(e) = self.tx.send(event) {
-                        log::error!("Failed to send SSE event: {}", e);
-                    }
-                }
-                Err(e) => log::error!("Failed to create SSE response: {}", e),
-            }
+            self.handle_json_rpc_response(
+                ctx,
+                request_id,
+                body,
+                end_of_stream,
+                Some(session_id.to_string()),
+            );
         }
 
         // Handle mcp streaming http responses
@@ -513,23 +562,9 @@ impl ProxyHttp for MCPProxyService {
                     *body = Some(Bytes::from("Accepted"));
                 }
                 "stateless" => {
-                    // Decode the body if it is encoded
-                    // denpend on the encoding type in the ctx.vars
-                    if let Some(encoding) = decode_body(ctx, body) {
-                        log::debug!("Decoding body {:?}",  String::from_utf8_lossy(&encoding).to_string());
-                        *body = Some(encoding);
-                    }
                     log::debug!("Handling stateless responses");
                     if let Some(request_id) = ctx.vars.get(MCP_REQUEST_ID) {
-                        match create_json_rpc_response(request_id, body) {
-                            Ok(res) => {
-                                let data_body = serde_json::to_string(&res).unwrap();
-                                if end_of_stream {
-                                    *body = Some(Bytes::copy_from_slice(data_body.as_bytes()));
-                                }
-                            }
-                            Err(e) => log::error!("Failed to create stateless response: {}", e),
-                        }
+                        self.handle_json_rpc_response(ctx, request_id, body, end_of_stream, None);
                     } else {
                         log::warn!("MCP-REQUEST-ID not found");
                     }
@@ -538,21 +573,7 @@ impl ProxyHttp for MCPProxyService {
             },
             None => {
                 if let Some(request_id) = ctx.vars.get(MCP_REQUEST_ID) {
-                    // Decode the body if it is encoded
-                    // denpend on the encoding type in the ctx.vars
-                    if let Some(encoding) = decode_body(ctx, body) {
-                        log::debug!("Decoding body {:?}",  String::from_utf8_lossy(&encoding).to_string());
-                        *body = Some(encoding);
-                    }
-                    match create_json_rpc_response(request_id, body) {
-                        Ok(res) => {
-                            let data_body = serde_json::to_string(&res).unwrap();
-                            if end_of_stream {
-                                *body = Some(Bytes::copy_from_slice(data_body.as_bytes()));
-                            }
-                        }
-                        Err(e) => log::error!("Failed to create default response: {}", e),
-                    }
+                    self.handle_json_rpc_response(ctx, request_id, body, end_of_stream, None);
                 } else {
                     log::error!("MCP-REQUEST-ID not found");
                 }

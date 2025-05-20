@@ -1,5 +1,5 @@
-use pingora::{proxy::Session, Result};
-use pingora_proxy::ProxyHttp;
+use pingora::Result;
+use pingora_proxy::{Session, ProxyHttp};
 use serde_json::Map;
 
 use crate::{

@@ -33,7 +33,7 @@ pub const CLIENT_MESSAGE_ENDPOINT: &str = "/messages/";
 
 /// 2025-03-26 specification protocol;
 /// Client HTTP endpoint for receiving messages from the MCP server.
-pub const CLIENT_STREAMABLE_HTTP_ENDPOINT: &str = "/mcp/";
+pub const CLIENT_STREAMABLE_HTTP_ENDPOINT: &str = "/mcp";
 /// Default error message for when the MCP server is not reachable.
 pub const ERROR_MESSAGE: &str = "Unable to fetch data for this mcp server.";
 /// Whether the MCP server requires authentication.

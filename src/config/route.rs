@@ -138,6 +138,11 @@ pub struct Route {
     pub upstream_id: Option<String>,
     /// The ID of the service to be used by the route.
     pub service_id: Option<String>,
+    /// The header settings for the route.
+    /// This is a map of header names to header values.
+    /// If no headers are specified, an empty map will be used.
+    #[serde(default)]
+    pub headers: Option<HashMap<String, String>>,
     /// The timeout settings for the route.
     #[validate(nested)]
     pub timeout: Option<Timeout>,

@@ -1,6 +1,6 @@
 use crate::{mcp, service::mcp::MCPProxyService, utils};
-use pingora::{proxy::Session, Result};
-use pingora_proxy::ProxyHttp;
+use pingora::Result;
+use pingora_proxy::{Session, ProxyHttp};
 
 /// Constant for identifying streamable HTTP requests in context variables
 pub const MCP_STREAMABLE_HTTP: &str = "streamable_http";
