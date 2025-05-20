@@ -1,5 +1,5 @@
 use pingora::Result;
-use pingora_proxy::{Session, ProxyHttp};
+use pingora_proxy::{ProxyHttp, Session};
 
 use crate::{
     jsonrpc::JSONRPCRequest, service::mcp::MCPProxyService, sse_event::SseEvent, types::RequestId,

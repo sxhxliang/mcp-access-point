@@ -1,6 +1,6 @@
 #[warn(dead_code)]
 use pingora::Result;
-use pingora_proxy::{Session, ProxyHttp};
+use pingora_proxy::{ProxyHttp, Session};
 use serde_json::Map;
 
 use crate::{

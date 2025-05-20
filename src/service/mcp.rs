@@ -4,7 +4,10 @@ use async_stream::stream;
 use async_trait::async_trait;
 use bytes::Bytes;
 use futures::StreamExt;
-use http::{header, StatusCode};
+use http::{
+    header::{CACHE_CONTROL, CONTENT_ENCODING, CONTENT_LENGTH, CONTENT_TYPE, TRANSFER_ENCODING},
+    StatusCode,
+};
 
 use pingora::{
     modules::http::{compression::ResponseCompressionBuilder, grpc_web::GrpcWeb, HttpModules},
@@ -23,7 +26,7 @@ use crate::{
         CLIENT_MESSAGE_ENDPOINT, CLIENT_SSE_ENDPOINT, CLIENT_STREAMABLE_HTTP_ENDPOINT,
         SERVER_WITH_AUTH,
     },
-    jsonrpc::{JSONRPCRequest, create_json_rpc_response},
+    jsonrpc::{create_json_rpc_response, JSONRPCRequest},
     plugin::ProxyPlugin,
     proxy::{global_rule::global_plugin_fetch, route::global_route_match_fetch, ProxyContext},
     service::endpoint::{self, MCP_REQUEST_ID, MCP_SESSION_ID, MCP_STREAMABLE_HTTP},
@@ -61,10 +64,10 @@ impl MCPProxyService {
     ) -> Result<bool> {
         let mut resp = ResponseHeader::build(code, None)?;
 
-        resp.insert_header(header::CONTENT_TYPE, content_type)?;
+        resp.insert_header(CONTENT_TYPE, content_type)?;
 
         if let Some(body) = &body {
-            resp.insert_header(header::CONTENT_LENGTH, body.len().to_string())?;
+            resp.insert_header(CONTENT_LENGTH, body.len().to_string())?;
         }
 
         session.write_response_header(Box::new(resp), false).await?;
@@ -125,8 +128,8 @@ impl MCPProxyService {
     pub async fn response_sse(&self, session: &mut Session) -> Result<bool> {
         // Build SSE headers
         let mut resp = ResponseHeader::build(StatusCode::OK, Some(4))?;
-        resp.insert_header(header::CONTENT_TYPE, "text/event-stream")?;
-        resp.insert_header(header::CACHE_CONTROL, "no-cache")?;
+        resp.insert_header(CONTENT_TYPE, "text/event-stream")?;
+        resp.insert_header(CACHE_CONTROL, "no-cache")?;
         session.write_response_header(Box::new(resp), false).await?;
 
         // Generate unique session ID
@@ -196,7 +199,11 @@ impl MCPProxyService {
                 .write_response_body(Some(chunk.into()), false)
                 .await
                 .map_err(|e| {
-                    log::error!("Failed to send SSE event: {}", e);
+                    log::error!(
+                        "[SSE] Failed to send event, session_id: {:?}, error: {}",
+                        session_id,
+                        e
+                    );
                     e
                 })?;
         }
@@ -250,12 +257,18 @@ impl MCPProxyService {
             Ok(res) => match serde_json::to_string(&res) {
                 Ok(json_res) => match session_id {
                     Some(session_id) => {
+                        log::debug!("[SSE] Sending response, session_id: {:?}", session_id);
                         let event = SseEvent::new_event(session_id.as_str(), "message", &json_res);
                         if let Err(e) = self.tx.send(event) {
-                            log::error!("Failed to send SSE event: {}", e);
+                            log::error!(
+                                "[SSE] Failed to send event, session_id: {:?}, error: {}",
+                                session_id,
+                                e
+                            );
                         }
                     }
                     None => {
+                        log::debug!("[StreamableHTTP] Sending response");
                         if end_of_stream {
                             *body = Some(Bytes::copy_from_slice(json_res.as_bytes()));
                         }
@@ -474,7 +487,31 @@ impl ProxyHttp for MCPProxyService {
             }
             upstream_request.insert_header(header.0, header.1.as_str())?;
         }
-        log::info!("upstream host: {:?}", upstream_request.headers);
+        log::info!("upstream request headers: {:?}", upstream_request.headers);
+        Ok(())
+    }
+
+    fn upstream_response_filter(
+        &self,
+        session: &mut Session,
+        upstream_response: &mut ResponseHeader,
+        ctx: &mut Self::CTX,
+    ) -> Result<()> {
+        if ctx.vars.get(MCP_STREAMABLE_HTTP).is_some() {
+            // todo add support for content-type
+            if let Some(content_type) = upstream_response.headers.get(CONTENT_TYPE) {
+                if content_type.to_str().unwrap() != "application/json" {
+                    log::warn!(
+                        "upstream service response content-type is {:?} ,not \"application/json\"",
+                        content_type.to_str().unwrap()
+                    );
+                    // TODO add support for content-type other than application/json
+                    // upstream_response
+                    //     .insert_header(CONTENT_TYPE, "application/json")
+                    //     .unwrap();
+                }
+            }
+        }
         Ok(())
     }
 
@@ -493,20 +530,20 @@ impl ProxyHttp for MCPProxyService {
             .await?;
 
         // Remove content-length because the size of the new body is unknown
-        upstream_response.remove_header("Content-Length");
+        upstream_response.remove_header(&CONTENT_LENGTH);
         upstream_response
-            .insert_header("Transfer-Encoding", "Chunked")
+            .insert_header(TRANSFER_ENCODING, "Chunked")
             .unwrap();
 
         // get content encoding,
         // will be used to decompress the response body in the upstream_response_body_filter phase
         // see details in the upstream_response_body_filter function
-        if let Some(encoding) = upstream_response.headers.get("content-encoding") {
+        if let Some(encoding) = upstream_response.headers.get(CONTENT_ENCODING) {
             log::debug!("Content-Encoding: {:?}", encoding.to_str());
             // insert content-encoding to ctx.vars
             // will be used in the upstream_response_body_filter phase
             ctx.vars.insert(
-                "content-encoding".to_string(),
+                CONTENT_ENCODING.to_string(),
                 encoding.to_str().unwrap().to_string(),
             );
         }
@@ -641,7 +678,7 @@ impl ProxyHttp for MCPProxyService {
 
 /// Decodes response body based on content-encoding header
 fn decode_body(ctx: &<MCPProxyService as ProxyHttp>::CTX, body: &Option<Bytes>) -> Option<Bytes> {
-    match ctx.vars.get("content-encoding") {
+    match ctx.vars.get(CONTENT_ENCODING.as_str()) {
         Some(content_encoding) => {
             log::debug!("Content-Encoding: {:?}", content_encoding);
 
