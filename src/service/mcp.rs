@@ -547,6 +547,16 @@ impl ProxyHttp for MCPProxyService {
                 encoding.to_str().unwrap().to_string(),
             );
         }
+        // Rebuild the response header with the new status
+        let mut new_header = ResponseHeader::build(
+            StatusCode::OK,
+            Some(upstream_response.headers.capacity())
+        )?;
+        for (key, value) in upstream_response.headers.iter() {
+            new_header.insert_header(key, value)?;
+        }
+
+        *upstream_response = new_header;
 
         // execute plugins
         ctx.plugin

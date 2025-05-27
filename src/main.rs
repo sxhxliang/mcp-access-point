@@ -30,7 +30,7 @@ use access_point::service::mcp::MCPProxyService;
 
 fn main() {
     // 加载配置和命令行参数
-    std::env::set_var("RUST_LOG", "info,pingora_core=warn");
+    // std::env::set_var("RUST_LOG", "info,pingora_core=warn");
     // std::env::set_var("RUST_LOG", "debug");
     let cli_options = Opt::parse_args();
     let config =
