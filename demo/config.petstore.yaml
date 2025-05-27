@@ -1,0 +1,34 @@
+# pingora config example from https://github.com/cloudflare/pingora/blob/main/docs/user_guide/conf.md
+pingora:
+  version: 1
+  threads: 2
+  pid_file: /run/pingora.pid
+  upgrade_sock: /tmp/pingora_upgrade.sock
+  user: nobody
+  group: mcpusers
+
+access_point:
+  # listener on TCP or TLS
+  listeners:
+    - address: 0.0.0.0:8080 # listen on all interfaces
+mcps:
+  - id: service-1 # Service identifier
+    upstream_id: 1 # Upstream service identifier (must be the same as upstream id in upstreams)
+    path: config/openapi_for_demo_patch1.json # Local OpenAPI file path
+    upstream: # Upstream service configuration must be defined
+      headers: # Headers to send to upstream service
+        X-API-Key: "12345-abcdef"        # API key
+        Authorization: "Bearer token123" # Bearer token
+        User-Agent: "MyApp/1.0"          # User agent
+        Accept: "application/json"       # Accept header
+
+upstreams: # Upstream service configuration must be defined
+  - id: 1
+    headers: # Headers to send to upstream service
+      X-API-Key: "12345-abcdef"        # API key
+      Authorization: "Bearer token123" # Bearer token
+      User-Agent: "MyApp/1.0"          # User agent
+      Accept: "application/json"       # Accept header
+    nodes: #（e.g., a web server or API server)）
+      "127.0.0.1:8090": 1 # address with weight 
+    type: roundrobin # Load balancing algorithm (roundrobin, random, ip_hash)
