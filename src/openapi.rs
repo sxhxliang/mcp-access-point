@@ -92,8 +92,13 @@ struct ParamInfo {
 
 impl OpenApiSpec {
     pub fn new(content: String) -> Result<Self, Box<dyn std::error::Error>> {
-        let spec: OpenApiSpec = serde_json::from_str(&content)?;
-        Ok(spec)
+        
+        serde_json::from_str(&content)
+        .or_else(|_| serde_yaml::from_str(&content))
+        .map_err(|e| {
+            log::warn!("Failed to parse OpenAPI spec as JSON or YAML: {}", e);
+            e.into()
+        })
     }
 
     pub fn set_mcp_config(&mut self, mcp_config: MCPService) {
@@ -302,5 +307,55 @@ impl OpenApiSpec {
                 param_type,
             });
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::path::Path;
+    use crate::config::MCPService;
+
+    fn load_file(path: &str) -> String {
+        fs::read_to_string(Path::new(path)).expect("Failed to read OpenAPI file")
+    }
+
+    fn assert_tools_and_meta(content: String) {
+        let mut spec = OpenApiSpec::new(content).expect("Failed to parse OpenAPI spec");
+        let mcp_config = MCPService {
+            upstream_id: Some("1".to_string()),
+            ..Default::default()
+        };
+        spec.set_mcp_config(mcp_config);
+        let (tools_result, route_metas) = spec.load_openapi().expect("Failed to load OpenAPI");
+        let expected_tools = vec![
+            "uploadFile", "addPet", "updatePet", "findPetsByStatus", "findPetsByTags", "getPetById", "updatePetWithForm", "deletePet", "getInventory", "placeOrder", "getOrderById", "deleteOrder", "createUsersWithListInput", "getUserByName", "updateUser", "deleteUser", "loginUser", "logoutUser", "createUsersWithArrayInput", "createUser"
+        ];
+        let tool_names: Vec<_> = tools_result.tools.iter().map(|t| t.name.clone()).collect();
+        assert_eq!(tool_names.len(), expected_tools.len(), "Tool count mismatch");
+        for name in &expected_tools {
+            assert!(tool_names.contains(&name.to_string()), "Tool '{}' not found", name);
+            assert!(route_metas.contains_key(*name), "Route meta for '{}' not found", name);
+        }
+    }
+
+    #[test]
+    fn test_openapi_for_demo_json_tools_and_meta() {
+        let content = load_file("config/openapi_for_demo.json");
+        assert_tools_and_meta(content);
+    }
+
+    #[test]
+    fn test_openapi_for_demo_yml_tools_and_meta() {
+        let content = load_file("config/openapi_for_demo.yml");
+        assert_tools_and_meta(content);
+    }
+
+    #[test]
+    fn test_openapi_invalid_content_returns_error() {
+        let invalid_content = "not a valid openapi spec";
+        let result = OpenApiSpec::new(invalid_content.to_string());
+        assert!(result.is_err(), "Expected error for invalid OpenAPI content");
     }
 }
