@@ -171,8 +171,11 @@ impl OpenApiSpec {
         mcp_route_metas: &mut DashMap<String, Arc<MCPRouteMetaInfo>>,
     ) {
         let Some(op) = operation else { return };
-        let Some(operation_id) = &op.operation_id else {
-            return;
+        log::debug!("process_method: {} {:?}", method, op);
+        let op_id =  path.to_string() + ":" + method.as_str();
+        let operation_id =  match op.operation_id.as_ref() {
+            Some(operation_id) => operation_id,
+            None => &op_id,
         };
 
         let mut params = Vec::new();

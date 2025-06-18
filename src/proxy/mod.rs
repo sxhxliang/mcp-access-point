@@ -50,6 +50,8 @@ pub struct ProxyContext {
     pub global_plugin: Arc<ProxyPluginExecutor>,
     /// Custom variables available to plugins.
     pub vars: HashMap<String, String>,
+    /// Buffer for the response body from the upstream.
+    pub body_buffer: Vec<Bytes>,
 }
 
 impl Default for ProxyContext {
@@ -63,6 +65,7 @@ impl Default for ProxyContext {
             plugin: DEFAULT_PLUGIN_EXECUTOR.clone(),
             global_plugin: DEFAULT_PLUGIN_EXECUTOR.clone(),
             vars: HashMap::new(),
+            body_buffer: Vec::new(),
         }
     }
 }

@@ -70,7 +70,7 @@ cargo run -- -c config.yaml
 npx @modelcontextprotocol/inspector node build/index.js
 # Access http://127.0.0.1:6274/
 # Select "see" and enter 0.0.0.0:8080/sse, then click connect
-# or select "Streamable HTTP" and enter 0.0.0.0:8080/mcp/
+# or select "Streamable HTTP" and enter 0.0.0.0:8080/mcp
 ```
 
 ### Multi-tenancy Support
@@ -92,7 +92,7 @@ mcps:
 ```
 
 To access all services simultaneously, use:
-- `0.0.0.0:8080/mcp/` (Streamable HTTP)
+- `0.0.0.0:8080/mcp` (Streamable HTTP)
 - `0.0.0.0:8080/sse` (SSE)
 
 ### Configuration Details

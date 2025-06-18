@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use async_stream::stream;
 use async_trait::async_trait;
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut, BufMut};
 use futures::StreamExt;
 use http::{
     header::{CACHE_CONTROL, CONTENT_ENCODING, CONTENT_LENGTH, CONTENT_TYPE, TRANSFER_ENCODING},
@@ -247,10 +247,10 @@ impl MCPProxyService {
         // Decode the body if it is encoded
         // denpend on the encoding type in the ctx.vars
         if let Some(encoding) = decode_body(ctx, body) {
-            log::debug!(
-                "Decoding body {:?}",
-                String::from_utf8_lossy(&encoding).to_string()
-            );
+            // log::debug!(
+            //     "Decoding body {:?}",
+            //     String::from_utf8_lossy(&encoding).to_string()
+            // );
             *body = Some(encoding);
         }
         match create_json_rpc_response(request_id, body) {
@@ -279,6 +279,19 @@ impl MCPProxyService {
             Err(e) => log::error!("Failed to create JSON-RPC response: {}", e),
         }
     }
+}
+
+fn concat_body_bytes(parts: &[Bytes]) -> Bytes {
+    let mut total_len = 0;
+    for part in parts {
+        total_len += part.len();
+    }
+    
+    let mut buf = BytesMut::with_capacity(total_len);
+    for part in parts {
+        buf.put_slice(part);
+    }
+    buf.freeze()
 }
 
 /// Implementation of ProxyHttp trait for MCPProxyService.
@@ -540,6 +553,7 @@ impl ProxyHttp for MCPProxyService {
         // see details in the upstream_response_body_filter function
         if let Some(encoding) = upstream_response.headers.get(CONTENT_ENCODING) {
             log::debug!("Content-Encoding: {:?}", encoding.to_str());
+            log::debug!("upstream_response.headers: {:?}", upstream_response.headers);
             // insert content-encoding to ctx.vars
             // will be used in the upstream_response_body_filter phase
             ctx.vars.insert(
@@ -581,52 +595,65 @@ impl ProxyHttp for MCPProxyService {
             path
         );
 
+        // buffer the data
         // Log only the size of the body to avoid exposing sensitive data
-        if let Some(body) = body {
-            log::debug!("upstream body size: {}", body.len());
+        if let Some(b) = body {
+            log::debug!("upstream body size: {}", b.len());
+            ctx.body_buffer.push(b.clone());
+            // drop the body
+            b.clear();
         } else {
             log::debug!("upstream response Body is None");
         }
+        log::debug!("【end_of_stream】: {}", end_of_stream);
+        if end_of_stream {
+            let mut body_buffer = Some(concat_body_bytes(&ctx.body_buffer));
+            // SSE endpoint processing
+            if let (Some(session_id), Some(request_id)) =
+                (ctx.vars.get(MCP_SESSION_ID), ctx.vars.get(MCP_REQUEST_ID))
+            {
+                self.handle_json_rpc_response(
+                    ctx,
+                    request_id,
+                    &mut body_buffer,
+                    end_of_stream,
+                    Some(session_id.to_string()),
+                );
+            }
 
-        // SSE endpoint processing
-        if let (Some(session_id), Some(request_id)) =
-            (ctx.vars.get(MCP_SESSION_ID), ctx.vars.get(MCP_REQUEST_ID))
-        {
-            self.handle_json_rpc_response(
-                ctx,
-                request_id,
-                body,
-                end_of_stream,
-                Some(session_id.to_string()),
-            );
-        }
-
-        // Handle mcp streaming http responses
-        match ctx.vars.get(MCP_STREAMABLE_HTTP) {
-            Some(http_type) => match http_type.as_str() {
-                "stream" => {
-                    log::debug!("Handling streaming responses");
-                    *body = Some(Bytes::from("Accepted"));
-                }
-                "stateless" => {
-                    log::debug!("Handling stateless responses");
+            // Handle mcp streaming http responses
+            match ctx.vars.get(MCP_STREAMABLE_HTTP) {
+                Some(http_type) => match http_type.as_str() {
+                    "stream" => {
+                        log::debug!("Handling streaming responses");
+                        *body = Some(Bytes::from("Accepted"));
+                    }
+                    "stateless" => {
+                        log::debug!("Handling stateless responses");
+                        if let Some(request_id) = ctx.vars.get(MCP_REQUEST_ID) {
+                            self.handle_json_rpc_response(ctx, request_id, &mut body_buffer, end_of_stream, None);
+                        } else {
+                            log::warn!("MCP-REQUEST-ID not found");
+                        }
+                    }
+                    _ => log::error!("Invalid http_type value: {}", http_type),
+                },
+                None => {
                     if let Some(request_id) = ctx.vars.get(MCP_REQUEST_ID) {
-                        self.handle_json_rpc_response(ctx, request_id, body, end_of_stream, None);
+                        self.handle_json_rpc_response(ctx, request_id, &mut body_buffer, end_of_stream, None);
                     } else {
-                        log::warn!("MCP-REQUEST-ID not found");
+                        log::error!("MCP-REQUEST-ID not found");
                     }
                 }
-                _ => log::error!("Invalid http_type value: {}", http_type),
-            },
-            None => {
-                if let Some(request_id) = ctx.vars.get(MCP_REQUEST_ID) {
-                    self.handle_json_rpc_response(ctx, request_id, body, end_of_stream, None);
-                } else {
-                    log::error!("MCP-REQUEST-ID not found");
-                }
-            }
-        };
+            };
 
+            log::debug!(
+                "Decoding body {:?}",
+                body_buffer
+            );
+
+            *body = body_buffer;
+        }
         Ok(())
     }
 
@@ -639,6 +666,7 @@ impl ProxyHttp for MCPProxyService {
         end_of_stream: bool,
         ctx: &mut Self::CTX,
     ) -> Result<Option<Duration>> {
+        log::debug!("response_body_filter");
         // execute global rule plugins
         ctx.global_plugin
             .clone()
@@ -691,12 +719,14 @@ fn decode_body(ctx: &<MCPProxyService as ProxyHttp>::CTX, body: &Option<Bytes>) 
     match ctx.vars.get(CONTENT_ENCODING.as_str()) {
         Some(content_encoding) => {
             log::debug!("Content-Encoding: {:?}", content_encoding);
-
+            // log::debug!("Body: {:?}", body);
             if content_encoding.contains("gzip") {
                 let mut decompressor = Algorithm::Gzip.decompressor(true).unwrap();
-                decompressor
+                let res = decompressor
                     .encode(body.as_ref().unwrap().iter().as_slice(), true)
-                    .ok()
+                    .ok();
+                // log::debug!("Decompressed Body: {:?}", res);
+                res
             } else {
                 body.clone()
             }
