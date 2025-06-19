@@ -83,7 +83,7 @@ impl MatchEntry {
         // Reverse SNI to match the stored reversed SNI patterns
         let reversed_sni = sni.chars().rev().collect::<String>();
 
-        log::debug!("match sni: sni={:?}", sni);
+        log::debug!("match sni: sni={sni:?}");
 
         if let Ok(v) = self.snis.at(&reversed_sni) {
             return Some(v.value.clone());
@@ -124,11 +124,11 @@ pub fn load_static_ssls(config: &config::Config) -> Result<()> {
             match (&proxy_ssl.parsed_cert, &proxy_ssl.parsed_key) {
                 (Ok(_), Ok(_)) => Some(Ok(Arc::new(proxy_ssl))),
                 (Err(e), _) => {
-                    error!("{}", e);
+                    error!("{e}");
                     None
                 }
                 (_, Err(e)) => {
-                    error!("{}", e);
+                    error!("{e}");
                     None
                 }
             }
@@ -168,8 +168,8 @@ impl DynamicCert {
             (Ok(_), Ok(_)) => Box::new(Self {
                 default: Arc::new(proxy_ssl),
             }),
-            (Err(e), _) => panic!("Default SSL certificate parsing failed: {}", e),
-            (_, Err(e)) => panic!("Default SSL key parsing failed: {}", e),
+            (Err(e), _) => panic!("Default SSL certificate parsing failed: {e}"),
+            (_, Err(e)) => panic!("Default SSL key parsing failed: {e}"),
         }
     }
 }
@@ -191,14 +191,14 @@ impl TlsAccept for DynamicCert {
             (Ok(cert), Ok(key)) => {
                 // Use the cached cert and key
                 if let Err(e) = ext::ssl_use_certificate(ssl, cert) {
-                    log::error!("Failed to use certificate: {}", e);
+                    log::error!("Failed to use certificate: {e}");
                 }
                 if let Err(e) = ext::ssl_use_private_key(ssl, key) {
-                    log::error!("Failed to use private key: {}", e);
+                    log::error!("Failed to use private key: {e}");
                 }
             }
-            (Err(e), _) => log::error!("{}", e), // Log parsing error stored in ProxySSL
-            (_, Err(e)) => log::error!("{}", e), // Log parsing error stored in ProxySSL
+            (Err(e), _) => log::error!("{e}"), // Log parsing error stored in ProxySSL
+            (_, Err(e)) => log::error!("{e}"), // Log parsing error stored in ProxySSL
         }
     }
 }

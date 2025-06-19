@@ -78,7 +78,7 @@ impl std::fmt::Display for HttpMethod {
             HttpMethod::TRACE => "TRACE",
             // HttpMethod::PURGE => "PURGE",
         };
-        write!(f, "{}", method)
+        write!(f, "{method}")
     }
 }
 

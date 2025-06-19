@@ -28,7 +28,7 @@ pub fn route_fetch(id: &str) -> Option<Arc<ProxyRoute>> {
     match ROUTE_MAP.get(id) {
         Some(route) => Some(route.value().clone()),
         None => {
-            log::warn!("Route with id '{}' not found", id);
+            log::warn!("Route with id '{id}' not found");
             None
         }
     }
@@ -284,10 +284,7 @@ impl MatchEntry {
         let method = session.req_header().method.as_str();
 
         log::debug!(
-            "match request: host={:?}, uri={:?}, method={:?}",
-            host,
-            uri,
-            method
+            "match request: host={host:?}, uri={uri:?}, method={method:?}"
         );
 
         // Attempt to match using host_uris if a valid host is provided

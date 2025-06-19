@@ -58,15 +58,15 @@ pub fn global_mcp_route_meta_info_fetch(id: &str) -> Option<Arc<MCPRouteMetaInfo
     match MCP_ROUTE_META_INFO_MAP.get(id) {
         Some(route) => {
             if id == route.value().operation_id {
-                log::debug!("mcp route with id '{}' found", id);
+                log::debug!("mcp route with id '{id}' found");
                 Some(route.value().clone())
             } else {
-                log::warn!("mcp route with id '{}' not found", id);
+                log::warn!("mcp route with id '{id}' not found");
                 None
             }
         }
         None => {
-            log::warn!("mcp route with id '{}' not found", id);
+            log::warn!("mcp route with id '{id}' not found");
             None
         }
     }

@@ -37,7 +37,7 @@ impl ProxyGlobalRule {
 
         // Load plugins and log each one
         for (name, value) in rule.plugins {
-            log::info!("Loading plugin: {}", name);
+            log::info!("Loading plugin: {name}");
             let plugin = build_plugin(&name, value)?;
             proxy_global_rule.plugins.push(plugin);
         }

@@ -19,7 +19,7 @@ pub fn service_fetch(id: &str) -> Option<Arc<ProxyService>> {
     match SERVICE_MAP.get(id) {
         Some(service) => Some(service.value().clone()),
         None => {
-            log::warn!("Service with id '{}' not found", id);
+            log::warn!("Service with id '{id}' not found");
             None
         }
     }

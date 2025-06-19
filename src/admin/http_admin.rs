@@ -40,7 +40,7 @@ impl ResponseHelper {
                 builder = builder.header(header::CONTENT_TYPE, header_value);
             } else {
                 // 如果 content_type 无法转换为 HeaderValue，可以选择日志记录或忽略
-                log::error!("Invalid content type: {}", ct);
+                log::error!("Invalid content type: {ct}");
             }
         }
 
@@ -158,7 +158,7 @@ async fn get_resource_handle(req: RequestData) -> Result<Response<Vec<u8>>, Stri
         Err(e) => Err(e.to_string()),
         Ok(Some(value)) => {
             let json_value: serde_json::Value =
-                serde_json::from_slice(&value).map_err(|e| format!("Invalid JSON data: {}", e))?;
+                serde_json::from_slice(&value).map_err(|e| format!("Invalid JSON data: {e}"))?;
 
             // let wrapper = ValueWrapper { value: json_value };
             let json_vec = serde_json::to_vec(&json_value).map_err(|e| e.to_string())?;
@@ -237,7 +237,7 @@ impl AdminHttpApp {
                 let path = handler.path.clone();
                 handlers.insert(handler.method.clone(), handler);
                 if let Err(err) = self.router.insert(path.clone(), handlers) {
-                    panic!("Failed to insert path {}: {}", path, err);
+                    panic!("Failed to insert path {path}: {err}");
                 }
             }
         }
@@ -299,7 +299,7 @@ impl ServeHttp for AdminHttpApp {
                     match handler.call(request_data).await {
                         Ok(resp) => resp,
                         Err(e) => {
-                            log::error!("Handler execution failed: {:?}", e);
+                            log::error!("Handler execution failed: {e:?}");
                             Response::builder()
                                 .status(StatusCode::BAD_REQUEST)
                                 .body(e.as_bytes().to_vec())

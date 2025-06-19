@@ -90,7 +90,7 @@ pub async fn request_processing(
             if request.params.is_some() {
                 let params = request.params.as_ref().unwrap();
                 if let Some(uri) = params.get("uri") {
-                    log::info!("resources/read uri: {}", uri);
+                    log::info!("resources/read uri: {uri}");
                     let result = ReadResourceResult {
                         meta: Map::new(),
                         contents: vec![ReadResourceResultContentsItem::TextResourceContents(

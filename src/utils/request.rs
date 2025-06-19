@@ -26,7 +26,7 @@ static API_MCP_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^/api/(?P<tenant_id>[^/]+)/mcp/?$").unwrap());
 
 pub fn match_api_path(path: &str) -> PathMatch {
-    log::debug!("match_api_path: {}", path);
+    log::debug!("match_api_path: {path}");
     if let Some(caps) = API_SSE_RE.captures(path) {
         PathMatch::Sse(caps["tenant_id"].to_string())
     } else if let Some(caps) = API_MESSAGE_RE.captures(path) {
@@ -96,14 +96,14 @@ pub fn flatten_json(prefix: &str, value: &Value, result: &mut HashMap<String, St
                 let new_prefix = if prefix.is_empty() {
                     key.to_owned()
                 } else {
-                    format!("{}.{}", prefix, key)
+                    format!("{prefix}.{key}")
                 };
                 flatten_json(&new_prefix, val, result);
             }
         }
         Value::Array(arr) => {
             for (index, val) in arr.iter().enumerate() {
-                let new_prefix = format!("{}[{}]", prefix, index);
+                let new_prefix = format!("{prefix}[{index}]");
                 flatten_json(&new_prefix, val, result);
             }
         }
@@ -125,9 +125,9 @@ pub fn merge_path_query(path: &str, query: &str) -> String {
         return path.to_string();
     }
     if path.contains('?') {
-        format!("{}&{}", path, query)
+        format!("{path}&{query}")
     } else {
-        format!("{}?{}", path, query)
+        format!("{path}?{query}")
     }
 }
 pub fn json_to_uri_query(value: &Value) -> String {
@@ -260,7 +260,7 @@ pub fn get_cookie_value<'a>(req_header: &'a RequestHeader, cookie_name: &str) ->
         }
     }
 
-    log::warn!("Cookie '{}' not found or malformed.", cookie_name);
+    log::warn!("Cookie '{cookie_name}' not found or malformed.");
     None
 }
 

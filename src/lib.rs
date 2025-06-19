@@ -68,4 +68,4 @@ pub mod proxy;
 pub mod service;
 pub(crate) mod sse_event;
 pub(crate) mod types;
-pub(crate) mod utils;
+pub mod utils;

@@ -31,13 +31,11 @@ pub async fn handle_streamable_http_endpoint(
 
             if let Some(last_event_id) = last_event_id {
                 log::info!(
-                    "Client reconnecting with Last-Event-ID: {:?}",
-                    last_event_id
+                    "Client reconnecting with Last-Event-ID: {last_event_id:?}"
                 );
             } else {
                 log::info!(
-                    "Establishing new SSE stream for session {:?}",
-                    mcp_session_id
+                    "Establishing new SSE stream for session {mcp_session_id:?}"
                 );
             }
             mcp_proxy.response_sse(session).await
@@ -72,7 +70,7 @@ pub async fn handle_streamable_http_endpoint(
                         .await
                     }
                     Err(e) => {
-                        log::error!("Failed to process JSON-RPC request: {}", e);
+                        log::error!("Failed to process JSON-RPC request: {e}");
                         Ok(false)
                     }
                 }
@@ -101,7 +99,7 @@ pub async fn handle_message_endpoint(
         Ok(request) => {
             let parsed = utils::request::query_to_map(&session.req_header().uri);
             let session_id = parsed.get("session_id").unwrap();
-            log::info!("session_id: {}", session_id);
+            log::info!("session_id: {session_id}");
 
             // add vars to ctx
             ctx.vars
@@ -118,7 +116,7 @@ pub async fn handle_message_endpoint(
                 .await;
         }
         Err(e) => {
-            log::error!("Failed to parse JSON: {}", e);
+            log::error!("Failed to parse JSON: {e}");
             Ok(false)
         }
     }

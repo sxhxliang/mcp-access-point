@@ -150,7 +150,7 @@ pub fn create_json_rpc_response(request_id: &str, body: &Option<Bytes>) -> Resul
     request_id
         .parse::<i64>()
         .map_err(|e| {
-            log::error!("Invalid MCP-REQUEST-ID format: {}", e);
+            log::error!("Invalid MCP-REQUEST-ID format: {e}");
             Error::because(ErrorType::InvalidHTTPHeader, "Invalid MCP-REQUEST-ID", e)
         })
         .map(|id| JSONRPCResponse::new(RequestId::from(id), serde_json::to_value(result).unwrap()))

@@ -66,10 +66,10 @@ impl ServiceDiscovery for DnsDiscovery {
             .lookup_ip(domain)
             .await
             .map_err(|e| {
-                log::warn!("DNS discovery failed for domain: {}: {}", domain, e);
+                log::warn!("DNS discovery failed for domain: {domain}: {e}");
                 Error::because(
                     InternalError,
-                    format!("DNS discovery failed for domain: {}: {}", domain, e),
+                    format!("DNS discovery failed for domain: {domain}: {e}"),
                     e,
                 )
             })?
@@ -119,7 +119,7 @@ impl ServiceDiscovery for HybridDiscovery {
 
         let futures = self.discoveries.iter().map(|discovery| async move {
             discovery.discover().await.map_err(|e| {
-                log::warn!("Hybrid discovery failed: {}", e);
+                log::warn!("Hybrid discovery failed: {e}");
                 e
             })
         });
@@ -224,7 +224,7 @@ fn parse_host_and_port(addr: &str) -> Result<(String, Option<u32>)> {
 
     // Ensure IPv6 addresses are enclosed in square brackets
     let host = if host.contains(':') && !host.starts_with('[') {
-        format!("[{}]", host)
+        format!("[{host}]")
     } else {
         host.to_string()
     };

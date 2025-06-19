@@ -32,6 +32,9 @@ fn main() {
     // 加载配置和命令行参数
     // std::env::set_var("RUST_LOG", "info,pingora_core=warn");
     // std::env::set_var("RUST_LOG", "debug");
+    let log_level = std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string());
+    std::env::set_var("RUST_LOG", format!("{log_level},pingora_core=warn, pingora_proxy=warn"));
+
     let cli_options = Opt::parse_args();
     let config =
         Config::load_yaml_with_opt_override(&cli_options).expect("Failed to load configuration");
@@ -105,7 +108,18 @@ fn main() {
     log::info!("Starting Server...");
     for list_cfg in config.access_point.listeners.iter() {
         let addr = &list_cfg.address.to_string();
-        println!("Listening on: {}", addr);
+        log::info!("🚀Listening on: {addr}");
+        log::info!("🚀Endpoint:");
+        log::info!("---->HTTP Endpoint: {addr}/mcp");
+        log::info!("---->SSE  Endpoint: {addr}/sse");
+        log::info!("🚀Multi-tenancy Endpoint:");
+        config.mcps.iter().for_each(|mcp| {
+            let id = mcp.id.clone();
+            log::info!("---->MCP ID: {id}");
+            log::info!("-------->HTTP Endpoint: {addr}/api/{id}/mcp");
+            log::info!("-------->SSE  Endpoint: {addr}/api/{id}/sse");
+        });
+
     }
     
     access_point_server.run_forever();

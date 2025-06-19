@@ -28,11 +28,11 @@ use super::{discovery::HybridDiscovery, MapOperations};
 
 /// Fetches an upstream by its ID.
 pub fn upstream_fetch(id: &str) -> Option<Arc<ProxyUpstream>> {
-    log::debug!("Fetches an upstream by its ID: {}", id);
+    log::debug!("Fetches an upstream by its ID: {id}");
     match UPSTREAM_MAP.get(id) {
         Some(upstream) => Some(upstream.value().clone()),
         None => {
-            log::warn!("Upstream with id '{}' not found", id);
+            log::warn!("Upstream with id '{id}' not found");
             None
         }
     }

@@ -11,7 +11,7 @@ pub fn read_from_local_or_remote(filename: &str) -> Result<(bool, String), Strin
 
     match is_url {
         Ok(_) => {
-            info!("openapi file is a URL: {}", filename);
+            info!("openapi file is a URL: {filename}");
             let client = Client::new();
             match client.get(filename).send() {
                 Ok(response) => {
@@ -20,12 +20,12 @@ pub fn read_from_local_or_remote(filename: &str) -> Result<(bool, String), Strin
                             Ok(openapi_data) => match serde_json::to_string(&openapi_data) {
                                 Ok(content) => Ok((true, content)),
                                 Err(e) => {
-                                    error!("Failed to serialize openapi data: {}", e);
+                                    error!("Failed to serialize openapi data: {e}");
                                     Err("Failed to serialize openapi data".to_string())
                                 }
                             },
                             Err(e) => {
-                                error!("Failed to parse openapi file as JSON: {}", e);
+                                error!("Failed to parse openapi file as JSON: {e}");
                                 Err("Failed to parse openapi file as JSON".to_string())
                             }
                         }
@@ -38,18 +38,18 @@ pub fn read_from_local_or_remote(filename: &str) -> Result<(bool, String), Strin
                     }
                 }
                 Err(e) => {
-                    error!("Failed to send HTTP request: {}", e);
-                    Err(format!("Failed to send HTTP request: {}", e))
+                    error!("Failed to send HTTP request: {e}");
+                    Err(format!("Failed to send HTTP request: {e}"))
                 }
             }
         }
         Err(_) => {
-            info!("openapi file is a local file: {}", filename);
+            info!("openapi file is a local file: {filename}");
             match fs::read_to_string(Path::new(filename)) {
                 Ok(content) => Ok((false, content)),
                 Err(e) => {
-                    error!("Failed to read local openapi file: {}", e);
-                    Err(format!("Failed to read local openapi file: {}", e))
+                    error!("Failed to read local openapi file: {e}");
+                    Err(format!("Failed to read local openapi file: {e}"))
                 }
             }
         }

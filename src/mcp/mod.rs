@@ -133,7 +133,7 @@ pub async fn request_processing_streamable_http(
     session: &mut Session,
     request: &JSONRPCRequest,
 ) -> Result<bool> {
-    log::debug!("using request: {:#?}", request);
+    log::debug!("using request: {request:#?}");
     // Match the request method and delegate processing
     match request.method.as_str() {
         "initialize" => {

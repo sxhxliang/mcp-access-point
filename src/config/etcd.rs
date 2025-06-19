@@ -46,10 +46,10 @@ impl fmt::Display for EtcdError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             EtcdError::ClientNotInitialized => write!(f, "Etcd client is not initialized"),
-            EtcdError::ConnectionFailed(msg) => write!(f, "Connection failed: {}", msg),
-            EtcdError::ListOperationFailed(msg) => write!(f, "List operation failed: {}", msg),
-            EtcdError::WatchOperationFailed(msg) => write!(f, "Watch operation failed: {}", msg),
-            EtcdError::Other(msg) => write!(f, "Other error: {}", msg),
+            EtcdError::ConnectionFailed(msg) => write!(f, "Connection failed: {msg}"),
+            EtcdError::ListOperationFailed(msg) => write!(f, "List operation failed: {msg}"),
+            EtcdError::WatchOperationFailed(msg) => write!(f, "Watch operation failed: {msg}"),
+            EtcdError::Other(msg) => write!(f, "Other error: {msg}"),
         }
     }
 }
@@ -128,11 +128,11 @@ impl EtcdConfigSync {
             .map_err(|e| EtcdError::WatchOperationFailed(e.to_string()))?;
 
         watcher.request_progress().await.map_err(|e| {
-            EtcdError::WatchOperationFailed(format!("Failed to request progress: {}", e))
+            EtcdError::WatchOperationFailed(format!("Failed to request progress: {e}"))
         })?;
 
         while let Some(response) = stream.message().await.map_err(|e| {
-            EtcdError::WatchOperationFailed(format!("Failed to receive watch message: {}", e))
+            EtcdError::WatchOperationFailed(format!("Failed to receive watch message: {e}"))
         })? {
             if response.canceled() {
                 log::warn!("Watch stream was canceled");
@@ -168,7 +168,7 @@ impl EtcdConfigSync {
                 // Perform list operation
                 result = self.list() => {
                     if let Err(err) = result {
-                        log::error!("List operation failed: {:?}", err);
+                        log::error!("List operation failed: {err:?}");
                         self.reset_client().await;
                         sleep(Duration::from_secs(3)).await;
                         continue;
@@ -189,7 +189,7 @@ impl EtcdConfigSync {
                 // Perform watch operation
                 result = self.watch() => {
                     if let Err(err) = result {
-                        log::error!("Watch operation failed: {:?}", err);
+                        log::error!("Watch operation failed: {err:?}");
                         self.reset_client().await;
                         sleep(Duration::from_secs(1)).await;
                     }
@@ -321,7 +321,7 @@ impl EtcdClientWrapper {
         client
             .put(self.with_prefix(key), value, None)
             .await
-            .map_err(|e| EtcdError::Other(format!("Put operation failed: {}", e)))?;
+            .map_err(|e| EtcdError::Other(format!("Put operation failed: {e}")))?;
         Ok(())
     }
     /// delete a key-value pair from etcd.
@@ -336,7 +336,7 @@ impl EtcdClientWrapper {
         client
             .delete(self.with_prefix(key), None)
             .await
-            .map_err(|e| EtcdError::Other(format!("Delete operation failed: {}", e)))?;
+            .map_err(|e| EtcdError::Other(format!("Delete operation failed: {e}")))?;
         Ok(())
     }
 

@@ -96,7 +96,7 @@ where
         if let Some(entry) = self.get(id) {
             Some(entry.clone())
         } else {
-            log::warn!("Resource with id '{}' not found", id);
+            log::warn!("Resource with id '{id}' not found");
             None
         }
     }
@@ -109,21 +109,21 @@ where
 
         // Build a set of IDs to keep
         let valid_ids: HashSet<String> = resources.iter().map(|r| r.id().to_string()).collect();
-        log::info!("Valid IDs: {:?}", valid_ids);
+        log::info!("Valid IDs: {valid_ids:?}");
         // Remove entries not in the new set
         self.retain(|key, _| valid_ids.contains(key));
 
         // Insert or update all resources
         for resource in resources {
             let key = resource.id().to_string();
-            log::info!("Inserting or updating resource '{}'", key);
+            log::info!("Inserting or updating resource '{key}'");
             self.insert(key, resource);
         }
     }
 
     fn insert_resource(&self, resource: Arc<T>) {
         let key = resource.id();
-        log::info!("Inserting resource '{}'", key);
+        log::info!("Inserting resource '{key}'");
         self.insert(key.to_string(), resource);
     }
 }

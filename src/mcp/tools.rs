@@ -31,7 +31,7 @@ pub async fn request_processing(
         "tools/list" => {
             let list_tools = match ctx.vars.get("MCP_TENANT_ID") {
                 Some(tenant_id) => {
-                    log::debug!("tools/list--tenant_id {:?}", tenant_id);
+                    log::debug!("tools/list--tenant_id {tenant_id:?}");
                     match mcp_service_fetch(tenant_id) {
                         Some(mcp_service) => mcp_service.get_tools(),
                         None => Some(ListToolsResult::default()),
@@ -82,7 +82,7 @@ pub async fn request_processing(
             let params: CallToolRequestParam = match serde_json::from_value(req_params) {
                 Ok(p) => p,
                 Err(e) => {
-                    log::error!("Failed to deserialize CallToolRequestParam: {}", e);
+                    log::error!("Failed to deserialize CallToolRequestParam: {e}");
                     let result = CallToolResult {
                         meta: Map::new(),
                         content: vec![CallToolResultContentItem::TextContent(TextContent {
@@ -100,12 +100,12 @@ pub async fn request_processing(
                     return Ok(true);
                 }
             };
-            log::debug!("params {:?}", params);
+            log::debug!("params {params:?}");
             // match route_proxy
             // let route_meta_info = global_mcp_route_meta_info_fetch(&params.name);
             let route_meta_info = match ctx.vars.get("MCP_TENANT_ID") {
                 Some(tenant_id) => {
-                    log::debug!("tools/call--tenant_id {:?}", tenant_id);
+                    log::debug!("tools/call--tenant_id {tenant_id:?}");
                     mcp_service_fetch(tenant_id)
                         .unwrap()
                         .get_meta_info(&params.name)
@@ -115,20 +115,20 @@ pub async fn request_processing(
                     global_mcp_route_meta_info_fetch(&params.name)
                 }
             };
-            log::debug!("route_meta_info {:#?}", route_meta_info);
+            log::debug!("route_meta_info {route_meta_info:#?}");
             log::debug!("tools/call");
             match route_meta_info {
                 Some(route_meta_info) => {
                     let arguments = &params.arguments.unwrap();
                     let new_path = replace_dynamic_params(route_meta_info.uri().path(), arguments);
-                    log::debug!("new_path {:?}", new_path);
+                    log::debug!("new_path {new_path:?}");
                     // let query_params = json_to_uri_query(arguments);
                     let path_and_query = merge_path_query(&new_path, "");
-                    log::debug!("new_path_and_query {:?}", path_and_query);
+                    log::debug!("new_path_and_query {path_and_query:?}");
 
                     // add headers from upstream config
                     if let Some(upstream_id) = &route_meta_info.upstream_id {
-                        log::info!("route_meta_info upstream: {:#?}", route_meta_info);
+                        log::info!("route_meta_info upstream: {route_meta_info:#?}");
 
                         let route_cfg = config::Route {
                             id: String::new(),

@@ -23,7 +23,7 @@ impl Write for AsyncWriter {
         let data = buf.to_vec();
         self.sender
             .send(data)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+            .map_err(io::Error::other)?;
         Ok(buf.len())
     }
 
@@ -105,14 +105,14 @@ impl Service for Logger {
                 },
                 _ = flush_interval.tick() => {
                     if let Err(e) = file.flush().await {
-                        log::error!("Failed to flush to log file: {}", e);
+                        log::error!("Failed to flush to log file: {e}");
                     }
                 },
                 data = self.receiver.recv() => {
                     match data {
                         Some(data) => {
                             if let Err(e) = file.write_all(&data).await {
-                                log::error!("Failed to write to log file: {}", e);
+                                log::error!("Failed to write to log file: {e}");
                             }
                         }
                         None => {
@@ -125,7 +125,7 @@ impl Service for Logger {
         }
 
         if let Err(e) = file.flush().await {
-            log::error!("Failed to flush log file: {}", e);
+            log::error!("Failed to flush log file: {e}");
         }
     }
 

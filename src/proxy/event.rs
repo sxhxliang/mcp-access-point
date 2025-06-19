@@ -109,7 +109,7 @@ impl ProxyEventHandler {
                             Some(resource)
                         }
                         Err(e) => {
-                            log::error!("Failed to load etcd {}: {} {}", key_type, id, e);
+                            log::error!("Failed to load etcd {key_type}: {id} {e}");
                             None
                         }
                     }
@@ -224,15 +224,15 @@ impl ProxyEventHandler {
             Ok((id, parsed_key_type)) if parsed_key_type == key_type => {
                 match json_to_resource::<T>(event.kv().unwrap().value()) {
                     Ok(resource) => {
-                        log::info!("Handling {}: {}", key_type, id);
+                        log::info!("Handling {key_type}: {id}");
                         if let Ok(proxy) = create_proxy(resource, self.work_stealing) {
                             map.insert_resource(Arc::new(proxy));
                         } else {
-                            log::error!("Failed to create proxy for {} {}", key_type, id);
+                            log::error!("Failed to create proxy for {key_type} {id}");
                         }
                     }
                     Err(e) => {
-                        log::error!("Failed to deserialize resource of type {}: {}", key_type, e);
+                        log::error!("Failed to deserialize resource of type {key_type}: {e}");
                     }
                 }
             }
@@ -311,7 +311,7 @@ impl EtcdEventHandler for ProxyEventHandler {
         match event.event_type() {
             etcd_client::EventType::Put => match parse_key(event.kv().unwrap().key()) {
                 Ok((_, key_type)) => {
-                    log::info!("Processing PUT event for key: {}", key);
+                    log::info!("Processing PUT event for key: {key}");
                     match key_type.as_str() {
                         "mcp_services" => self.handle_mcp_service_event(event),
                         "routes" => self.handle_route_event(event),
@@ -319,14 +319,14 @@ impl EtcdEventHandler for ProxyEventHandler {
                         "services" => self.handle_service_event(event),
                         "global_rules" => self.handle_global_rule_event(event),
                         "ssls" => self.handle_ssl_event(event),
-                        _ => log::warn!("Unhandled PUT event for key type: {}", key_type),
+                        _ => log::warn!("Unhandled PUT event for key type: {key_type}"),
                     }
                 }
-                Err(e) => log::error!("Failed to parse key during PUT event: {}: {}", key, e),
+                Err(e) => log::error!("Failed to parse key during PUT event: {key}: {e}"),
             },
             etcd_client::EventType::Delete => match parse_key(event.kv().unwrap().key()) {
                 Ok((id, key_type)) => {
-                    log::info!("Processing DELETE event for {}: {}", key_type, id);
+                    log::info!("Processing DELETE event for {key_type}: {id}");
                     match key_type.as_str() {
                         "mcp_services" => {
                             MCP_SERVICE_MAP.remove(&id);
@@ -349,10 +349,10 @@ impl EtcdEventHandler for ProxyEventHandler {
                             SSL_MAP.remove(&id);
                             reload_global_ssl_match();
                         }
-                        _ => log::warn!("Unhandled DELETE event for key type: {}", key_type),
+                        _ => log::warn!("Unhandled DELETE event for key type: {key_type}"),
                     }
                 }
-                Err(e) => log::error!("Failed to parse key during DELETE event: {}: {}", key, e),
+                Err(e) => log::error!("Failed to parse key during DELETE event: {key}: {e}"),
             },
         }
     }
@@ -373,7 +373,7 @@ fn parse_key(key: &[u8]) -> Result<(String, String), Box<dyn std::error::Error>>
     let parts: Vec<&str> = key.split('/').collect();
 
     if parts.len() < 3 {
-        return Err(format!("Invalid key format: {}", key).into());
+        return Err(format!("Invalid key format: {key}").into());
     }
 
     Ok((

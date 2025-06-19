@@ -73,7 +73,7 @@ impl MCPProxyService {
         session.write_response_header(Box::new(resp), false).await?;
 
         session.write_response_body(body, true).await.map_err(|e| {
-            log::error!("Failed to write response body: {}", e);
+            log::error!("Failed to write response body: {e}");
             e
         })?;
 
@@ -149,25 +149,25 @@ impl MCPProxyService {
     /// Builds SSE message URL with optional auth token
     fn build_sse_message_url(&self, session: &mut Session, session_id: &str) -> Result<String> {
         let mut base_url = String::new();
-        let mut query_params = format!("session_id={}", session_id);
+        let mut query_params = format!("session_id={session_id}");
 
         // Handle auth token if enabled
         if SERVER_WITH_AUTH {
             let parsed = utils::request::query_to_map(&session.req_header().uri);
             if let Some(token) = parsed.get("token") {
-                query_params.push_str(&format!("&token={}", token));
+                query_params.push_str(&format!("&token={token}"));
             }
         }
 
         // Handle tenant ID if present
         if let Some(tenant_id) = session.req_header_mut().remove_header("MCP_TENANT_ID") {
             let tenant_id = tenant_id.to_str().unwrap();
-            log::debug!("tenant_id: {}", tenant_id);
-            base_url.push_str(&format!("/api/{}", tenant_id));
+            log::debug!("tenant_id: {tenant_id}");
+            base_url.push_str(&format!("/api/{tenant_id}"));
         }
 
         base_url.push_str(CLIENT_MESSAGE_ENDPOINT);
-        Ok(format!("{}?{}", base_url, query_params))
+        Ok(format!("{base_url}?{query_params}"))
     }
 
     /// Handles SSE event stream
@@ -185,7 +185,7 @@ impl MCPProxyService {
 
             // Process incoming events
             while let Ok(event) = rx.recv().await {
-                log::debug!("Received SSE event for session: {}", session_id);
+                log::debug!("Received SSE event for session: {session_id}");
                 if event.session_id == session_id {
                     yield event.to_bytes();
                 }
@@ -200,9 +200,7 @@ impl MCPProxyService {
                 .await
                 .map_err(|e| {
                     log::error!(
-                        "[SSE] Failed to send event, session_id: {:?}, error: {}",
-                        session_id,
-                        e
+                        "[SSE] Failed to send event, session_id: {session_id:?}, error: {e}"
                     );
                     e
                 })?;
@@ -221,7 +219,7 @@ impl MCPProxyService {
             .read_request_body()
             .await
             .map_err(|e| {
-                log::error!("Failed to read request body: {}", e);
+                log::error!("Failed to read request body: {e}");
                 Error::because(ErrorType::ReadError, "Failed to read request body:", e)
             })?;
 
@@ -231,7 +229,7 @@ impl MCPProxyService {
         }
 
         serde_json::from_slice::<JSONRPCRequest>(&body.unwrap()).map_err(|e| {
-            log::error!("Failed to parse JSON: {}", e);
+            log::error!("Failed to parse JSON: {e}");
             Error::because(ErrorType::ReadError, "Failed to read request body:", e)
         })
     }
@@ -257,13 +255,11 @@ impl MCPProxyService {
             Ok(res) => match serde_json::to_string(&res) {
                 Ok(json_res) => match session_id {
                     Some(session_id) => {
-                        log::debug!("[SSE] Sending response, session_id: {:?}", session_id);
+                        log::debug!("[SSE] Sending response, session_id: {session_id:?}");
                         let event = SseEvent::new_event(session_id.as_str(), "message", &json_res);
                         if let Err(e) = self.tx.send(event) {
                             log::error!(
-                                "[SSE] Failed to send event, session_id: {:?}, error: {}",
-                                session_id,
-                                e
+                                "[SSE] Failed to send event, session_id: {session_id:?}, error: {e}"
                             );
                         }
                     }
@@ -274,9 +270,9 @@ impl MCPProxyService {
                         }
                     }
                 },
-                Err(e) => log::error!("Failed to serialize JSON response: {}", e),
+                Err(e) => log::error!("Failed to serialize JSON response: {e}"),
             },
-            Err(e) => log::error!("Failed to create JSON-RPC response: {}", e),
+            Err(e) => log::error!("Failed to create JSON-RPC response: {e}"),
         }
     }
 }
@@ -342,7 +338,7 @@ impl ProxyHttp for MCPProxyService {
     async fn request_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> Result<bool> {
         if ctx.route.is_none() {
             let uri = &session.req_header().uri;
-            log::debug!("Route({:?}) not found, check MCP services", uri);
+            log::debug!("Route({uri:?}) not found, check MCP services");
 
             let path = uri.path();
             let is_known_endpoint = path == CLIENT_SSE_ENDPOINT
@@ -352,7 +348,7 @@ impl ProxyHttp for MCPProxyService {
 
             if !is_known_endpoint {
                 // Handle unknown route case
-                log::warn!("Route not found for path: {}", path);
+                log::warn!("Route not found for path: {path}");
                 session
                     .respond_error(StatusCode::NOT_FOUND.as_u16())
                     .await?;
@@ -383,7 +379,7 @@ impl ProxyHttp for MCPProxyService {
 
         match match_api_path(path) {
             PathMatch::Sse(tenant_id) => {
-                log::debug!("SSE path: {:?}", path);
+                log::debug!("SSE path: {path:?}");
                 ctx.vars
                     .insert("MCP_TENANT_ID".to_string(), tenant_id.clone());
                 let _ = session
@@ -392,7 +388,7 @@ impl ProxyHttp for MCPProxyService {
                 return endpoint::handle_sse_endpoint(ctx, self, session).await;
             }
             PathMatch::Messages(tenant_id) => {
-                log::debug!("Messages path: {:?}", path);
+                log::debug!("Messages path: {path:?}");
                 ctx.vars
                     .insert("MCP_TENANT_ID".to_string(), tenant_id.clone());
                 let _ = session
@@ -401,7 +397,7 @@ impl ProxyHttp for MCPProxyService {
                 return endpoint::handle_message_endpoint(ctx, self, session).await;
             }
             PathMatch::StreamableHttp(tenant_id) => {
-                log::debug!("Streamable HTTP path: {:?}", path);
+                log::debug!("Streamable HTTP path: {path:?}");
                 ctx.vars
                     .insert("MCP_TENANT_ID".to_string(), tenant_id.clone());
                 let _ = session
@@ -411,8 +407,7 @@ impl ProxyHttp for MCPProxyService {
             }
             PathMatch::NoMatch => {
                 log::debug!(
-                    "No tenant match for path: {:?}, using global mcp endpoint.",
-                    path
+                    "No tenant match for path: {path:?}, using global mcp endpoint."
                 );
                 match path {
                     CLIENT_STREAMABLE_HTTP_ENDPOINT => {
@@ -591,8 +586,7 @@ impl ProxyHttp for MCPProxyService {
     ) -> Result<()> {
         let path = session.req_header().uri.path();
         log::debug!(
-            "Filters upstream_response_body_filter, Request path: {}",
-            path
+            "Filters upstream_response_body_filter, Request path: {path}"
         );
 
         // buffer the data
@@ -605,7 +599,7 @@ impl ProxyHttp for MCPProxyService {
         } else {
             log::debug!("upstream response Body is None");
         }
-        log::debug!("【end_of_stream】: {}", end_of_stream);
+        log::debug!("【end_of_stream】: {end_of_stream}");
         if end_of_stream {
             let mut body_buffer = Some(concat_body_bytes(&ctx.body_buffer));
             // SSE endpoint processing
@@ -636,7 +630,7 @@ impl ProxyHttp for MCPProxyService {
                             log::warn!("MCP-REQUEST-ID not found");
                         }
                     }
-                    _ => log::error!("Invalid http_type value: {}", http_type),
+                    _ => log::error!("Invalid http_type value: {http_type}"),
                 },
                 None => {
                     if let Some(request_id) = ctx.vars.get(MCP_REQUEST_ID) {
@@ -648,8 +642,7 @@ impl ProxyHttp for MCPProxyService {
             };
 
             log::debug!(
-                "Decoding body {:?}",
-                body_buffer
+                "Decoding body {body_buffer:?}"
             );
 
             *body = encode_body(ctx, &body_buffer);
@@ -718,7 +711,7 @@ impl ProxyHttp for MCPProxyService {
 fn decode_body(ctx: &<MCPProxyService as ProxyHttp>::CTX, body: &Option<Bytes>) -> Option<Bytes> {
     match ctx.vars.get(CONTENT_ENCODING.as_str()) {
         Some(content_encoding) => {
-            log::debug!("Content-Encoding: {:?}", content_encoding);
+            log::debug!("Content-Encoding: {content_encoding:?}");
             // log::debug!("Body: {:?}", body);
             if content_encoding.contains("gzip") {
                 let mut decompressor = Algorithm::Gzip.decompressor(true).unwrap();

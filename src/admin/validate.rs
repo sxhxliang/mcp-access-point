@@ -28,7 +28,7 @@ pub(super) fn validate_resource(resource_type: &str, body_data: &[u8]) -> Result
         }
         "upstreams" => {
             let upstream = json_to_resource::<config::Upstream>(body_data)
-                .map_err(|e| format!("Invalid JSON data: {}", e))?;
+                .map_err(|e| format!("Invalid JSON data: {e}"))?;
             upstream.validate().map_err(|e| e.to_string())
         }
         "services" => {
@@ -41,7 +41,7 @@ pub(super) fn validate_resource(resource_type: &str, body_data: &[u8]) -> Result
         }
         "ssls" => {
             let ssl = json_to_resource::<config::SSL>(body_data)
-                .map_err(|e| format!("Invalid JSON data: {}", e))?;
+                .map_err(|e| format!("Invalid JSON data: {e}"))?;
             ssl.validate().map_err(|e| e.to_string())
         }
         _ => Err("Unsupported resource type".into()),
@@ -52,7 +52,7 @@ pub(super) fn validate_with_plugins<T: PluginValidatable + DeserializeOwned>(
     body_data: &[u8],
 ) -> Result<T, String> {
     let resource =
-        json_to_resource::<T>(body_data).map_err(|e| format!("Invalid JSON data: {}", e))?;
+        json_to_resource::<T>(body_data).map_err(|e| format!("Invalid JSON data: {e}"))?;
     resource.validate_plugins().map_err(|e| e.to_string())?;
     Ok(resource)
 }

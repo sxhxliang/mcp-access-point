@@ -39,7 +39,7 @@ pub fn global_openapi_tools_fetch_by_id(id: &str) -> Option<ListToolsResult> {
         .get(id)
         .map(|service| service.value().tools_list.clone())
         .or_else(|| {
-            log::warn!("Service with id '{}' not found", id);
+            log::warn!("Service with id '{id}' not found");
             Some(ListToolsResult::default())
         })
 }
@@ -96,7 +96,7 @@ pub fn mcp_service_fetch(id: &str) -> Option<Arc<ProxyMCPService>> {
     match MCP_SERVICE_MAP.get(id) {
         Some(service) => Some(service.value().clone()),
         None => {
-            log::warn!("Service with id '{}' not found", id);
+            log::warn!("Service with id '{id}' not found");
             None
         }
     }
@@ -135,7 +135,7 @@ impl ProxyMCPService {
             upstream: None,
             plugins: Vec::with_capacity(service.plugins.len()),
         };
-        log::info!("mcp service:\n {:#?}", service);
+        log::info!("mcp service:\n {service:#?}");
         // 配置 routes
         let mut tools: Vec<Tool> = Vec::new();
         let mut tools_meta_info: DashMap<String, Arc<config::MCPRouteMetaInfo>> = DashMap::new();
@@ -147,7 +147,7 @@ impl ProxyMCPService {
                 // if upstream config has upstream id, the upstream config will be merged with upstream config with upstream id
                 let upstream = upstream_fetch(upstream_id);
                 if upstream.is_none() {
-                    log::warn!("upstream with id '{}' not found", upstream_id);
+                    log::warn!("upstream with id '{upstream_id}' not found");
                     // panic!("upstream with id '{}' not found", upstream_id);
                 }
                 upstream_config.merge(upstream.unwrap().inner.clone());
@@ -168,7 +168,7 @@ impl ProxyMCPService {
                 let mut cfg = cfg.clone();
                 if cfg.upstream_id.is_none() {
                     cfg.upstream_id = service.upstream_id.clone();
-                    log::info!("route:\n {:#?}", cfg);
+                    log::info!("route:\n {cfg:#?}");
                 };
 
                 match &cfg.meta {
