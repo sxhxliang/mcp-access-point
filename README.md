@@ -36,15 +36,15 @@ graph LR
 ### Transport Type (Specification)
 Currently supports `SSE` and `Streamable HTTP` protocols:
 - ✅ Streamable HTTP (stateless) 2024-03-26
-  - All services: `ip:port/mcp/`
-  - Single service: `ip:port/api/{service_id}/mcp/`
+  - All services: `ip:port/mcp`
+  - Single service: `ip:port/api/{service_id}/mcp`
   
 - ✅ SSE 2024-11-05
   - All services: `ip:port/sse`
   - Single service: `ip:port/api/{service_id}/sse/`
 
 use `IP:PORT/sse` for `SSE` 
-use `IP:PORT/mcp/` for `Streamable HTTP` 
+use `IP:PORT/mcp` for `Streamable HTTP` 
 
 ### Supported MCP clients
 - ✅ [MCP Inspector](https://github.com/modelcontextprotocol/inspector)

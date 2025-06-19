@@ -35,12 +35,12 @@ graph LR
 ### MCP 协议支持
 目前支持 `SSE` 和`Streamable HTTP`协议。
 - ✅ Streamable HTTP(stateless) 2024-03-26
-  -  所有服务使用 `ip:port/mcp/`
-  -  单服务使用 `ip:port/api/{service_id}/mcp/`
+  -  所有服务使用 `ip:port/mcp`
+  -  单服务使用 `ip:port/api/{service_id}/mcp`
   
 - ✅ SSE 2024-11-05
   - 所有服务 `SSE` 使用 `ip:port/sse`
-  - 单服务 `SSE` 使用 `ip:port/api/{service_id}sse/`
+  - 单服务 `SSE` 使用 `ip:port/api/{service_id}sse`
 
 ### 支持的客户端
 - ✅ [MCP Inspector](https://github.com/modelcontextprotocol/inspector)

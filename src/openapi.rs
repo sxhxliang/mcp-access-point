@@ -12,10 +12,15 @@ use crate::{
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct OpenApiSpec {
+    // OpenAPI 3.0 
+    pub openapi: Option<String>,
+    pub swagger: Option<String>,
     pub paths: HashMap<String, PathItem>,
     pub components: Option<Components>,
     pub upstream_id: Option<String>,
     pub mcp_config: Option<MCPService>,
+    // OpenAPI 3.0
+    // pub servers: Option<Vec<Server>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -30,6 +35,10 @@ pub struct PathItem {
     pub put: Option<Operation>,
     pub delete: Option<Operation>,
     pub patch: Option<Operation>,
+    pub head: Option<Operation>,    // OpenAPI 3.0
+    pub options: Option<Operation>, // OpenAPI 3.0
+    pub trace: Option<Operation>,   // OpenAPI 3.0
+    pub parameters: Option<Vec<Parameter>>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -45,13 +54,15 @@ pub struct Operation {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-struct Parameter {
+pub struct Parameter {
     name: String,
     #[serde(rename = "in")]
     in_location: String,
     required: Option<bool>,
     description: Option<String>,
     schema: Option<Schema>,
+    // OpenAPI 3.0  content
+    content: Option<HashMap<String, MediaType>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -64,6 +75,19 @@ struct RequestBody {
 #[derive(Debug, Clone, Deserialize)]
 struct MediaType {
     schema: Option<Schema>,
+    example: Option<Value>,
+    examples: Option<HashMap<String, Value>>,
+    encoding: Option<HashMap<String, Encoding>>, // OpenAPI 3.0
+}
+#[derive(Debug, Clone, Deserialize)]
+struct Encoding {
+    #[serde(rename = "contentType")]
+    content_type: Option<String>,
+    headers: Option<HashMap<String, Value>>,
+    style: Option<String>,
+    explode: Option<bool>,
+    #[serde(rename = "allowReserved")]
+    allow_reserved: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -74,6 +98,9 @@ struct Schema {
     required: Option<Vec<String>>,
     #[serde(rename = "type")]
     schema_type: Option<String>,
+    // OpenAPI 3.0 JSON Schema
+    format: Option<String>,
+    example: Option<Value>,
 }
 #[derive(Debug, Deserialize, Clone)]
 struct RequestBodySchema {
@@ -88,6 +115,8 @@ struct ParamInfo {
     description: String,
     required: Option<bool>,
     param_type: String,
+    format: Option<String>,
+    example: Option<Value>,
 }
 
 impl OpenApiSpec {
@@ -96,7 +125,7 @@ impl OpenApiSpec {
         serde_json::from_str(&content)
         .or_else(|_| serde_yaml::from_str(&content))
         .map_err(|e| {
-            log::warn!("Failed to parse OpenAPI spec as JSON or YAML: {}", e);
+            log::warn!("Failed to parse OpenAPI spec as JSON or YAML: {e}");
             e.into()
         })
     }
@@ -112,16 +141,32 @@ impl OpenApiSpec {
         &self,
     ) -> Result<(ListToolsResult, DashMap<String, Arc<MCPRouteMetaInfo>>), Box<dyn std::error::Error>>
     {
+
+        if let Some(openapi_version) = &self.openapi {
+            if !openapi_version.starts_with("3.") {
+                log::warn!("Expected OpenAPI 3.x version, found: {openapi_version}");
+            }
+        } else if let Some(swagger_version) = &self.swagger {
+            if swagger_version == "2.0" {
+                log::info!("Detected Swagger 2.0 spec, some features may not be fully compatible");
+            }
+        }
+
         let mut tools: Vec<Tool> = Vec::new();
         let mut mcp_route_metas: DashMap<String, Arc<MCPRouteMetaInfo>> = DashMap::new();
         for (path, item) in &self.paths {
-            log::debug!("Processing path: {}", path);
+            // Handle path parameters
+            let default_params: Vec<Parameter> = Vec::new();
+            let path_params: &Vec<Parameter> = item.parameters.as_ref().unwrap_or(&default_params);
+            
+            log::debug!("Processing path: {path}");
             self.process_method(
                 &item.get,
                 path,
                 Method::GET,
                 &mut tools,
                 &mut mcp_route_metas,
+                path_params
             );
             self.process_method(
                 &item.post,
@@ -129,6 +174,7 @@ impl OpenApiSpec {
                 Method::POST,
                 &mut tools,
                 &mut mcp_route_metas,
+                path_params
             );
             self.process_method(
                 &item.put,
@@ -136,6 +182,7 @@ impl OpenApiSpec {
                 Method::PUT,
                 &mut tools,
                 &mut mcp_route_metas,
+                path_params
             );
             self.process_method(
                 &item.delete,
@@ -143,6 +190,7 @@ impl OpenApiSpec {
                 Method::DELETE,
                 &mut tools,
                 &mut mcp_route_metas,
+                path_params
             );
             self.process_method(
                 &item.patch,
@@ -150,6 +198,7 @@ impl OpenApiSpec {
                 Method::PATCH,
                 &mut tools,
                 &mut mcp_route_metas,
+                path_params
             );
         }
         Ok((
@@ -169,17 +218,38 @@ impl OpenApiSpec {
         method: Method,
         tools: &mut Vec<Tool>,
         mcp_route_metas: &mut DashMap<String, Arc<MCPRouteMetaInfo>>,
+        path_params: &[Parameter],
     ) {
         let Some(op) = operation else { return };
-        log::debug!("process_method: {} {:?}", method, op);
-        let op_id =  path.to_string() + ":" + method.as_str();
-        let operation_id =  match op.operation_id.as_ref() {
+        log::debug!("process_method: {method} {op:?}");
+        // Check if operation is a tool
+        let op_id =  method.as_str().to_owned() + ":" + path;
+        let operation_id = match op.operation_id.as_ref() {
             Some(operation_id) => operation_id,
             None => &op_id,
         };
 
         let mut params = Vec::new();
 
+        // deal with path params
+        if !path_params.is_empty() {
+            for param in path_params {
+                let param_type = param
+                    .schema
+                    .as_ref()
+                    .and_then(|s| s.schema_type.clone())
+                    .unwrap_or_else(|| "string".to_string());
+                params.push(ParamInfo {
+                    name: param.name.clone(),
+                    description: param.description.clone().unwrap_or_default(),
+                    required: Some(param.required.is_some() || param.in_location == "path"),
+                    param_type,
+                    format: None,
+                    example: None,
+                });
+            }
+        }
+                
         if let Some(parameters) = &op.parameters {
             for param in parameters {
                 let param_type = param
@@ -193,6 +263,8 @@ impl OpenApiSpec {
                     description: param.description.clone().unwrap_or_default(),
                     required: Some(param.required.is_some() || param.in_location == "path"),
                     param_type,
+                    format: None,
+                    example: None,
                 });
             }
         }
@@ -262,6 +334,7 @@ impl OpenApiSpec {
             ..Default::default() // request_body: params.clone(),
         };
         mcp_route_metas.insert(operation_id.into(), Arc::new(mcp_route_meta_info));
+        // Create MCPRouteMetaInfo
         let mut properties = HashMap::new();
         let mut required = Vec::new();
 
@@ -308,6 +381,8 @@ impl OpenApiSpec {
                 description: String::new(),
                 required: Some(required_fields.contains(name)),
                 param_type,
+                format: None,
+                example: None,
             });
         }
     }
