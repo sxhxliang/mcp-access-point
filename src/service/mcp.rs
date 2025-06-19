@@ -547,7 +547,7 @@ impl ProxyHttp for MCPProxyService {
         upstream_response
             .insert_header(TRANSFER_ENCODING, "Chunked")
             .unwrap();
-
+        
         // get content encoding,
         // will be used to decompress the response body in the upstream_response_body_filter phase
         // see details in the upstream_response_body_filter function
@@ -652,7 +652,7 @@ impl ProxyHttp for MCPProxyService {
                 body_buffer
             );
 
-            *body = body_buffer;
+            *body = encode_body(ctx, &body_buffer);
         }
         Ok(())
     }
@@ -727,6 +727,22 @@ fn decode_body(ctx: &<MCPProxyService as ProxyHttp>::CTX, body: &Option<Bytes>) 
                     .ok();
                 // log::debug!("Decompressed Body: {:?}", res);
                 res
+            } else {
+                body.clone()
+            }
+        }
+        None => body.clone(),
+    }
+}
+
+/// Encodes response body based on content-encoding header
+fn encode_body(ctx: &<MCPProxyService as ProxyHttp>::CTX, body: &Option<Bytes>) -> Option<Bytes> {
+    match ctx.vars.get(CONTENT_ENCODING.as_str()) {
+        Some(content_encoding) => {
+            if content_encoding.contains("gzip") {
+                let mut compressor = Algorithm::Gzip.compressor(5).unwrap();
+                let compressed = compressor.encode(body.as_ref().unwrap().iter().as_slice(), true).unwrap();
+                Some(compressed)
             } else {
                 body.clone()
             }
