@@ -8,6 +8,7 @@ use std::{collections::HashMap, sync::Arc};
 use crate::{
     config::{MCPRouteMetaInfo, MCPService},
     types::{ListToolsResult, Tool, ToolInputSchema},
+    utils::convert::convert_openapi_path_to_name,
 };
 
 #[derive(Debug, Deserialize, Clone)]
@@ -223,10 +224,9 @@ impl OpenApiSpec {
         let Some(op) = operation else { return };
         log::debug!("process_method: {method} {op:?}");
         // Check if operation is a tool
-        let op_id =  method.as_str().to_owned() + ":" + path;
-        let operation_id = match op.operation_id.as_ref() {
-            Some(operation_id) => operation_id,
-            None => &op_id,
+        let mcp_tool_name = match op.operation_id.as_ref() {
+            Some(operation_id) => operation_id.to_string(),
+            None => convert_openapi_path_to_name(method.as_str(), path),
         };
 
         let mut params = Vec::new();
@@ -326,14 +326,14 @@ impl OpenApiSpec {
         // }
         // Construct MCPRouteMetaInfo with improved readability
         let mcp_route_meta_info = MCPRouteMetaInfo {
-            operation_id: operation_id.to_string(),
+            operation_id: mcp_tool_name.clone(),
             uri: path.to_string(),
             method: method.to_string(),
             upstream_id: self.upstream_id.clone(), // Consider avoiding clone if possible
             headers,
             ..Default::default() // request_body: params.clone(),
         };
-        mcp_route_metas.insert(operation_id.into(), Arc::new(mcp_route_meta_info));
+        mcp_route_metas.insert(mcp_tool_name.clone().into(), Arc::new(mcp_route_meta_info));
         // Create MCPRouteMetaInfo
         let mut properties = HashMap::new();
         let mut required = Vec::new();
@@ -351,7 +351,7 @@ impl OpenApiSpec {
 
         tools.push(Tool {
             annotations: None,
-            name: operation_id.clone(),
+            name: mcp_tool_name,
             description: Some(description),
             input_schema: ToolInputSchema {
                 properties,
