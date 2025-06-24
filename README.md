@@ -41,7 +41,7 @@ Currently supports `SSE` and `Streamable HTTP` protocols:
   
 - ✅ SSE 2024-11-05
   - All services: `ip:port/sse`
-  - Single service: `ip:port/api/{service_id}/sse/`
+  - Single service: `ip:port/api/{service_id}/sse`
 
 use `IP:PORT/sse` for `SSE` 
 use `IP:PORT/mcp` for `Streamable HTTP` 
@@ -49,6 +49,9 @@ use `IP:PORT/mcp` for `Streamable HTTP`
 ### Supported MCP clients
 - ✅ [MCP Inspector](https://github.com/modelcontextprotocol/inspector)
 - ✅ [Cursor Desktop](https://docs.cursor.com/context/model-context-protocol)
+- ✅ [Windsurf](https://docs.windsurf.com/plugins/cascade/mcp#model-context-protocol-mcp)
+- ✅ [VS Code](https://code.visualstudio.com/docs/copilot/chat/mcp-servers)
+- ✅ [Trae](https://docs.trae.ai/ide/model-context-protocol)
 
 ## Core Features  
 - **Protocol Conversion**: Seamless conversion between HTTP and MCP protocols  
@@ -185,7 +188,21 @@ cargo run -- -c config.yaml
 
 ## Running via Docker  
 
+### Run Locally for quick start
+
+```bash
+# Note: Replace /path/to/your/config.yaml with actual path
+docker run -d --name mcp-access-point --rm \
+  -p 8080:8080 \
+  -e port=8080 \
+  -v /path/to/your/config.yaml:/app/config/config.yaml \
+  ghcr.io/sxhxliang/mcp-access-point:main
+```
+
+
 ### Build Docker Image (Optional)  
+- install docker
+- clone repository and build image
 ```bash
 # Clone repository
 git clone https://github.com/sxhxliang/mcp-access-point.git
@@ -195,7 +212,7 @@ cd mcp-access-point
 docker build -t liangshihua/mcp-access-point:latest .
 ```
 
-### Run Docker Container  
+- Run Docker Container
 ```bash
 # Using environment variables (service running on host)
 # Note: Replace /path/to/your/config.yaml with actual path

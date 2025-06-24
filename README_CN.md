@@ -45,6 +45,9 @@ graph LR
 ### 支持的客户端
 - ✅ [MCP Inspector](https://github.com/modelcontextprotocol/inspector)
 - ✅ [Cursor Desktop](https://docs.cursor.com/context/model-context-protocol)
+- ✅ [Windsurf](https://docs.windsurf.com/plugins/cascade/mcp#model-context-protocol-mcp)
+- ✅ [VS Code](https://code.visualstudio.com/docs/copilot/chat/mcp-servers)
+- ✅ [Trae](https://docs.trae.ai/ide/model-context-protocol)
 
 ## 核心特性  
 
@@ -183,7 +186,20 @@ cargo run -- -c config.yaml
 
 ## 使用Docker运行
 
+### 使用已经构建好的docker镜像
+
+```bash
+# 注意：将 /path/to/your/config.yaml 替换为你本地文件的实际路径
+docker run -d --name mcp-access-point --rm \
+  -p 8080:8080 \
+  -e port=8080 \
+  -v /path/to/your/config.yaml:/app/config/config.yaml \
+  ghcr.io/sxhxliang/mcp-access-point:main
+```
+
 ### 构建Docker镜像（可选，如果你想本地构建）
+- 确保已安装Docker
+- 运行以下命令
 ```bash
 # 克隆仓库
 git clone https://github.com/sxhxliang/mcp-access-point.git
@@ -193,9 +209,9 @@ cd mcp-access-point
 docker build -t sxhxliang/mcp-access-point:latest .
 ```
 
-### 拉取并运行Docker容器(旧版本)
+- 运行Docker容器
 ```bash
-# 使用环境变量配置（上游服务在宿主机上运行）
+# 使用环境变量配置
 # 注意：将 /path/to/your/config.yaml 替换为你本地文件的实际路径
 docker run -d --name mcp-access-point --rm \
   -p 8080:8080 \
