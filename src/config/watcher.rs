@@ -5,11 +5,18 @@ use std::{
 };
 
 use async_trait::async_trait;
-use notify::{event::ModifyKind, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use notify::{
+    event::ModifyKind, Config as NotifyConfig, Event, EventKind, PollWatcher, RecommendedWatcher, RecursiveMode, Watcher, WatcherKind
+};
+use pingora::Result;
 use pingora_core::{server::ShutdownWatch, services::Service};
 use tokio::sync::mpsc;
+use futures::{
+    channel::mpsc::{channel, Receiver},
+    SinkExt, StreamExt,
+};
 
-use crate::Config;
+use crate::{config::Config, proxy::{global_rule::load_static_global_rules, mcp::load_static_mcp_services, route::load_static_routes, service::load_static_services, ssl::load_static_ssls, upstream::load_static_upstreams}};
 
 #[cfg(unix)]
 use pingora_core::server::ListenFds;
@@ -17,107 +24,75 @@ use pingora_core::server::ListenFds;
 /// Service that watches for configuration file changes and reloads the configuration.
 pub struct ConfigWatcherService {
     config_path: PathBuf,
-    current_config: Arc<Mutex<Config>>, // To store and compare the currently active config
+    // current_config: Arc<Mutex<Config>>, // To store and compare the currently active config
     // We'll need a way to trigger the actual reload logic, perhaps by sending the new Config
     // to another part of the system or by directly calling update functions.
     // For now, let's focus on watching and parsing.
-    work_stealing: bool, // Needed for creating proxy objects
+    // work_stealing: bool, // Needed for creating proxy objects
 }
 
 impl ConfigWatcherService {
-    pub fn new(
-        config_path: String,
-        initial_config: Config,
-        work_stealing: bool,
-    ) -> Result<Self, anyhow::Error> {
+    pub fn new(config_path: &str) -> Result<Self> {
         Ok(Self {
-            config_path: PathBuf::from(config_path),
-            current_config: Arc::new(Mutex::new(initial_config)),
-            work_stealing,
+            config_path: PathBuf::from(config_path.to_string()),
+            // current_config: Arc::new(Mutex::new(initial_config)),
+            // work_stealing,
         })
     }
 
     async fn run_watcher_loop(&self, mut shutdown: ShutdownWatch) {
-        let (tx, mut rx) = mpsc::channel(1);
 
-        let path_to_watch = self.config_path.clone();
-        let mut watcher = match RecommendedWatcher::new(
-            move |res| {
-                if let Ok(event) = res {
-                    if matches!(event.kind, EventKind::Modify(ModifyKind::Data(_)) | EventKind::Modify(ModifyKind::Name(_))) {
-                        // Forward the event, or just a signal
-                        if tx.blocking_send(()).is_err() {
-                            log::error!("Config watcher: Failed to send notification, receiver dropped.");
-                        }
-                    }
-                } else if let Err(e) = res {
-                    log::error!("Config watcher error: {:?}", e);
-                }
-            },
-            notify::Config::default(),
-        ) {
-            Ok(w) => w,
-            Err(e) => {
-                log::error!("Failed to create config file watcher: {}", e);
-                return;
-            }
-        };
-
-        if let Err(e) = watcher.watch(&path_to_watch, RecursiveMode::NonRecursive) {
-            log::error!(
-                "Failed to start watching config file {}: {}",
-                path_to_watch.display(),
-                e
-            );
-            return;
+        if let Err(e) = async_watch(self.config_path.clone()).await {
+            println!("error: {:?}", e)
         }
+        // let path_to_watch = self.config_path.clone();
+        // let (tx, rx) = std::sync::mpsc::channel();
+        // // This example is a little bit misleading as you can just create one Config and use it for all watchers.
+        // // That way the pollwatcher specific stuff is still configured, if it should be used.
+        // let mut watcher: Box<dyn Watcher> =
+        //     if RecommendedWatcher::kind() == WatcherKind::PollWatcher {
+        //         // custom config for PollWatcher kind
+        //         let config = NotifyConfig::default().with_poll_interval(Duration::from_secs(1));
+        //         Box::new(PollWatcher::new(tx, config).unwrap())
+        //     } else {
+        //         // use default config for everything else
+        //         Box::new(RecommendedWatcher::new(tx, NotifyConfig::default()).unwrap())
+        //     };
 
-        log::info!(
-            "Started watching config file for changes: {}",
-            self.config_path.display()
-        );
+        // // watch some stuff
+        // watcher
+        //     .watch(&self.config_path,  RecursiveMode::Recursive)
+        //     .unwrap();
 
-        loop {
-            tokio::select! {
-                biased;
-                _ = shutdown.changed() => {
-                    if *shutdown.borrow() {
-                        log::info!("Config watcher service shutting down.");
-                        break;
-                    }
-                }
-                Some(_) = rx.recv() => {
-                    // Debounce: wait a short period for more events
-                    tokio::time::sleep(Duration::from_millis(500)).await;
-                    // Drain any other events that arrived during the debounce period
-                    while rx.try_recv().is_ok() {}
-
-                    log::info!("Config file change detected: {}", self.config_path.display());
-                    self.reload_config().await;
-                }
-            }
-        }
+        // // just print all events, this blocks forever
+        // for e in rx {
+            
+        //     if let Ok(event) = e {
+        //         match event.kind {
+        //             EventKind::Modify(res) => {
+        //                 // self.reload_config().await;
+        //                 println!("{:?}", res);
+        //             }
+        //             _ => {}
+        //         }
+        //     }
+        // }
+    
     }
 
     async fn reload_config(&self) {
-        log::info!("Attempting to reload configuration from {}", self.config_path.display());
+        // log::info!("Attempting to reload configuration from {}", self.config_path.display());
         match Config::load_from_yaml(&self.config_path) {
             Ok(new_config) => {
                 log::info!("Successfully loaded new configuration.");
-                // Here we will implement the logic to compare and apply the new_config
-                // For now, just update the current_config
-                let mut current_config_guard = self.current_config.lock().unwrap();
-
-                // Clone the old config for comparison before updating
-                let old_config = current_config_guard.clone();
-
-                // Apply changes using the diff_apply module
-                diff_apply::apply_config_changes(&new_config, &old_config, self.work_stealing);
-
-                // After successful application of changes, update the stored current_config
-                *current_config_guard = new_config;
+                log::info!("Loading services, upstreams, and routes...");
+                load_static_upstreams(&new_config).expect("Failed to load static upstreams");
+                load_static_services(&new_config).expect("Failed to load static services");
+                load_static_global_rules(&new_config).expect("Failed to load static global rules");
+                load_static_routes(&new_config).expect("Failed to load  static routes");
+                load_static_mcp_services(&new_config).expect("Failed to load static mcp services");
+                load_static_ssls(&new_config).expect("Failed to load  static ssls");
                 log::info!("Configuration updated successfully via watcher.");
-
             }
             Err(e) => {
                 log::error!("Failed to reload configuration via watcher: {}", e);
@@ -125,6 +100,61 @@ impl ConfigWatcherService {
             }
         }
     }
+}
+
+
+fn async_watcher() -> notify::Result<(RecommendedWatcher, Receiver<notify::Result<Event>>)> {
+    let (mut tx, rx) = channel(1);
+
+    // Automatically select the best implementation for your platform.
+    // You can also access each implementation directly e.g. INotifyWatcher.
+    let watcher = RecommendedWatcher::new(
+        move |res| {
+            futures::executor::block_on(async {
+                tx.send(res).await.unwrap();
+            })
+        },
+        NotifyConfig::default(),
+    )?;
+
+    Ok((watcher, rx))
+}
+
+async fn async_watch<P: AsRef<Path>>(path: P) -> notify::Result<()> {
+    let (mut watcher, mut rx) = async_watcher()?;
+
+    // Add a path to be watched. All files and directories at that path and
+    // below will be monitored for changes.
+    watcher.watch(path.as_ref(), RecursiveMode::Recursive)?;
+
+    while let Some(res) = rx.next().await {
+        match res {
+            Ok(event) => {
+                if let EventKind::Modify(ModifyKind::Data(_)) = event.kind {
+                    match Config::load_from_yaml(event.paths.first().unwrap()) {
+                        Ok(new_config) => {
+                            log::info!("Successfully loaded new configuration.");
+                            log::info!("Loading services, upstreams, and routes...");
+                            load_static_upstreams(&new_config).expect("Failed to load static upstreams");
+                            load_static_services(&new_config).expect("Failed to load static services");
+                            load_static_global_rules(&new_config).expect("Failed to load static global rules");
+                            load_static_routes(&new_config).expect("Failed to load  static routes");
+                            load_static_mcp_services(&new_config).expect("Failed to load static mcp services");
+                            load_static_ssls(&new_config).expect("Failed to load  static ssls");
+                            log::info!("Configuration updated successfully via watcher.");
+                        }
+                        Err(e) => {
+                            log::error!("Failed to reload configuration via watcher: {}", e);
+                            // Keep using the old configuration
+                        }
+                    }
+                }
+            },
+            Err(e) => println!("watch error: {:?}", e),
+        }
+    }
+
+    Ok(())
 }
 
 #[async_trait]

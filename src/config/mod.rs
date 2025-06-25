@@ -70,7 +70,7 @@ impl_identifiable!(GlobalRule);
 impl_identifiable!(SSL);
 
 /// Configuration for the MCP Access Point API gateway.
-#[derive(Default, Debug, Serialize, Deserialize, Validate, Clone, PartialEq)]
+#[derive(Default, Debug, Serialize, Deserialize, Validate, PartialEq)]
 #[validate(schema(function = "Config::validate_resource_id"))]
 pub struct Config {
     /// The pingora server default configuration for the MCP Access Point API gateway.
@@ -104,18 +104,31 @@ pub struct Config {
     pub ssls: Vec<SSL>,
 }
 
+
 // Config file load and validation
 impl Config {
+
+    pub fn copy_with_pingora(self, pingora: ServerConf) -> Self {
+        Self {
+            pingora,
+            access_point: self.access_point.clone(),
+            mcps: self.mcps.clone(),
+            routes: self.routes.clone(),
+            upstreams: self.upstreams.clone(),
+            services: self.services.clone(),
+            global_rules: self.global_rules.clone(),
+            ssls: self.ssls.clone(),
+        }
+    }
     /// Does not have to be async until we want runtime reload
     /// load mcp config from yaml file
     pub fn load_from_yaml<P>(path: P) -> Result<Self>
     where
-        P: AsRef<std::path::Path> + std::fmt::Display,
+        P: AsRef<std::path::Path>,
     {
         let conf_str = fs::read_to_string(&path).or_err_with(ReadError, || {
-            format!("Unable to read conf file from {path}")
+            format!("Unable to read conf file")
         })?;
-        debug!("Conf file read from {path}");
         Self::from_yaml(&conf_str)
     }
 
@@ -209,6 +222,12 @@ pub struct AccessPointConfig {
     /// If not specified, the MCP Access Point API gateway will not save logs to a file.
     #[validate(nested)]
     pub log: Option<Log>,
+}
+
+impl PartialEq for AccessPointConfig {
+    fn eq(&self, other: &Self) -> bool {
+        true
+    }
 }
 
 /// Configuration listener for the MCP Access Point API gateway.

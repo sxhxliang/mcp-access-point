@@ -37,7 +37,7 @@ impl Identifiable for Route {
 */
 
 // Trait to compare proxy types with their inner configuration types
-trait InnerComparable<T> {
+pub(crate) trait InnerComparable<T> {
     fn inner_equals(&self, other: &T) -> bool;
 }
 
