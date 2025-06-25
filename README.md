@@ -59,6 +59,7 @@ use `IP:PORT/mcp` for `Streamable HTTP`
 - **Client Empowerment**: Enables MCP clients to directly call standard HTTP services  
 - **Lightweight Proxy**: Minimalist architecture with efficient protocol conversion  
 - **Multi-tenancy**: Independent configuration and endpoints for each tenant
+- **Dynamic Configuration**: Supports reloading of `config.yaml` automatically when changes are detected (if not using etcd).
 
 ## Quick Start  
 

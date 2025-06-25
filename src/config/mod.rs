@@ -3,10 +3,12 @@ pub mod etcd;
 pub mod mcp;
 pub mod route;
 pub mod upstream;
+pub mod watcher; // Add this line
 
 pub use control::*;
 pub use etcd::*;
 pub use mcp::*;
+pub use watcher::*; // And this line
 pub use route::*;
 pub use upstream::*;
 
@@ -68,7 +70,7 @@ impl_identifiable!(GlobalRule);
 impl_identifiable!(SSL);
 
 /// Configuration for the MCP Access Point API gateway.
-#[derive(Default, Debug, Serialize, Deserialize, Validate)]
+#[derive(Default, Debug, Serialize, Deserialize, Validate, Clone, PartialEq)]
 #[validate(schema(function = "Config::validate_resource_id"))]
 pub struct Config {
     /// The pingora server default configuration for the MCP Access Point API gateway.
