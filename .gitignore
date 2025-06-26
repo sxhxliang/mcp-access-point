@@ -6,3 +6,5 @@
 /web
 /examples
 /experience
+.DS_Store
+/.idea
