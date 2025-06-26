@@ -369,6 +369,8 @@ impl ProxyHttp for MCPProxyService {
         // execute plugins
         ctx.plugin.clone().request_filter(session, ctx).await?;
 
+        log::info!("request_filter completed, allowing proxy to upstream");
+
         log::debug!(
             "Request path: {:?}",
             session.req_header().uri.path_and_query()
@@ -459,6 +461,24 @@ impl ProxyHttp for MCPProxyService {
         peer
     }
 
+    async fn request_body_filter(
+        &self,
+        session: &mut Session,
+        body: &mut Option<Bytes>,
+        end_of_stream: bool,
+        ctx: &mut Self::CTX,
+    ) -> Result<()> {
+
+        // Replace the body with the new body from ctx.vars["new_body"] if present
+        if let Some(new_body) = ctx.vars.get("new_body") {
+            let bytes = Bytes::from(new_body.clone());
+            let len = bytes.len();
+            *body = Some(bytes);
+        }
+           
+        Ok(())
+    }
+
     /// Modify the request before it is sent to the upstream
     ///
     /// This method is called before the request is sent to the upstream.
@@ -495,6 +515,11 @@ impl ProxyHttp for MCPProxyService {
             }
             upstream_request.insert_header(header.0, header.1.as_str())?;
         }
+        // Set Content-Length header based on ctx.vars["new_body_len"] if present
+        if let Some(len) = ctx.vars.get("new_body_len") {
+            upstream_request.insert_header("Content-Length", len)?;
+        }
+        
         log::info!("upstream request headers: {:?}", upstream_request.headers);
         Ok(())
     }
@@ -537,11 +562,22 @@ impl ProxyHttp for MCPProxyService {
             .response_filter(session, upstream_response, ctx)
             .await?;
 
-        // Remove content-length because the size of the new body is unknown
-        upstream_response.remove_header(&CONTENT_LENGTH);
-        upstream_response
-            .insert_header(TRANSFER_ENCODING, "Chunked")
-            .unwrap();
+        // Check if this is a tools/call direct HTTP response that should preserve original headers
+        let is_direct_http_response = ctx.vars.get(MCP_REQUEST_ID).is_some() 
+            && ctx.vars.get(MCP_SESSION_ID).is_none() 
+            && ctx.vars.get(MCP_STREAMABLE_HTTP).is_none();
+
+        if is_direct_http_response {
+            log::info!("Preserving original headers for direct HTTP response");
+            // For direct HTTP responses (tools/call), preserve the original Content-Length
+            // Don't modify transfer encoding - let the upstream response pass through as-is
+        } else {
+            // For MCP JSON-RPC responses, we need chunked encoding because body size may change
+            upstream_response.remove_header(&CONTENT_LENGTH);
+            upstream_response
+                .insert_header(TRANSFER_ENCODING, "Chunked")
+                .unwrap();
+        }
         
         // get content encoding,
         // will be used to decompress the response body in the upstream_response_body_filter phase
@@ -556,9 +592,13 @@ impl ProxyHttp for MCPProxyService {
                 encoding.to_str().unwrap().to_string(),
             );
         }
-        // Rebuild the response header with the new status
+        
+        // Log the upstream response status for debugging
+        log::info!("Upstream response status: {}", upstream_response.status);
+        
+        // Rebuild the response header with the original upstream status code
         let mut new_header = ResponseHeader::build(
-            StatusCode::OK,
+            upstream_response.status,
             Some(upstream_response.headers.capacity())
         )?;
         for (key, value) in upstream_response.headers.iter() {
@@ -591,33 +631,33 @@ impl ProxyHttp for MCPProxyService {
 
         // buffer the data
         // Log only the size of the body to avoid exposing sensitive data
-        if let Some(b) = body {
-            log::debug!("upstream body size: {}", b.len());
-            ctx.body_buffer.push(b.clone());
-            // drop the body
-            b.clear();
+        if let Some(body) = body {
+            log::debug!("upstream body size: {}", body.len());
+            log::info!("Upstream response body received, size: {} bytes", body.len());
         } else {
             log::debug!("upstream response Body is None");
         }
-        log::debug!("【end_of_stream】: {end_of_stream}");
-        if end_of_stream {
-            let mut body_buffer = Some(concat_body_bytes(&ctx.body_buffer));
-            // SSE endpoint processing
-            if let (Some(session_id), Some(request_id)) =
-                (ctx.vars.get(MCP_SESSION_ID), ctx.vars.get(MCP_REQUEST_ID))
-            {
-                self.handle_json_rpc_response(
-                    ctx,
-                    request_id,
-                    &mut body_buffer,
-                    end_of_stream,
-                    Some(session_id.to_string()),
-                );
-            }
 
-            // Handle mcp streaming http responses
-            match ctx.vars.get(MCP_STREAMABLE_HTTP) {
-                Some(http_type) => match http_type.as_str() {
+        // SSE endpoint processing
+        if let (Some(session_id), Some(request_id)) =
+            (ctx.vars.get(MCP_SESSION_ID), ctx.vars.get(MCP_REQUEST_ID))
+        {
+            log::info!("Processing SSE endpoint response");
+            self.handle_json_rpc_response(
+                ctx,
+                request_id,
+                body,
+                end_of_stream,
+                Some(session_id.to_string()),
+            );
+            return Ok(());
+        }
+
+        // Handle mcp streaming http responses
+        match ctx.vars.get(MCP_STREAMABLE_HTTP) {
+            Some(http_type) => {
+                log::info!("Processing MCP streamable HTTP response, type: {}", http_type);
+                match http_type.as_str() {
                     "stream" => {
                         log::debug!("Handling streaming responses");
                         *body = Some(Bytes::from("Accepted"));
@@ -625,28 +665,29 @@ impl ProxyHttp for MCPProxyService {
                     "stateless" => {
                         log::debug!("Handling stateless responses");
                         if let Some(request_id) = ctx.vars.get(MCP_REQUEST_ID) {
-                            self.handle_json_rpc_response(ctx, request_id, &mut body_buffer, end_of_stream, None);
+                            self.handle_json_rpc_response(ctx, request_id, body, end_of_stream, None);
                         } else {
                             log::warn!("MCP-REQUEST-ID not found");
                         }
                     }
-                    _ => log::error!("Invalid http_type value: {http_type}"),
-                },
-                None => {
-                    if let Some(request_id) = ctx.vars.get(MCP_REQUEST_ID) {
-                        self.handle_json_rpc_response(ctx, request_id, &mut body_buffer, end_of_stream, None);
-                    } else {
-                        log::error!("MCP-REQUEST-ID not found");
-                    }
+                    _ => log::error!("Invalid http_type value: {}", http_type),
                 }
-            };
-
-            log::debug!(
-                "Decoding body {body_buffer:?}"
-            );
-
-            *body = encode_body(ctx, &body_buffer);
-        }
+            },
+            None => {
+                // Check if this is a regular tools/call that became a direct HTTP request
+                if ctx.vars.get(MCP_REQUEST_ID).is_some() && ctx.vars.get(MCP_SESSION_ID).is_none() {
+                    log::info!("Processing tools/call direct HTTP response - passing through unchanged");
+                    if body.is_none() {
+                        log::info!("Direct HTTP response has no body (e.g., 201 Created with empty response)");
+                    }
+                    // For tools/call -> direct HTTP, pass the response through unchanged
+                    // The body should remain as-is from upstream (including None for empty responses)
+                } else {
+                    log::info!("No MCP context found, treating as regular proxy request");
+                    // For regular proxy requests, pass through unchanged
+                }
+            }
+        };
         Ok(())
     }
 

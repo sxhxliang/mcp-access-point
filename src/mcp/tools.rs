@@ -158,8 +158,8 @@ pub async fn request_processing(
                     session
                         .req_header_mut()
                         .set_uri(Uri::from_str(&path_and_query).unwrap());
-                    // do not remove_header("Content-Length")
-                    session.req_header_mut().remove_header("Content-Type");
+                    
+                    extract_and_store_request_body(ctx, route_meta_info, arguments);
 
                     Ok(false)
                 }
@@ -190,4 +190,33 @@ pub async fn request_processing(
         }
     }
     // Ok(false)
+}
+
+fn extract_and_store_request_body(ctx: &mut crate::proxy::ProxyContext, route_meta_info: Arc<config::MCPRouteMetaInfo>, arguments: &serde_json::Value) {
+    // Extract and store the proper body for methods that support it
+    let method = route_meta_info.method().clone();
+    let method_str = method.as_str();
+    let methods_with_body = ["POST", "PUT", "PATCH", "DELETE", "OPTIONS"];
+                    
+    if methods_with_body.contains(&method_str) {
+        log::info!("Method {} supports body - extracting from JSON-RPC arguments", method_str);
+    
+        // We already have the arguments from the tool call
+        if let Some(body_value) = arguments.get("body").cloned().or_else(|| Some(arguments.clone())) {
+            if let Ok(new_body_bytes) = serde_json::to_vec(&body_value) {
+                log::info!("Extracted body for upstream: {}", String::from_utf8_lossy(&new_body_bytes));
+            
+                // Store the extracted body in context for later use in request_body_filter
+                ctx.vars.insert("new_body".to_string(), String::from_utf8_lossy(&new_body_bytes).to_string());
+                ctx.vars.insert("new_body_len".to_string(), new_body_bytes.len().to_string());
+            
+                log::info!("Stored extracted body in context for method {}", method_str);
+            }
+        }
+    } else {
+        // For methods without body (GET, HEAD), ensure no body is sent
+        log::info!("Method {} does not support body - ensuring no body is sent", method_str);
+        ctx.vars.insert("new_body".to_string(), String::new());
+        ctx.vars.insert("new_body_len".to_string(), "0".to_string());
+    }
 }
