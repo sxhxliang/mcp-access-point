@@ -631,33 +631,35 @@ impl ProxyHttp for MCPProxyService {
 
         // buffer the data
         // Log only the size of the body to avoid exposing sensitive data
-        if let Some(body) = body {
-            log::debug!("upstream body size: {}", body.len());
-            log::info!("Upstream response body received, size: {} bytes", body.len());
+       // buffer the data
+        // Log only the size of the body to avoid exposing sensitive data
+        if let Some(b) = body {
+            log::debug!("upstream body size: {}", b.len());
+            ctx.body_buffer.push(b.clone());
+            // drop the body
+            b.clear();
         } else {
             log::debug!("upstream response Body is None");
         }
+        log::debug!("【end_of_stream】: {end_of_stream}");
+        if end_of_stream {
+            let mut body_buffer = Some(concat_body_bytes(&ctx.body_buffer));
+            // SSE endpoint processing
+            if let (Some(session_id), Some(request_id)) =
+                (ctx.vars.get(MCP_SESSION_ID), ctx.vars.get(MCP_REQUEST_ID))
+            {
+                self.handle_json_rpc_response(
+                    ctx,
+                    request_id,
+                    &mut body_buffer,
+                    end_of_stream,
+                    Some(session_id.to_string()),
+                );
+            }
 
-        // SSE endpoint processing
-        if let (Some(session_id), Some(request_id)) =
-            (ctx.vars.get(MCP_SESSION_ID), ctx.vars.get(MCP_REQUEST_ID))
-        {
-            log::info!("Processing SSE endpoint response");
-            self.handle_json_rpc_response(
-                ctx,
-                request_id,
-                body,
-                end_of_stream,
-                Some(session_id.to_string()),
-            );
-            return Ok(());
-        }
-
-        // Handle mcp streaming http responses
-        match ctx.vars.get(MCP_STREAMABLE_HTTP) {
-            Some(http_type) => {
-                log::info!("Processing MCP streamable HTTP response, type: {}", http_type);
-                match http_type.as_str() {
+            // Handle mcp streaming http responses
+            match ctx.vars.get(MCP_STREAMABLE_HTTP) {
+                Some(http_type) => match http_type.as_str() {
                     "stream" => {
                         log::debug!("Handling streaming responses");
                         *body = Some(Bytes::from("Accepted"));
@@ -665,29 +667,28 @@ impl ProxyHttp for MCPProxyService {
                     "stateless" => {
                         log::debug!("Handling stateless responses");
                         if let Some(request_id) = ctx.vars.get(MCP_REQUEST_ID) {
-                            self.handle_json_rpc_response(ctx, request_id, body, end_of_stream, None);
+                            self.handle_json_rpc_response(ctx, request_id, &mut body_buffer, end_of_stream, None);
                         } else {
                             log::warn!("MCP-REQUEST-ID not found");
                         }
                     }
-                    _ => log::error!("Invalid http_type value: {}", http_type),
-                }
-            },
-            None => {
-                // Check if this is a regular tools/call that became a direct HTTP request
-                if ctx.vars.get(MCP_REQUEST_ID).is_some() && ctx.vars.get(MCP_SESSION_ID).is_none() {
-                    log::info!("Processing tools/call direct HTTP response - passing through unchanged");
-                    if body.is_none() {
-                        log::info!("Direct HTTP response has no body (e.g., 201 Created with empty response)");
+                    _ => log::error!("Invalid http_type value: {http_type}"),
+                },
+                None => {
+                    if let Some(request_id) = ctx.vars.get(MCP_REQUEST_ID) {
+                        self.handle_json_rpc_response(ctx, request_id, &mut body_buffer, end_of_stream, None);
+                    } else {
+                        log::error!("MCP-REQUEST-ID not found");
                     }
-                    // For tools/call -> direct HTTP, pass the response through unchanged
-                    // The body should remain as-is from upstream (including None for empty responses)
-                } else {
-                    log::info!("No MCP context found, treating as regular proxy request");
-                    // For regular proxy requests, pass through unchanged
                 }
-            }
-        };
+            };
+
+            log::debug!(
+                "Decoding body {body_buffer:?}"
+            );
+
+            *body = encode_body(ctx, &body_buffer);
+        }
         Ok(())
     }
 

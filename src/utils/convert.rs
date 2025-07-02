@@ -20,7 +20,7 @@ pub fn convert_openapi_path_to_name(method: &str, path: &str) -> String {
     for segment in path.trim().split('/').filter(|s| !s.is_empty()) {
         if segment.starts_with('{') && segment.ends_with('}') {
             let param = &segment[1..segment.len() - 1];
-            segments.push(format!("by_{}", param));
+            segments.push(format!("by_{param}"));
         } else {
             segments.push(segment.to_string());
         }
