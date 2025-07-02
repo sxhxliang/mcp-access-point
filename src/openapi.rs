@@ -333,7 +333,7 @@ impl OpenApiSpec {
             headers,
             ..Default::default() // request_body: params.clone(),
         };
-        mcp_route_metas.insert(mcp_tool_name.clone().into(), Arc::new(mcp_route_meta_info));
+        mcp_route_metas.insert(mcp_tool_name.clone(), Arc::new(mcp_route_meta_info));
         // Create MCPRouteMetaInfo
         let mut properties = HashMap::new();
         let mut required = Vec::new();

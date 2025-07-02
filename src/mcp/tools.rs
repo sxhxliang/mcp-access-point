@@ -199,7 +199,7 @@ fn extract_and_store_request_body(ctx: &mut crate::proxy::ProxyContext, route_me
     let methods_with_body = ["POST", "PUT", "PATCH", "DELETE", "OPTIONS"];
                     
     if methods_with_body.contains(&method_str) {
-        log::info!("Method {} supports body - extracting from JSON-RPC arguments", method_str);
+        log::info!("Method {method_str} supports body - extracting from JSON-RPC arguments");
     
         // We already have the arguments from the tool call
         if let Some(body_value) = arguments.get("body").cloned().or_else(|| Some(arguments.clone())) {
@@ -210,12 +210,12 @@ fn extract_and_store_request_body(ctx: &mut crate::proxy::ProxyContext, route_me
                 ctx.vars.insert("new_body".to_string(), String::from_utf8_lossy(&new_body_bytes).to_string());
                 ctx.vars.insert("new_body_len".to_string(), new_body_bytes.len().to_string());
             
-                log::info!("Stored extracted body in context for method {}", method_str);
+                log::info!("Stored extracted body in context for method {method_str}");
             }
         }
     } else {
         // For methods without body (GET, HEAD), ensure no body is sent
-        log::info!("Method {} does not support body - ensuring no body is sent", method_str);
+        log::info!("Method {method_str} does not support body - ensuring no body is sent");
         ctx.vars.insert("new_body".to_string(), String::new());
         ctx.vars.insert("new_body_len".to_string(), "0".to_string());
     }

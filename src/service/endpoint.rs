@@ -54,11 +54,9 @@ pub async fn handle_streamable_http_endpoint(
                 match mcp_proxy.parse_json_rpc_request(session).await {
                     Ok(request) => {
                         // add vars to ctx
-                        if request.id.is_some() {
-                            ctx.vars.insert(
-                                MCP_REQUEST_ID.to_string(),
-                                request.id.clone().unwrap().to_string(),
-                            );
+                        if let Some(id) = &request.id {
+                            ctx.vars
+                                .insert(MCP_REQUEST_ID.to_string(), id.to_string());
                         }
                         mcp::request_processing_streamable_http(
                             ctx,
@@ -97,23 +95,29 @@ pub async fn handle_message_endpoint(
 ) -> Result<bool> {
     match mcp_proxy.parse_json_rpc_request(session).await {
         Ok(request) => {
-            let parsed = utils::request::query_to_map(&session.req_header().uri);
-            let session_id = parsed.get("session_id").unwrap();
-            log::info!("session_id: {session_id}");
+            let session_id = match utils::request::query_to_map(&session.req_header().uri)
+                .get("session_id")
+                .map(|s| s.to_string())
+            {
+                Some(id) => id,
+                None => {
+                    log::error!("'session_id' query parameter is missing");
+                    // 理想情况下，这里应该发送一个 400 Bad Request 响应。
+                    // 由于函数签名限制，我们先记录日志并停止处理。
+                    return Ok(false);
+                }
+            };
+            log::info!("session_id: {}", session_id);
 
             // add vars to ctx
             ctx.vars
-                .insert(MCP_SESSION_ID.to_string(), session_id.to_string());
+                .insert(MCP_SESSION_ID.to_string(), session_id.clone());
 
-            if request.id.is_some() {
-                ctx.vars.insert(
-                    MCP_REQUEST_ID.to_string(),
-                    request.id.clone().unwrap().to_string(),
-                );
+            if let Some(id) = &request.id {
+                ctx.vars.insert(MCP_REQUEST_ID.to_string(), id.to_string());
             }
 
-            return mcp::request_processing(ctx, session_id, mcp_proxy, session, &request.clone())
-                .await;
+            mcp::request_processing(ctx, &session_id, mcp_proxy, session, &request).await
         }
         Err(e) => {
             log::error!("Failed to parse JSON: {e}");
