@@ -161,9 +161,16 @@ impl MCPProxyService {
 
         // Handle tenant ID if present
         if let Some(tenant_id) = session.req_header_mut().remove_header("MCP_TENANT_ID") {
-            let tenant_id = tenant_id.to_str().unwrap();
-            log::debug!("tenant_id: {tenant_id}");
-            base_url.push_str(&format!("/api/{tenant_id}"));
+            match tenant_id.to_str() {
+                Ok(id) => {
+                    log::debug!("tenant_id: {id}");
+                    base_url.push_str(&format!("/api/{id}"));
+                }
+                Err(e) => {
+                    log::error!("MCP_TENANT_ID header contains invalid UTF-8: {e}");
+                    return Err(Error::new(ErrorType::InvalidHTTPHeader));
+                }
+            }
         }
 
         base_url.push_str(CLIENT_MESSAGE_ENDPOINT);
@@ -223,15 +230,16 @@ impl MCPProxyService {
                 Error::because(ErrorType::ReadError, "Failed to read request body:", e)
             })?;
 
-        if body.is_none() {
-            log::warn!("Request body is empty");
-            return Err(Error::err(ErrorType::ReadError)?);
-        }
+        let body = match body {
+            Some(b) if !b.is_empty() => b,
+            _ => {
+                log::warn!("Request body is empty or None");
+                return Err(Error::new(ErrorType::ReadError));
+            }
+        };
 
-        serde_json::from_slice::<JSONRPCRequest>(&body.unwrap()).map_err(|e| {
-            log::error!("Failed to parse JSON: {e}");
-            Error::because(ErrorType::ReadError, "Failed to read request body:", e)
-        })
+        serde_json::from_slice::<JSONRPCRequest>(&body)
+            .map_err(|e| Error::because(ErrorType::ReadError, "Failed to parse JSON-RPC", e))
     }
     // Helper function to avoid code duplication
     pub fn handle_json_rpc_response(
@@ -379,32 +387,25 @@ impl ProxyHttp for MCPProxyService {
         // log::debug!("===== Request: {:?}", session.req_header());
         // Handle the request based on the path
 
+        let handle_tenant_path = |tenant_id: String, ctx: &mut Self::CTX, session: &mut Session| {
+            ctx.vars.insert("MCP_TENANT_ID".to_string(), tenant_id.clone());
+            let _ = session.req_header_mut().insert_header("MCP_TENANT_ID", tenant_id);
+        };
+
         match match_api_path(path) {
             PathMatch::Sse(tenant_id) => {
                 log::debug!("SSE path: {path:?}");
-                ctx.vars
-                    .insert("MCP_TENANT_ID".to_string(), tenant_id.clone());
-                let _ = session
-                    .req_header_mut()
-                    .insert_header("MCP_TENANT_ID", tenant_id.clone());
+                handle_tenant_path(tenant_id, ctx, session);
                 return endpoint::handle_sse_endpoint(ctx, self, session).await;
             }
             PathMatch::Messages(tenant_id) => {
                 log::debug!("Messages path: {path:?}");
-                ctx.vars
-                    .insert("MCP_TENANT_ID".to_string(), tenant_id.clone());
-                let _ = session
-                    .req_header_mut()
-                    .insert_header("MCP_TENANT_ID", tenant_id.clone());
+                handle_tenant_path(tenant_id, ctx, session);
                 return endpoint::handle_message_endpoint(ctx, self, session).await;
             }
             PathMatch::StreamableHttp(tenant_id) => {
                 log::debug!("Streamable HTTP path: {path:?}");
-                ctx.vars
-                    .insert("MCP_TENANT_ID".to_string(), tenant_id.clone());
-                let _ = session
-                    .req_header_mut()
-                    .insert_header("MCP_TENANT_ID", tenant_id.clone());
+                handle_tenant_path(tenant_id, ctx, session);
                 return endpoint::handle_streamable_http_endpoint(ctx, self, session).await;
             }
             PathMatch::NoMatch => {
@@ -624,6 +625,10 @@ impl ProxyHttp for MCPProxyService {
         end_of_stream: bool,
         ctx: &mut Self::CTX,
     ) -> Result<()> {
+        // 警告：此函数会将整个上游响应体缓冲在内存中的 `ctx.body_buffer` 中，
+        // 直到 `end_of_stream` 为 true。对于大型响应，这可能导致高内存消耗和
+        // 潜在的 OOM (Out Of Memory) 错误。这种方法抵消了流式处理大负载的优势。
+        // 如果需要真正的大型主体流式传输，请考虑重新设计此部分。
         let path = session.req_header().uri.path();
         log::debug!(
             "Filters upstream_response_body_filter, Request path: {path}"
@@ -753,18 +758,14 @@ impl ProxyHttp for MCPProxyService {
 fn decode_body(ctx: &<MCPProxyService as ProxyHttp>::CTX, body: &Option<Bytes>) -> Option<Bytes> {
     match ctx.vars.get(CONTENT_ENCODING.as_str()) {
         Some(content_encoding) => {
-            log::debug!("Content-Encoding: {content_encoding:?}");
-            // log::debug!("Body: {:?}", body);
-            if content_encoding.contains("gzip") {
-                let mut decompressor = Algorithm::Gzip.decompressor(true).unwrap();
-                let res = decompressor
-                    .encode(body.as_ref().unwrap().iter().as_slice(), true)
-                    .ok();
-                // log::debug!("Decompressed Body: {:?}", res);
-                res
-            } else {
-                body.clone()
+            if let Some(b) = body {
+                if content_encoding.contains("gzip") {
+                    log::debug!("Decompressing GZIP body");
+                    let mut decompressor = Algorithm::Gzip.decompressor(true).unwrap();
+                    return decompressor.encode(b.as_ref(), true).ok();
+                }
             }
+            body.clone()
         }
         None => body.clone(),
     }
@@ -774,13 +775,14 @@ fn decode_body(ctx: &<MCPProxyService as ProxyHttp>::CTX, body: &Option<Bytes>) 
 fn encode_body(ctx: &<MCPProxyService as ProxyHttp>::CTX, body: &Option<Bytes>) -> Option<Bytes> {
     match ctx.vars.get(CONTENT_ENCODING.as_str()) {
         Some(content_encoding) => {
-            if content_encoding.contains("gzip") {
-                let mut compressor = Algorithm::Gzip.compressor(5).unwrap();
-                let compressed = compressor.encode(body.as_ref().unwrap().iter().as_slice(), true).unwrap();
-                Some(compressed)
-            } else {
-                body.clone()
+            if let Some(b) = body {
+                if content_encoding.contains("gzip") {
+                    log::debug!("Compressing GZIP body");
+                    let mut compressor = Algorithm::Gzip.compressor(5).unwrap();
+                    return compressor.encode(b.as_ref(), true).ok();
+                }
             }
+            body.clone()
         }
         None => body.clone(),
     }
