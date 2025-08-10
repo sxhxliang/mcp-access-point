@@ -5,6 +5,7 @@
   <a href="./README.md"><img alt="README in English" src="https://img.shields.io/badge/English-4578DA"></a>
   <a href="./README_CN.md"><img alt="简体中文版" src="https://img.shields.io/badge/简体中文-F40002"></a>
   <a href="https://deepwiki.com/sxhxliang/mcp-access-point"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
+  <a href="https://zread.ai/sxhxliang/mcp-access-point"><img alt="中文文档" src="https://img.shields.io/badge/中文文档-4578DA"></a>
 </p>
 
 ## 简介
@@ -231,6 +232,16 @@ docker run -d --name mcp-access-point --rm \
 
 **典型案例**：  
 当采用MCP协议的AI客户端需要对接企业遗留的HTTP微服务时，MCP接入网关可作为中间层，实现协议的无缝转换。
+
+
+非常感谢 [@limcheekin](https://github.com/limcheekin)
+写了一篇文章介绍了一个实际例子，https://limcheekin.medium.com/building-your-first-no-code-mcp-server-the-fabric-integration-story-90da58cdbe1f
+
+## 贡献指南
+1. Fork 这个仓库。
+2. 创建一个分支，并提交你的修改。
+3. 创建一个 Pull Request，并等待合并。
+4. 确保你的代码遵循 Rust 的编码规范。
 
 
 

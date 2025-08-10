@@ -5,6 +5,7 @@
   <a href="./README.md"><img alt="README in English" src="https://img.shields.io/badge/English-4578DA"></a>
   <a href="./README_CN.md"><img alt="简体中文版" src="https://img.shields.io/badge/简体中文-F40002"></a>
   <a href="https://deepwiki.com/sxhxliang/mcp-access-point"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
+  <a href="https://zread.ai/sxhxliang/mcp-access-point"><img alt="中文文档" src="https://img.shields.io/badge/中文文档-4578DA"></a>
 </p>
 
 ## Introduction  
@@ -235,3 +236,11 @@ docker run -d --name mcp-access-point --rm \
 
 **Example Scenario**:  
 When MCP-based AI clients need to interface with legacy HTTP microservices, the MCP Access Gateway acts as a middleware layer enabling seamless protocol conversion.
+
+Many thanks to [@limcheekin](https://github.com/limcheekin) for writing an article with a practical example: https://limcheekin.medium.com/building-your-first-no-code-mcp-server-the-fabric-integration-story-90da58cdbe1f
+
+## Contribution Guidelines
+1. Fork this repository.
+2. Create a branch and commit your changes.
+3. Create a pull request and wait for it to be merged.
+4. Make sure your code follows the Rust coding standards.
