@@ -73,7 +73,7 @@ cargo run -- -c config.yaml
 # Use inspector for debugging (start service first)
 npx @modelcontextprotocol/inspector node build/index.js
 # Access http://127.0.0.1:6274/
-# Select "see" and enter 0.0.0.0:8080/sse, then click connect
+# Select "SSE" and enter 0.0.0.0:8080/sse, then click connect
 # or select "Streamable HTTP" and enter 0.0.0.0:8080/mcp
 ```
 

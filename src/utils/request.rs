@@ -62,7 +62,8 @@ pub fn query_to_map(uri: &Uri) -> HashMap<String, String> {
     if let Some(query) = uri.query() {
         for pair in query.split('&') {
             let mut kv = pair.splitn(2, '=');
-            if let (Some(key), Some(value)) = (kv.next(), kv.next()) {
+            if let Some(key) = kv.next() {
+                let value = kv.next().unwrap_or("");
                 map.insert(key.to_string(), value.to_string());
             }
         }
@@ -75,9 +76,9 @@ pub fn replace_dynamic_params(path: &str, params: &Value) -> String {
     let re = Regex::new(r"\{(\w+)\}").unwrap();
     re.replace_all(path, |caps: &regex::Captures<'_>| {
         let key = &caps[1];
-        let binding = Value::String("".to_string());
+        let binding = Value::String(String::new());
         let value = params.get(key).unwrap_or(&binding);
-        // params.get(key).unwrap_or(&"") //
+        // Default to empty string when parameter is missing.
         match value {
             Value::String(s) => s.clone(),
             Value::Number(n) => n.to_string(),
@@ -316,26 +317,37 @@ pub fn get_client_ip(session: &Session) -> String {
 #[test]
 fn test_extract_tenant_id() {
     let paths = vec![
-        "/api/12345/sse",
-        "/api/abc-xyz/sse/",
-        "/api/user123/sse?param=value",
+        ("/api/12345/sse", "12345"),
+        ("/api/abc-xyz/sse/", "abc-xyz"),
+        ("/api/user123/sse?param=value", "user123"),
     ];
 
-    for path in paths {
-        let res = match extract_tenant_id(path) {
-            Some(tenant_id) => true,
-            None => false,
-        };
-        assert!(res, "Failed for path: {}", path);
+    for (path, expected) in paths {
+        assert_eq!(
+            extract_tenant_id(path),
+            Some(expected.to_string()),
+            "Failed for path: {}",
+            path
+        );
     }
-    let paths = vec!["/api/invalid_path", "/api/", "/sse"];
-    for path in paths {
-        let res = match extract_tenant_id(path) {
-            Some(tenant_id) => true,
-            None => false,
-        };
-        assert!(!res, "Failed for path: {}", path);
+
+    let invalid_paths = vec!["/api/invalid_path", "/api/", "/sse"];
+    for path in invalid_paths {
+        assert_eq!(extract_tenant_id(path), None, "Failed for path: {}", path);
     }
+}
+
+#[test]
+fn query_to_map_handles_keys_without_values() {
+    use std::str::FromStr;
+    use http::Uri;
+
+    let uri = Uri::from_str("http://example.com/path?foo=bar&baz&empty=").unwrap();
+    let map = query_to_map(&uri);
+
+    assert_eq!(map.get("foo"), Some(&"bar".to_string()));
+    assert_eq!(map.get("baz"), Some(&"".to_string()));
+    assert_eq!(map.get("empty"), Some(&"".to_string()));
 }
 #[test]
 fn flatten_json_object_with_nested_structure_flattens_correctly() {
