@@ -6,7 +6,7 @@ use regex::Regex;
 use serde_json::Value;
 use std::{collections::HashMap, str::FromStr};
 use url::form_urlencoded;
-
+use urlencoding::encode;
 use crate::config::UpstreamHashOn;
 
 #[derive(Debug, PartialEq)]
@@ -314,6 +314,39 @@ pub fn get_client_ip(session: &Session) -> String {
 
     "".to_string()
 }
+
+/// Build full URL with path and query parameters.
+pub fn build_uri_with_path_and_query(uri: &str, params: &HashMap<String, String>) -> String {
+    // Find path params inside {}
+    let re = Regex::new(r"\{(.*?)\}").unwrap();
+    let mut url_path = uri.to_string();
+    let mut used_keys = Vec::new();
+
+    for cap in re.captures_iter(uri) {
+        let key = &cap[1];
+        if let Some(val) = params.get(key) {
+            url_path = url_path.replace(&format!("{{{}}}", key), val);
+            used_keys.push(key.to_string());
+        }
+    }
+
+    // Remaining params → query params
+    let mut query_pairs: Vec<String> = Vec::new();
+    for (k, v) in params {
+        if !used_keys.contains(k) {
+            query_pairs.push(format!("{}={}", encode(k), encode(v)));
+        }
+    }
+
+    let mut full_url = format!("{}", url_path);
+    if !query_pairs.is_empty() {
+        full_url.push('?');
+        full_url.push_str(&query_pairs.join("&"));
+    }
+
+    full_url
+}
+
 #[test]
 fn test_extract_tenant_id() {
     let paths = vec![
@@ -401,4 +434,43 @@ fn flatten_json_null_value_ignores_null() {
     flatten_json("", &json_value, &mut result);
 
     assert!(result.is_empty());
+}
+
+#[test]
+fn test_path_params_only() {
+    let mut params = HashMap::new();
+    params.insert("id".to_string(), "123".to_string());
+
+    let url = build_uri_with_path_and_query("/users/{id}", &params);
+    assert_eq!(url, "/users/123");
+}
+
+#[test]
+fn test_query_params_only() {
+    let mut params = HashMap::new();
+    params.insert("q".to_string(), "rust".to_string());
+
+    let url = build_uri_with_path_and_query("/search", &params);
+    assert_eq!(url, "/search?q=rust");
+}
+
+#[test]
+fn test_mixed_path_and_query() {
+    let mut params = HashMap::new();
+    params.insert("id".to_string(), "42".to_string());
+    params.insert("postId".to_string(), "99".to_string());
+    params.insert("sort".to_string(), "desc".to_string());
+
+    let url = build_uri_with_path_and_query("/users/{id}/posts/{postId}", &params);
+    assert!(url == "/users/42/posts/99?sort=desc"); 
+}
+
+
+#[test]
+fn test_url_encoding() {
+    let mut params = HashMap::new();
+    params.insert("name".to_string(), "John Doe".to_string());
+
+    let url = build_uri_with_path_and_query("/hello", &params);
+    assert_eq!(url, "/hello?name=John%20Doe");
 }

@@ -15,7 +15,7 @@ use crate::{
     },
     service::mcp::MCPProxyService,
     types::{CallToolResult, CallToolResultContentItem, ListToolsResult, RequestId, TextContent},
-    utils::request::{merge_path_query, replace_dynamic_params},
+    utils::request::{merge_path_query, replace_dynamic_params, build_uri_with_path_and_query},
 };
 
 pub async fn request_processing(
@@ -120,10 +120,11 @@ pub async fn request_processing(
             match route_meta_info {
                 Some(route_meta_info) => {
                     let arguments = &params.arguments.unwrap();
-                    let new_path = replace_dynamic_params(route_meta_info.uri().path(), arguments);
-                    log::debug!("new_path {new_path:?}");
+                    // let new_path = replace_dynamic_params(route_meta_info.uri().path(), arguments);
+                    // log::debug!("new_path {new_path:?}");
                     // let query_params = json_to_uri_query(arguments);
-                    let path_and_query = merge_path_query(&new_path, "");
+                    // let path_and_query = merge_path_query(&new_path, "");
+                    let path_and_query = build_uri_with_path_and_query(route_meta_info.uri().path(), &arguments.as_object().unwrap().iter().map(|(k,v)| (k.clone(), v.as_str().unwrap_or("").to_string())).collect());
                     log::debug!("new_path_and_query {path_and_query:?}");
 
                     // add headers from upstream config
