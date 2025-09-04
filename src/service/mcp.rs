@@ -531,7 +531,7 @@ impl ProxyHttp for MCPProxyService {
         upstream_response: &mut ResponseHeader,
         ctx: &mut Self::CTX,
     ) -> Result<()> {
-        if ctx.vars.get(MCP_STREAMABLE_HTTP).is_some() {
+        if ctx.vars.contains_key(MCP_STREAMABLE_HTTP) {
             // todo add support for content-type
             if let Some(content_type) = upstream_response.headers.get(CONTENT_TYPE) {
                 if content_type.to_str().unwrap() != "application/json" {
@@ -564,9 +564,9 @@ impl ProxyHttp for MCPProxyService {
             .await?;
 
         // Check if this is a tools/call direct HTTP response that should preserve original headers
-        let is_direct_http_response = ctx.vars.get(MCP_REQUEST_ID).is_some() 
-            && ctx.vars.get(MCP_SESSION_ID).is_none() 
-            && ctx.vars.get(MCP_STREAMABLE_HTTP).is_none();
+        let is_direct_http_response = ctx.vars.contains_key(MCP_REQUEST_ID)
+            && !ctx.vars.contains_key(MCP_SESSION_ID) 
+            && !ctx.vars.contains_key(MCP_STREAMABLE_HTTP);
 
         if is_direct_http_response {
             log::info!("Preserving original headers for direct HTTP response");
