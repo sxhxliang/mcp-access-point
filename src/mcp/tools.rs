@@ -15,7 +15,7 @@ use crate::{
     },
     service::mcp::MCPProxyService,
     types::{CallToolResult, CallToolResultContentItem, ListToolsResult, RequestId, TextContent},
-    utils::request::{merge_path_query, replace_dynamic_params, build_uri_with_path_and_query},
+    utils::request::build_uri_with_path_and_query,
 };
 
 pub async fn request_processing(

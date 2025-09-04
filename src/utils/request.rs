@@ -325,7 +325,7 @@ pub fn build_uri_with_path_and_query(uri: &str, params: &HashMap<String, String>
     for cap in re.captures_iter(uri) {
         let key = &cap[1];
         if let Some(val) = params.get(key) {
-            url_path = url_path.replace(&format!("{{{}}}", key), val);
+            url_path = url_path.replace(&format!("{{{key}}}"), val);
             used_keys.push(key.to_string());
         }
     }
@@ -338,7 +338,7 @@ pub fn build_uri_with_path_and_query(uri: &str, params: &HashMap<String, String>
         }
     }
 
-    let mut full_url = format!("{}", url_path);
+    let mut full_url = url_path.to_string();
     if !query_pairs.is_empty() {
         full_url.push('?');
         full_url.push_str(&query_pairs.join("&"));

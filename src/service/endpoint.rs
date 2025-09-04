@@ -107,7 +107,7 @@ pub async fn handle_message_endpoint(
                     return Ok(false);
                 }
             };
-            log::info!("session_id: {}", session_id);
+            log::info!("session_id: {session_id}");
 
             // add vars to ctx
             ctx.vars
