@@ -5,7 +5,7 @@ use pingora::ErrorType::InternalError;
 use pingora_error::{ErrorType::ReadError, OrErr, Result};
 use pingora_http::ResponseHeader;
 use pingora_proxy::Session;
-use rand::{distributions::Slice, Rng};
+use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value as YamlValue;
 use uuid::Uuid;
@@ -16,7 +16,7 @@ use crate::{proxy::ProxyContext, utils::request};
 use super::ProxyPlugin;
 
 pub const PLUGIN_NAME: &str = "request-id";
-
+const DEFAULT_CHAR_SET: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789";
 /// Creates an Key Auth plugin instance with the given configuration.
 pub fn create_request_id_plugin(cfg: YamlValue) -> Result<Arc<dyn ProxyPlugin>> {
     let config: PluginConfig = serde_yaml::from_value(cfg)
@@ -99,14 +99,15 @@ impl PluginRequestID {
     }
 
     fn get_range_id(&self) -> String {
-        let chars: Vec<char> = self.config.range_id.char_set.chars().collect();
-        if chars.is_empty() {
-            return Uuid::new_v4().to_string();
-        }
-        let dist = Slice::new(&chars).unwrap();
-        let mut rng = rand::thread_rng();
+        let char_set = if self.config.range_id.char_set.is_empty() {
+            DEFAULT_CHAR_SET
+        } else {
+            &self.config.range_id.char_set
+        };
+        let chars: Vec<char> = char_set.chars().collect();
+        let mut rng = rand::rng();
         (0..self.config.range_id.length)
-            .map(|_| rng.sample(dist))
+            .map(|_| *chars.choose(&mut rng).unwrap())
             .collect()
     }
 }
