@@ -36,7 +36,7 @@ graph LR
 
 ### Transport Type (Specification)
 Currently supports `SSE` and `Streamable HTTP` protocols:
-- ✅ Streamable HTTP (stateless) 2024-03-26
+- ✅ Streamable HTTP (stateless) 2025-03-26
   - All services: `ip:port/mcp`
   - Single service: `ip:port/api/{service_id}/mcp`
   
