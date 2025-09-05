@@ -1,6 +1,6 @@
 use http::{HeaderName, Uri};
 use once_cell::sync::Lazy;
-use pingora::http::RequestHeader;
+use pingora::http::{RequestHeader, ResponseHeader};
 use pingora_proxy::Session;
 use regex::Regex;
 use serde_json::Value;
@@ -8,6 +8,8 @@ use std::{collections::HashMap, str::FromStr};
 use url::form_urlencoded;
 use urlencoding::encode;
 use crate::config::UpstreamHashOn;
+use http::header::{CONTENT_LENGTH, TRANSFER_ENCODING};
+use http::StatusCode;
 
 #[derive(Debug, PartialEq)]
 pub enum PathMatch {
@@ -347,6 +349,29 @@ pub fn build_uri_with_path_and_query(uri: &str, params: &HashMap<String, String>
     full_url
 }
 
+/// Returns true if the given status code allows a response body.
+/// (excludes informational 1xx, 204, 205, 304 per RFC 7230 §3.3.1)
+fn status_allows_body(status: StatusCode) -> bool {
+    !(status.is_informational()
+        || status == StatusCode::NO_CONTENT
+        || status == StatusCode::RESET_CONTENT
+        || status == StatusCode::NOT_MODIFIED)
+}
+
+/// Sets `Transfer-Encoding: chunked` and removes `Content-Length`
+/// if the status allows a body.
+pub fn apply_chunked_encoding(upstream_response: &mut ResponseHeader) {
+    if status_allows_body(upstream_response.status) {
+        log::info!("Setting chunked encoding for status: {}", upstream_response.status);
+        upstream_response.remove_header(&CONTENT_LENGTH);
+        upstream_response
+            .insert_header(TRANSFER_ENCODING, "chunked")
+            .unwrap();
+    } else {
+        log::info!("Skipping chunked encoding for no-body status: {}", upstream_response.status);
+    }
+}
+
 #[test]
 fn test_extract_tenant_id() {
     let paths = vec![
@@ -473,4 +498,28 @@ fn test_url_encoding() {
 
     let url = build_uri_with_path_and_query("/hello", &params);
     assert_eq!(url, "/hello?name=John%20Doe");
+}
+
+ #[test]
+fn sets_chunked_and_removes_cl_for_200_with_cl() {
+    let mut resp = ResponseHeader::build(StatusCode::OK, None).unwrap();
+    resp.insert_header(CONTENT_LENGTH, "123").unwrap();
+
+    apply_chunked_encoding(&mut resp);
+
+    assert!(resp.headers.get(CONTENT_LENGTH).is_none());
+    assert_eq!(
+        resp.headers.get(TRANSFER_ENCODING).unwrap(),
+        "chunked"
+    );
+}
+
+ #[test]
+fn skips_for_204_no_content_without_cl() {
+    let mut resp = ResponseHeader::build(StatusCode::NO_CONTENT, None).unwrap();
+
+    apply_chunked_encoding(&mut resp);
+
+    assert!(resp.headers.get(CONTENT_LENGTH).is_none());
+    assert!(resp.headers.get(TRANSFER_ENCODING).is_none());
 }
