@@ -33,7 +33,7 @@ use crate::{
     sse_event::SseEvent,
     utils::{
         self,
-        request::{match_api_path, PathMatch},
+        request::{match_api_path, PathMatch, apply_chunked_encoding},
     },
 };
 
@@ -574,10 +574,7 @@ impl ProxyHttp for MCPProxyService {
             // Don't modify transfer encoding - let the upstream response pass through as-is
         } else {
             // For MCP JSON-RPC responses, we need chunked encoding because body size may change
-            upstream_response.remove_header(&CONTENT_LENGTH);
-            upstream_response
-                .insert_header(TRANSFER_ENCODING, "Chunked")
-                .unwrap();
+            apply_chunked_encoding(upstream_response);
         }
         
         // get content encoding,
