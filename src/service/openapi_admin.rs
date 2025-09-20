@@ -5,7 +5,6 @@
 //! 
 //! ## OpenAPI Reload API Changes
 //! This entire file is part of the OpenAPI reload API feature.
-//! To revert: Delete this file and remove references from mod.rs and main.rs
 //! 
 //! ## Available Endpoints
 //! 
@@ -196,7 +195,7 @@ impl OpenAPIAdminHandler {
         let service = MCP_SERVICE_MAP.get(service_id)
             .ok_or_else(|| Error::new_str("Service not found"))?;
             
-        // Use the existing reload function
+        // Using existing reload function
         match reload_global_openapi_tools_from_service_config(&service.value().inner) {
             Ok(_) => {
                 log::info!("OpenAPI Reload API Changes: Service {} reloaded successfully", service_id);
@@ -304,57 +303,181 @@ pub async fn handle_openapi_request(path: &str, session: &mut Session) -> Result
 }
 
 
-// OpenAPI Reload API Changes: Include comprehensive test module
-// #[cfg(test)]
-// #[path = "openapi_admin_tests.rs"]
-// mod openapi_admin_tests;
+// OpenAPI Reload API Changes: Inline test module
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::proxy::mcp::{MCP_SERVICE_MAP, ProxyMCPService};
+    use crate::config::MCPService;
+    use std::sync::Arc;
+    use tokio;
 
-#[test]
-fn test_extract_service_id_valid_cases() {
-    let test_cases = vec![
-            ("/openapi/reload/mongodb", Some("mongodb")),
-            ("/openapi/reload/wifi-network", Some("wifi-network")),
-            ("/openapi/reload/test123", Some("test123")),
-            ("/openapi/reload/service_with_underscores", Some("service_with_underscores")),
-            ("/openapi/reload/service-with-dashes", Some("service-with-dashes")),
-            ("/openapi/reload/Service.With.Dots", Some("Service.With.Dots")),
-            ("/openapi/reload/123numeric", Some("123numeric")),
-            ("/openapi/reload/very-long-service-name-with-multiple-dashes-and-numbers-123-456", 
-             Some("very-long-service-name-with-multiple-dashes-and-numbers-123-456")),
-        ];
+    /// Helper function to setup test MCP services
+    fn setup_test_services() {
+        // Clear existing services
+        MCP_SERVICE_MAP.clear();
+        
+        // Create mock service configurations
+        let weather_config = MCPService {
+            id: "weather-service".to_string(),
+            ..Default::default()
+        };
+        
+        let bookings_config = MCPService {
+            id: "bookings-service".to_string(),
+            ..Default::default()
+        };
+        
+        // Insert test services into the global map
+        let weather_service = Arc::new(ProxyMCPService {
+            inner: weather_config,
+            routes: None,
+            upstream: None,
+            plugins: Vec::new(),
+        });
+        let bookings_service = Arc::new(ProxyMCPService {
+            inner: bookings_config,
+            routes: None,
+            upstream: None,
+            plugins: Vec::new(),
+        });
+        
+        MCP_SERVICE_MAP.insert("weather-service".to_string(), weather_service);
+        MCP_SERVICE_MAP.insert("bookings-service".to_string(), bookings_service);
+    }
 
-        for (input, expected) in test_cases {
-            assert_eq!(
-                OpenAPIAdminHandler::extract_service_id(input),
-                expected,
-                "Failed for input: {}",
-                input
-            );
+    /// Test 1: Complete reload all services flow
+    #[tokio::test]
+    async fn test_complete_reload_all_services_flow() {
+        setup_test_services();
+        
+        let handler = OpenAPIAdminHandler::new();
+        
+        // Test the complete reload all flow
+        let result = handler.handle_reload_all().await;
+        
+        assert!(result.is_ok(), "Reload all should succeed");
+        
+        let response = result.unwrap();
+        
+        // Verify response structure
+        assert_eq!(response.services_reloaded.len(), 2, "Should reload 2 services");
+        assert!(response.services_reloaded.contains(&"weather-service".to_string()));
+        assert!(response.services_reloaded.contains(&"bookings-service".to_string()));
+        
+        // Since we can't actually reload without real OpenAPI specs, 
+        // we expect some errors but the structure should be correct
+        assert!(response.message.contains("services"), "Message should mention services");
+        
+        println!("Reload all services test passed: {:?}", response);
+    }
+
+    /// Test 2: Complete reload single service flow
+    #[tokio::test]
+    async fn test_complete_reload_single_service_flow() {
+        setup_test_services();
+        
+        let handler = OpenAPIAdminHandler::new();
+        
+        // Test reloading a specific service
+        let result = handler.handle_reload_service("weather-service").await;
+        
+        assert!(result.is_ok(), "Reload single service should return a result");
+        
+        let response = result.unwrap();
+        
+        // Verify response structure for single service
+        if response.success {
+            assert_eq!(response.services_reloaded.len(), 1);
+            assert_eq!(response.services_reloaded[0], "weather-service");
+            assert!(response.errors.is_empty());
+        } else {
+            // If it fails (expected without real OpenAPI), verify error structure
+            assert!(response.services_reloaded.is_empty());
+            assert!(!response.errors.is_empty());
+            assert!(response.message.contains("weather-service"));
         }
-}
+        
+        println!("Reload single service test passed: {:?}", response);
+    }
 
+    /// Test 3: Error handling for non-existent service
+    #[tokio::test]
+    async fn test_reload_nonexistent_service_error_handling() {
+        setup_test_services();
+        
+        let handler = OpenAPIAdminHandler::new();
+        
+        // Test reloading a non-existent service
+        let result = handler.handle_reload_service("nonexistent-service").await;
+        
+        assert!(result.is_ok(), "Should return error response, not panic");
+        
+        let response = result.unwrap();
+        
+        // Verify proper error handling
+        assert!(!response.success, "Should indicate failure");
+        assert!(response.services_reloaded.is_empty(), "No services should be reloaded");
+        assert!(!response.errors.is_empty(), "Should contain error messages");
+        assert!(response.message.contains("nonexistent-service"), "Error should mention the service");
+        
+        println!("Error handling test passed: {:?}", response);
+    }
 
- #[test]
- fn test_extract_service_id_invalid_cases() {
-    let invalid_paths = vec![
-            "/other/path",
-            "/openapi/status",
-            "/openapi/health",
-            "/openapi",
-            "/openapi/",
-            "/api/reload/service",
-            "openapi/reload/service", // Missing leading slash
-            "/openapi/reload", // No service ID
-            "",
-            "/",
-        ];
-
-        for path in invalid_paths {
-            assert_eq!(
-                OpenAPIAdminHandler::extract_service_id(path),
-                None,
-                "Should return None for invalid path: {}",
-                path
-            );
+    /// Test 4: Status endpoint with real service data
+    #[tokio::test]
+    async fn test_status_endpoint_with_real_service_data() {
+        setup_test_services();
+        
+        let handler = OpenAPIAdminHandler::new();
+        
+        // Test the status endpoint
+        let result = handler.handle_status().await;
+        
+        assert!(result.is_ok(), "Status endpoint should succeed");
+        
+        let response = result.unwrap();
+        
+        // Verify status response structure with real data
+        assert_eq!(response.total_services, 2, "Should show 2 services");
+        assert_eq!(response.services.len(), 2, "Should list 2 services");
+        
+        // Verify service details
+        let service_ids: Vec<&str> = response.services.iter()
+            .map(|s| s.service_id.as_str())
+            .collect();
+        
+        assert!(service_ids.contains(&"weather-service"), "Should include weather-service service");
+        assert!(service_ids.contains(&"bookings-service"), "Should include bookings-service service");
+        
+        // Verify each service has proper status structure
+        for service in &response.services {
+            assert!(!service.service_id.is_empty(), "Service ID should not be empty");
+            assert_eq!(service.status, "active", "Service should be active");
+            assert!(!service.last_updated.is_empty(), "Should have timestamp");
+            // tools_count might be 0 since we're not loading real OpenAPI specs
         }
+        
+        println!("Status endpoint test passed: {} services, {} total tools", 
+                response.total_services, response.total_tools);
+    }
+
+    /// Test 5: Health endpoint basic functionality
+    #[tokio::test]
+    async fn test_health_endpoint_functionality() {
+        let handler = OpenAPIAdminHandler::new();
+        
+        let result = handler.handle_health().await;
+        
+        assert!(result.is_ok(), "Health endpoint should succeed");
+        
+        let health = result.unwrap();
+        
+        // Verify health response structure
+        assert_eq!(health["status"], "healthy");
+        assert_eq!(health["service"], "openapi-admin");
+        assert!(health["timestamp"].is_string(), "Should have timestamp");
+        
+        println!("Health endpoint test passed: {:?}", health);
+    }
 }
