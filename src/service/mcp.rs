@@ -352,6 +352,7 @@ impl ProxyHttp for MCPProxyService {
             let is_known_endpoint = path == CLIENT_SSE_ENDPOINT
                 || path == CLIENT_MESSAGE_ENDPOINT
                 || path == CLIENT_STREAMABLE_HTTP_ENDPOINT
+                || path.starts_with("/openapi/"); //OpenAPI Reload endpoint
                 || match_api_path(path) != PathMatch::NoMatch;
 
             if !is_known_endpoint {
@@ -412,6 +413,9 @@ impl ProxyHttp for MCPProxyService {
                 log::debug!(
                     "No tenant match for path: {path:?}, using global mcp endpoint."
                 );
+                //OpenAPI Reload endpoint
+                if path.starts_with("/openapi/") {
+                    return crate::service::openapi_admin::handle_openapi_request(&path.to_string(), session).await;                }
                 match path {
                     CLIENT_STREAMABLE_HTTP_ENDPOINT => {
                         // 2025-03-26 specification protocol;
