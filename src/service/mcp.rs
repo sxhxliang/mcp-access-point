@@ -36,6 +36,17 @@ use crate::{
     },
 };
 
+// Strategy for handling upstream response body
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BodyHandlingStrategy {
+    // Buffer all chunks and handle at end_of_stream
+    Aggregate,
+    // Do not buffer, let body pass through to downstream
+    PassThrough,
+    // Drop chunks and return an Accepted response when done
+    DropAndAccept,
+}
+
 /// Proxy service.
 ///
 /// Manages the proxying of requests to upstream servers.
@@ -445,16 +456,27 @@ impl ProxyHttp for MCPProxyService {
         end_of_stream: bool,
         ctx: &mut Self::CTX,
     ) -> Result<()> {
-        // 注意：此函数会在 end_of_stream 前缓冲整个上游响应体。
-        // 大响应可能导致较高内存占用，如需真正的流式处理需进一步改造。
+        // 策略：根据上下文决定直通、聚合或丢弃上游响应体（StreamableHTTP: stream）。
         let path = session.req_header().uri.path();
-        log::debug!(
-            "Filters upstream_response_body_filter, Request path: {path}"
-        );
+        log::debug!("Filters upstream_response_body_filter, Request path: {path}");
 
-        self.buffer_body_chunk(body, ctx);
-        log::debug!("【end_of_stream】: {end_of_stream}");
-        if end_of_stream { self.process_end_of_stream(ctx, body, end_of_stream); }
+        match self.select_body_strategy(ctx) {
+            BodyHandlingStrategy::PassThrough => {
+                // 直通：不触碰 body，让 pingora 自行向下游转发，避免缓存占用。
+                return Ok(());
+            }
+            BodyHandlingStrategy::DropAndAccept => {
+                // 丢弃：不缓存上游响应体，仅在结束时返回 202 Accepted。
+                if let Some(b) = body { b.clear(); }
+                if end_of_stream { *body = Some(Bytes::from("Accepted")); }
+                return Ok(());
+            }
+            BodyHandlingStrategy::Aggregate => {
+                // 聚合：维持现有 JSON-RPC 打包流程，仅在结束时组装。
+                self.buffer_body_chunk(body, ctx);
+                if end_of_stream { self.process_end_of_stream(ctx, body, end_of_stream); }
+            }
+        }
         Ok(())
     }
 
@@ -561,6 +583,20 @@ fn set_tenant_context(ctx: &mut ProxyContext, session: &mut Session, tenant_id: 
 // Request/response small helpers
 
 impl MCPProxyService {
+    fn select_body_strategy(&self, ctx: &ProxyContext) -> BodyHandlingStrategy {
+        // 直通策略：tools/call 直接 HTTP 响应，保留上游的传输特性，不缓存
+        if is_direct_http_response(ctx) {
+            return BodyHandlingStrategy::PassThrough;
+        }
+        // StreamableHTTP: stream 模式，丢弃上游正文并立即接受
+        if let Some(kind) = ctx.vars.get(MCP_STREAMABLE_HTTP) {
+            if kind == "stream" {
+                return BodyHandlingStrategy::DropAndAccept;
+            }
+        }
+        // 默认：聚合（用于 JSON-RPC 打包等场景）
+        BodyHandlingStrategy::Aggregate
+    }
     async fn apply_upstream_request_plugins(
         &self,
         session: &mut Session,
@@ -643,6 +679,7 @@ impl MCPProxyService {
         body: &mut Option<Bytes>,
         end_of_stream: bool,
     ) {
+        // 策略层已处理 stream(drop) 与 passthrough，这里只处理需要聚合场景。
         let mut body_buffer = Some(concat_body_bytes(&ctx.body_buffer));
 
         if let (Some(session_id), Some(request_id)) =
@@ -658,28 +695,21 @@ impl MCPProxyService {
         }
 
         match ctx.vars.get(MCP_STREAMABLE_HTTP) {
-            Some(http_type) => match http_type.as_str() {
-                "stream" => {
-                    log::debug!("Handling streaming responses");
-                    *body = Some(Bytes::from("Accepted"));
+            Some(http_type) if http_type == "stateless" => {
+                log::debug!("Handling stateless responses");
+                if let Some(request_id) = ctx.vars.get(MCP_REQUEST_ID) {
+                    self.handle_json_rpc_response(
+                        ctx,
+                        request_id,
+                        &mut body_buffer,
+                        end_of_stream,
+                        None,
+                    );
+                } else {
+                    log::warn!("MCP-REQUEST-ID not found");
                 }
-                "stateless" => {
-                    log::debug!("Handling stateless responses");
-                    if let Some(request_id) = ctx.vars.get(MCP_REQUEST_ID) {
-                        self.handle_json_rpc_response(
-                            ctx,
-                            request_id,
-                            &mut body_buffer,
-                            end_of_stream,
-                            None,
-                        );
-                    } else {
-                        log::warn!("MCP-REQUEST-ID not found");
-                    }
-                }
-                _ => log::error!("Invalid http_type value: {http_type}"),
-            },
-            None => {
+            }
+            Some(_) | None => {
                 if let Some(request_id) = ctx.vars.get(MCP_REQUEST_ID) {
                     self.handle_json_rpc_response(
                         ctx,
@@ -692,7 +722,7 @@ impl MCPProxyService {
                     log::error!("MCP-REQUEST-ID not found");
                 }
             }
-        };
+        }
 
         log::debug!("Decoding body {body_buffer:?}");
         *body = encode_body(ctx, &body_buffer);
