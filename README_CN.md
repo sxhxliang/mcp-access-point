@@ -50,13 +50,15 @@ graph LR
 - ✅ [VS Code](https://code.visualstudio.com/docs/copilot/chat/mcp-servers)
 - ✅ [Trae](https://docs.trae.ai/ide/model-context-protocol)
 
-## 核心特性  
+## 核心特性
 
-- **协议转换**：实现HTTP与MCP协议的无缝转换  
-- **零侵入式接入**：完全兼容现有HTTP服务，无需任何改造  
-- **客户端赋能**：让MCP生态客户端能够直接调用标准HTTP服务  
-- **轻量级代理**：极简架构设计，协议转换高效透明  
+- **协议转换**：实现HTTP与MCP协议的无缝转换
+- **零侵入式接入**：完全兼容现有HTTP服务，无需任何改造
+- **客户端赋能**：让MCP生态客户端能够直接调用标准HTTP服务
+- **轻量级代理**：极简架构设计，协议转换高效透明
 - **多租户模式**：支持多租户，每个租户可独立配置MCP服务，独立 url 接入
+- **运行时配置管理**：支持无重启动态配置更新
+- **管理API**：提供RESTful API进行实时配置管理
 
 
 ## 快速开始  
@@ -236,6 +238,130 @@ docker run -d --name mcp-access-point --rm \
 
 非常感谢 [@limcheekin](https://github.com/limcheekin)
 写了一篇文章介绍了一个实际例子，https://limcheekin.medium.com/building-your-first-no-code-mcp-server-the-fabric-integration-story-90da58cdbe1f
+
+## 运行时配置管理
+
+MCP Access Point 现在支持通过 RESTful 管理 API 进行动态配置管理，允许您在不重启服务的情况下更新配置。
+
+### 管理 API 功能特性
+
+- **实时配置更新**：动态修改上游服务器、服务、路由等资源配置
+- **依赖关系验证**：自动验证资源间依赖关系，防止误操作
+- **批量操作**：原子性执行多个配置变更
+- **配置验证**：提供干跑模式，在应用前验证配置变更
+- **资源统计**：监控和跟踪配置状态
+
+### 管理 API 配置
+
+在 `config.yaml` 中添加以下配置来启用管理 API：
+
+```yaml
+access_point:
+  admin:
+    address: "127.0.0.1:9090"  # 管理 API 监听地址
+    api_key: "your-api-key"    # 可选的 API 密钥认证
+```
+
+### 管理 API 接口
+
+#### 资源管理
+- `GET /admin/resources` - 获取资源统计和摘要信息
+- `GET /admin/resources/{type}` - 列出指定类型的所有资源
+- `GET /admin/resources/{type}/{id}` - 获取特定资源
+- `POST /admin/resources/{type}/{id}` - 创建新资源
+- `PUT /admin/resources/{type}/{id}` - 更新现有资源
+- `DELETE /admin/resources/{type}/{id}` - 删除资源
+
+#### 高级操作
+- `POST /admin/validate/{type}/{id}` - 验证资源配置
+- `POST /admin/batch` - 执行批量操作
+- `POST /admin/reload/{type}` - 重载指定的资源类型
+
+#### 支持的资源类型
+- `upstreams` - 后端服务器配置
+- `services` - 服务定义
+- `routes` - 路由规则
+- `global_rules` - 全局插件规则
+- `mcp_services` - MCP 服务配置
+- `ssls` - SSL 证书配置
+
+### 管理 API 使用示例
+
+#### 创建新的上游服务器
+```bash
+curl -X POST http://localhost:9090/admin/resources/upstreams/my-upstream \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "my-upstream",
+    "type": "RoundRobin",
+    "nodes": ["127.0.0.1:8001", "127.0.0.1:8002"],
+    "timeout": {
+      "connect": 5,
+      "read": 10,
+      "send": 10
+    }
+  }'
+```
+
+#### 创建服务
+```bash
+curl -X POST http://localhost:9090/admin/resources/services/my-service \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "my-service",
+    "upstream_id": "my-upstream",
+    "hosts": ["api.example.com"]
+  }'
+```
+
+#### 批量操作
+```bash
+curl -X POST http://localhost:9090/admin/batch \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dry_run": false,
+    "operations": [
+      {
+        "operation_type": "create",
+        "resource_type": "upstreams",
+        "resource_id": "batch-upstream",
+        "data": {
+          "id": "batch-upstream",
+          "type": "Random",
+          "nodes": ["192.168.1.10:8080"]
+        }
+      },
+      {
+        "operation_type": "create",
+        "resource_type": "services",
+        "resource_id": "batch-service",
+        "data": {
+          "id": "batch-service",
+          "upstream_id": "batch-upstream"
+        }
+      }
+    ]
+  }'
+```
+
+#### 获取资源统计
+```bash
+curl http://localhost:9090/admin/resources
+```
+
+### 测试管理 API
+
+使用提供的测试脚本验证管理 API 功能：
+
+```bash
+# 赋予测试脚本执行权限
+chmod +x test-admin-api.sh
+
+# 运行全面的 API 测试
+./test-admin-api.sh
+```
+
+详细的管理 API 文档请参见 [RUNTIME_CONFIG_API.md](./RUNTIME_CONFIG_API.md)。
 
 ## 贡献指南
 1. Fork 这个仓库。

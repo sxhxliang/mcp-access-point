@@ -54,12 +54,14 @@ use `IP:PORT/mcp` for `Streamable HTTP`
 - ✅ [VS Code](https://code.visualstudio.com/docs/copilot/chat/mcp-servers)
 - ✅ [Trae](https://docs.trae.ai/ide/model-context-protocol)
 
-## Core Features  
-- **Protocol Conversion**: Seamless conversion between HTTP and MCP protocols  
-- **Zero-Intrusive Integration**: Full compatibility with existing HTTP services  
-- **Client Empowerment**: Enables MCP clients to directly call standard HTTP services  
-- **Lightweight Proxy**: Minimalist architecture with efficient protocol conversion  
+## Core Features
+- **Protocol Conversion**: Seamless conversion between HTTP and MCP protocols
+- **Zero-Intrusive Integration**: Full compatibility with existing HTTP services
+- **Client Empowerment**: Enables MCP clients to directly call standard HTTP services
+- **Lightweight Proxy**: Minimalist architecture with efficient protocol conversion
 - **Multi-tenancy**: Independent configuration and endpoints for each tenant
+- **Runtime Configuration Management**: Dynamic configuration updates without service restart
+- **Admin API**: RESTful API for real-time configuration management
 
 ## Quick Start  
 
@@ -238,6 +240,130 @@ docker run -d --name mcp-access-point --rm \
 When MCP-based AI clients need to interface with legacy HTTP microservices, the MCP Access Gateway acts as a middleware layer enabling seamless protocol conversion.
 
 Many thanks to [@limcheekin](https://github.com/limcheekin) for writing an article with a practical example: https://limcheekin.medium.com/building-your-first-no-code-mcp-server-the-fabric-integration-story-90da58cdbe1f
+
+## Runtime Configuration Management
+
+The MCP Access Point now supports dynamic configuration management through a RESTful Admin API, allowing you to update configurations without restarting the service.
+
+### Admin API Features
+
+- **Real-time Configuration Updates**: Modify upstreams, services, routes, and other resources on-the-fly
+- **Dependency Validation**: Automatic validation of resource dependencies before changes
+- **Batch Operations**: Execute multiple configuration changes atomically
+- **Configuration Validation**: Dry-run mode to validate changes before applying
+- **Resource Statistics**: Monitor and track configuration state
+
+### Admin API Configuration
+
+Add the following to your `config.yaml` to enable the Admin API:
+
+```yaml
+access_point:
+  admin:
+    address: "127.0.0.1:9090"  # Admin API listening address
+    api_key: "your-api-key"    # Optional API key for authentication
+```
+
+### Admin API Endpoints
+
+#### Resource Management
+- `GET /admin/resources` - Get resource summary and statistics
+- `GET /admin/resources/{type}` - List all resources of a specific type
+- `GET /admin/resources/{type}/{id}` - Get a specific resource
+- `POST /admin/resources/{type}/{id}` - Create a new resource
+- `PUT /admin/resources/{type}/{id}` - Update an existing resource
+- `DELETE /admin/resources/{type}/{id}` - Delete a resource
+
+#### Advanced Operations
+- `POST /admin/validate/{type}/{id}` - Validate resource configuration
+- `POST /admin/batch` - Execute batch operations
+- `POST /admin/reload/{type}` - Reload a specific resource type
+
+#### Supported Resource Types
+- `upstreams` - Backend server configurations
+- `services` - Service definitions
+- `routes` - Routing rules
+- `global_rules` - Global plugin rules
+- `mcp_services` - MCP service configurations
+- `ssls` - SSL certificate configurations
+
+### Admin API Examples
+
+#### Create a new upstream
+```bash
+curl -X POST http://localhost:9090/admin/resources/upstreams/my-upstream \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "my-upstream",
+    "type": "RoundRobin",
+    "nodes": ["127.0.0.1:8001", "127.0.0.1:8002"],
+    "timeout": {
+      "connect": 5,
+      "read": 10,
+      "send": 10
+    }
+  }'
+```
+
+#### Create a service
+```bash
+curl -X POST http://localhost:9090/admin/resources/services/my-service \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "my-service",
+    "upstream_id": "my-upstream",
+    "hosts": ["api.example.com"]
+  }'
+```
+
+#### Batch operations
+```bash
+curl -X POST http://localhost:9090/admin/batch \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dry_run": false,
+    "operations": [
+      {
+        "operation_type": "create",
+        "resource_type": "upstreams",
+        "resource_id": "batch-upstream",
+        "data": {
+          "id": "batch-upstream",
+          "type": "Random",
+          "nodes": ["192.168.1.10:8080"]
+        }
+      },
+      {
+        "operation_type": "create",
+        "resource_type": "services",
+        "resource_id": "batch-service",
+        "data": {
+          "id": "batch-service",
+          "upstream_id": "batch-upstream"
+        }
+      }
+    ]
+  }'
+```
+
+#### Get resource statistics
+```bash
+curl http://localhost:9090/admin/resources
+```
+
+### Testing the Admin API
+
+Use the provided test script to verify Admin API functionality:
+
+```bash
+# Make the test script executable
+chmod +x test-admin-api.sh
+
+# Run comprehensive API tests
+./test-admin-api.sh
+```
+
+For detailed Admin API documentation, see [RUNTIME_CONFIG_API.md](./RUNTIME_CONFIG_API.md).
 
 ## Contribution Guidelines
 1. Fork this repository.

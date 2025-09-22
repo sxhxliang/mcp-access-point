@@ -11,6 +11,10 @@ access_point:
   # listener on TCP or TLS
   listeners:
     - address: 0.0.0.0:8080 # listen on all interfaces
+  # Admin API 配置（无需 etcd 即可使用）
+  admin:
+    address: "127.0.0.1:8081"
+    api_key: "test-api-key"
 mcps:
   - id: service-1 # Service identifier
     upstream_id: 1 # Upstream service identifier (must be the same as upstream id in upstreams)
@@ -34,7 +38,7 @@ mcps:
         uri: /points/{latitude},{longitude} # Path to match (e.g., /api/v1/*)
         method: GET
         meta:
-          name: get_weather
+          name: get_weather222
           description: get weather by latitude and longitude
           inputSchema: # Input schema validation (optional)
             type: object

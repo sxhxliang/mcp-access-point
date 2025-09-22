@@ -4,14 +4,14 @@ use std::{collections::HashMap, sync::Arc, time::SystemTime};
 use tokio::sync::RwLock;
 
 use crate::{
-    config::{self, json_to_resource},
+    config::{self, json_to_resource, Config},
     proxy::{
-        global_rule::{reload_global_plugin, ProxyGlobalRule, GLOBAL_RULE_MAP},
-        mcp::{ProxyMCPService, MCP_SERVICE_MAP},
-        route::{reload_global_route_match, ProxyRoute, ROUTE_MAP},
-        service::{ProxyService, SERVICE_MAP},
-        ssl::{ProxySSL, SSL_MAP},
-        upstream::{ProxyUpstream, UPSTREAM_MAP},
+        global_rule::{reload_global_plugin, ProxyGlobalRule, GLOBAL_RULE_MAP, load_static_global_rules},
+        mcp::{ProxyMCPService, MCP_SERVICE_MAP, load_static_mcp_services},
+        route::{reload_global_route_match, ProxyRoute, ROUTE_MAP, load_static_routes},
+        service::{ProxyService, SERVICE_MAP, load_static_services},
+        ssl::{ProxySSL, SSL_MAP, load_static_ssls},
+        upstream::{ProxyUpstream, UPSTREAM_MAP, load_static_upstreams},
         MapOperations,
     },
 };
@@ -46,6 +46,9 @@ pub trait ConfigChangeListener: Send + Sync {
 pub struct ResourceManager {
     listeners: RwLock<Vec<Arc<dyn ConfigChangeListener>>>,
     work_stealing: bool,
+    /// Optional config for reloading from source
+    /// If None, reloading will only trigger reload hooks without loading from config
+    config: Option<Arc<RwLock<Config>>>,
 }
 
 impl ResourceManager {
@@ -53,6 +56,16 @@ impl ResourceManager {
         Self {
             listeners: RwLock::new(Vec::new()),
             work_stealing,
+            config: None,
+        }
+    }
+
+    /// Create a new ResourceManager with config access for reloading
+    pub fn new_with_config(work_stealing: bool, config: Arc<RwLock<Config>>) -> Self {
+        Self {
+            listeners: RwLock::new(Vec::new()),
+            work_stealing,
+            config: Some(config),
         }
     }
 
@@ -520,6 +533,22 @@ impl ResourceManager {
             }
             ResourceType::Routes => {
                 reload_global_route_match();
+            }
+            ResourceType::Upstreams => {
+                // cli_options.conf
+                // load_static_upstreams(config)
+                // Upstreams don't have special reload logic
+            }
+            ResourceType::Services => {
+                // load_static_services(config)
+                // Services don't have special reload logic
+            }
+            ResourceType::Ssls => {
+                crate::proxy::ssl::reload_global_ssl_match();
+            }
+            ResourceType::McpServices => {  
+                // load_static_mcp_services().map_err(|e| format!("Failed to reload MCP services: {e}"))?;
+                // MCP Services don't have special reload logic
             }
             _ => {
                 // Other resource types don't have special reload logic

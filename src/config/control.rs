@@ -3,6 +3,7 @@ use std::net::SocketAddr;
 use pingora_error::Result;
 use serde::{Deserialize, Serialize};
 use validator::{Validate, ValidationError};
+
 /// Configuration for the control server.
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Admin {
@@ -10,6 +11,15 @@ pub struct Admin {
     pub address: SocketAddr,
     /// The API key for authentication.
     pub api_key: String,
+}
+
+impl Default for Admin {
+    fn default() -> Self {
+        Self {
+            address: "127.0.0.1:9090".parse().unwrap(),
+            api_key: String::new(),
+        }
+    }
 }
 /// Configuration for Prometheus metrics.
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]

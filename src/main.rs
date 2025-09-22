@@ -36,7 +36,7 @@ fn main() {
     std::env::set_var("RUST_LOG", format!("{log_level},pingora_core=warn, pingora_proxy=warn"));
 
     let cli_options = Opt::parse_args();
-    let config =
+    let mut config =
         Config::load_yaml_with_opt_override(&cli_options).expect("Failed to load configuration");
 
     // 初始化日志
@@ -68,7 +68,15 @@ fn main() {
         None
     };
 
-    // 创建服务器实例
+    // 先添加可选服务（包括 Admin），传递完整的 config
+    let admin_service = if config.access_point.admin.is_some() {
+        log::info!("Creating Admin Service (Enhanced)...");
+        Some(AdminHttpApp::admin_http_service(&config))
+    } else {
+        None
+    };
+
+    // 创建服务器实例，此时移动 config.pingora
     let mut access_point_server = Server::new_with_opt_and_conf(Some(cli_options), config.pingora);
 
     // 添加日志服务
@@ -81,6 +89,12 @@ fn main() {
     if let Some(etcd_service) = etcd_sync {
         log::info!("Adding etcd config sync service...");
         access_point_server.add_service(etcd_service);
+    }
+
+    // 添加 Admin 服务
+    if let Some(admin_service) = admin_service {
+        log::info!("Adding Admin Service (Enhanced)...");
+        access_point_server.add_service(admin_service);
     }
 
 
@@ -96,7 +110,7 @@ fn main() {
     log::info!("Adding listeners...");
     add_listeners(&mut http_service, &config.access_point);
 
-    // 添加扩展服务（如 Sentry 和 Prometheus, Admin）
+    // 添加扩展服务（如 Sentry 和 Prometheus）
     add_optional_services(&mut access_point_server, &config.access_point);
 
     // 启动服务器
@@ -161,7 +175,7 @@ fn add_listeners(
     }
 }
 
-// 添加可选服务（如 Sentry 和 Prometheus, Admin）的辅助函数
+// 添加可选服务（如 Sentry 和 Prometheus）的辅助函数
 fn add_optional_services(server: &mut Server, cfg: &config::AccessPointConfig) {
     if let Some(sentry_cfg) = &cfg.sentry {
         log::info!("Adding Sentry config...");
@@ -173,12 +187,6 @@ fn add_optional_services(server: &mut Server, cfg: &config::AccessPointConfig) {
                 .expect("Invalid Sentry DSN"),
             ..Default::default()
         });
-    }
-
-    if cfg.etcd.is_some() && cfg.admin.is_some() {
-        log::info!("Adding Admin Service...");
-        let admin_service_http = AdminHttpApp::admin_http_service(cfg);
-        server.add_service(admin_service_http);
     }
 
     if let Some(prometheus_cfg) = &cfg.prometheus {
