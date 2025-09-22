@@ -58,6 +58,26 @@ pub struct Upstream {
     pub headers: Option<HashMap<String, String>>,
 }
 
+impl Default for Upstream {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            retries: None,
+            retry_timeout: None,
+            timeout: None,
+            nodes: HashMap::new(),
+            r#type: SelectionType::default(),
+            checks: None,
+            hash_on: UpstreamHashOn::default(),
+            key: Upstream::default_key(),
+            scheme: UpstreamScheme::default(),
+            pass_host: UpstreamPassHost::default(),
+            upstream_host: None,
+            headers: None,
+        }
+    }
+}
+
 impl Upstream {
     /// 合并两个Upstream对象
     pub fn merge(&mut self, other: Upstream) {

@@ -1026,16 +1026,15 @@ impl ResourceManager {
 mod tests {
     use super::*;
     use crate::config::Upstream;
+    use std::collections::HashMap;
 
     #[tokio::test]
     async fn test_create_upstream() {
         let manager = ResourceManager::new(false);
 
-        let upstream = Upstream {
-            id: "test-upstream".to_string(),
-            nodes: vec!["127.0.0.1:8080".to_string()],
-            ..Default::default()
-        };
+        let mut nodes: HashMap<String, u32> = HashMap::new();
+        nodes.insert("127.0.0.1:8080".to_string(), 1);
+        let upstream = Upstream { id: "test-upstream".to_string(), nodes, ..Default::default() };
 
         let data = serde_json::to_vec(&upstream).unwrap();
         let result = manager.create_resource(
@@ -1057,11 +1056,7 @@ mod tests {
     async fn test_validate_resource() {
         let manager = ResourceManager::new(false);
 
-        let upstream = Upstream {
-            id: "test-upstream".to_string(),
-            nodes: vec![], // Empty nodes should fail validation
-            ..Default::default()
-        };
+        let upstream = Upstream { id: "test-upstream".to_string(), nodes: HashMap::new(), ..Default::default() };
 
         let data = serde_json::to_vec(&upstream).unwrap();
         let validation = manager.validate_resource(

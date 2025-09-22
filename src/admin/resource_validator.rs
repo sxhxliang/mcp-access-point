@@ -483,14 +483,13 @@ impl ResourceValidator {
 mod tests {
     use super::*;
     use crate::config::Upstream;
+    use std::collections::HashMap;
 
     #[test]
     fn test_validate_upstream() {
-        let upstream = Upstream {
-            id: "test".to_string(),
-            nodes: vec!["127.0.0.1:8080".to_string()],
-            ..Default::default()
-        };
+        let mut nodes: HashMap<String, u32> = HashMap::new();
+        nodes.insert("127.0.0.1:8080".to_string(), 1);
+        let upstream = Upstream { id: "test".to_string(), nodes, ..Default::default() };
 
         let data = serde_json::to_vec(&upstream).unwrap();
         let result = ResourceValidator::validate_resource(
@@ -505,11 +504,7 @@ mod tests {
 
     #[test]
     fn test_validate_empty_upstream_nodes() {
-        let upstream = Upstream {
-            id: "test".to_string(),
-            nodes: vec![],
-            ..Default::default()
-        };
+        let upstream = Upstream { id: "test".to_string(), nodes: HashMap::new(), ..Default::default() };
 
         let data = serde_json::to_vec(&upstream).unwrap();
         let result = ResourceValidator::validate_resource(
