@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use bytes::{Bytes, BytesMut, BufMut};
 use futures::StreamExt;
 use http::{
-    header::{CACHE_CONTROL, CONTENT_ENCODING, CONTENT_LENGTH, CONTENT_TYPE, TRANSFER_ENCODING},
+    header::{CACHE_CONTROL, CONTENT_ENCODING, CONTENT_LENGTH, CONTENT_TYPE},
     StatusCode,
 };
 

@@ -23,8 +23,8 @@ static DEFAULT_SERVER_NAME: &str = "*";
 pub struct ProxySSL {
     pub inner: config::SSL,
     // Store parsed cert and key, handle parsing errors during creation/update
-    parsed_cert: Result<X509, String>,
-    parsed_key: Result<PKey<pingora::tls::pkey::Private>, String>,
+    pub(crate) parsed_cert: Result<X509, String>,
+    pub(crate) parsed_key: Result<PKey<pingora::tls::pkey::Private>, String>,
 }
 
 impl From<config::SSL> for ProxySSL {

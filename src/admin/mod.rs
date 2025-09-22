@@ -1,10 +1,14 @@
 pub mod http_admin;
+pub mod resource_manager;
+pub mod resource_types;
+pub mod resource_validator;
 pub mod validate;
+
 use std::error::Error;
 
 use crate::{config, plugin::build_plugin};
 
-trait PluginValidatable {
+pub(crate) trait PluginValidatable {
     fn validate_plugins(&self) -> Result<(), Box<dyn Error>>;
 }
 

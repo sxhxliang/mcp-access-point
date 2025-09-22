@@ -1,6 +1,7 @@
 
 .vscode/
 .venv/
+.qoder
 /docs
 /target
 /web
