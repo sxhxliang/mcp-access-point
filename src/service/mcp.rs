@@ -53,6 +53,62 @@ pub struct MCPProxyService {
 /// - handling SSE (Server-Sent Events) connections.
 /// - building and sending HTTP responses to clients.
 impl MCPProxyService {
+    async fn ensure_known_route_or_404(
+        &self,
+        session: &mut Session,
+        ctx: &mut ProxyContext,
+    ) -> Result<bool> {
+        if ctx.route.is_none() {
+            let uri = &session.req_header().uri;
+            log::debug!("Route({uri:?}) not found, check MCP services");
+
+            let path = uri.path();
+            if !is_known_mcp_path(path) {
+                log::warn!("Route not found for path: {path}");
+                session.respond_error(StatusCode::NOT_FOUND.as_u16()).await?;
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
+    async fn dispatch_mcp_endpoints(
+        &self,
+        ctx: &mut ProxyContext,
+        session: &mut Session,
+        path: &str,
+    ) -> Result<bool> {
+        match match_api_path(path) {
+            PathMatch::Sse(tenant_id) => {
+                log::debug!("SSE path: {path:?}");
+                set_tenant_context(ctx, session, tenant_id);
+                endpoint::handle_sse_endpoint(ctx, self, session).await
+            }
+            PathMatch::Messages(tenant_id) => {
+                log::debug!("Messages path: {path:?}");
+                set_tenant_context(ctx, session, tenant_id);
+                endpoint::handle_message_endpoint(ctx, self, session).await
+            }
+            PathMatch::StreamableHttp(tenant_id) => {
+                log::debug!("Streamable HTTP path: {path:?}");
+                set_tenant_context(ctx, session, tenant_id);
+                endpoint::handle_streamable_http_endpoint(ctx, self, session).await
+            }
+            PathMatch::NoMatch => {
+                log::debug!("No tenant match for path: {path:?}, using global mcp endpoint.");
+                match path {
+                    CLIENT_STREAMABLE_HTTP_ENDPOINT => {
+                        endpoint::handle_streamable_http_endpoint(ctx, self, session).await
+                    }
+                    CLIENT_SSE_ENDPOINT => endpoint::handle_sse_endpoint(ctx, self, session).await,
+                    CLIENT_MESSAGE_ENDPOINT => {
+                        endpoint::handle_message_endpoint(ctx, self, session).await
+                    }
+                    _ => Ok(false),
+                }
+            }
+        }
+    }
     /// Helper method to build and send HTTP responses
     async fn build_and_send_response(
         &self,
@@ -236,20 +292,7 @@ impl ProxyHttp for MCPProxyService {
 
     /// Filters incoming requests
     async fn request_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> Result<bool> {
-        if ctx.route.is_none() {
-            let uri = &session.req_header().uri;
-            log::debug!("Route({uri:?}) not found, check MCP services");
-
-            let path = uri.path();
-            if !is_known_mcp_path(path) {
-                // Handle unknown route case
-                log::warn!("Route not found for path: {path}");
-                session
-                    .respond_error(StatusCode::NOT_FOUND.as_u16())
-                    .await?;
-                return Ok(true);
-            }
-        }
+        if self.ensure_known_route_or_404(session, ctx).await? { return Ok(true); }
 
         // execute global rule plugins
         if ctx
@@ -270,47 +313,9 @@ impl ProxyHttp for MCPProxyService {
             "Request path: {:?}",
             session.req_header().uri.path_and_query()
         );
-        let path = session.req_header().uri.path();
-        // log::debug!("===== Request: {:?}", session.req_header());
-        // Handle the request based on the path
-
-        match match_api_path(path) {
-            PathMatch::Sse(tenant_id) => {
-                log::debug!("SSE path: {path:?}");
-                set_tenant_context(ctx, session, tenant_id);
-                return endpoint::handle_sse_endpoint(ctx, self, session).await;
-            }
-            PathMatch::Messages(tenant_id) => {
-                log::debug!("Messages path: {path:?}");
-                set_tenant_context(ctx, session, tenant_id);
-                return endpoint::handle_message_endpoint(ctx, self, session).await;
-            }
-            PathMatch::StreamableHttp(tenant_id) => {
-                log::debug!("Streamable HTTP path: {path:?}");
-                set_tenant_context(ctx, session, tenant_id);
-                return endpoint::handle_streamable_http_endpoint(ctx, self, session).await;
-            }
-            PathMatch::NoMatch => {
-                log::debug!(
-                    "No tenant match for path: {path:?}, using global mcp endpoint."
-                );
-                match path {
-                    CLIENT_STREAMABLE_HTTP_ENDPOINT => {
-                        // 2025-03-26 specification protocol;
-                        return endpoint::handle_streamable_http_endpoint(ctx, self, session).await;
-                    }
-                    CLIENT_SSE_ENDPOINT => {
-                        // 2024-11-05 specification protocol;
-                        return endpoint::handle_sse_endpoint(ctx, self, session).await;
-                    }
-                    CLIENT_MESSAGE_ENDPOINT => {
-                        // 2024-11-05 specification protocol;
-                        return endpoint::handle_message_endpoint(ctx, self, session).await;
-                    }
-                    _ => Ok(false),
-                }
-            }
-        }
+        let path = session.req_header().uri.path().to_string();
+        // Dispatch to MCP endpoints when matched; otherwise continue upstream
+        return self.dispatch_mcp_endpoints(ctx, session, path.as_str()).await;
     }
 
     /// Selects an upstream peer for the request
@@ -371,39 +376,11 @@ impl ProxyHttp for MCPProxyService {
         upstream_request: &mut RequestHeader,
         ctx: &mut Self::CTX,
     ) -> Result<()> {
-        // execute global rule plugins
-        ctx.global_plugin
-            .clone()
-            .upstream_request_filter(session, upstream_request, ctx)
-            .await?;
+        self.apply_upstream_request_plugins(session, upstream_request, ctx).await?;
+        self.apply_upstream_header_rewrites(upstream_request, ctx);
+        self.insert_headers_from_route_config(upstream_request, ctx)?;
+        self.set_content_length_from_ctx(upstream_request, ctx)?;
 
-        // execute plugins
-        ctx.plugin
-            .clone()
-            .upstream_request_filter(session, upstream_request, ctx)
-            .await?;
-
-        // rewrite host header and headers
-        if let Some(upstream) = ctx.route.as_ref().and_then(|r| r.resolve_upstream()) {
-            // rewrite or insert headers
-            upstream.upstream_header_rewrite(upstream_request);
-            upstream.upstream_host_rewrite(upstream_request);
-        }
-        //  insert headers from route configuration
-        //  see details in the src/config/route.rs file
-        if let Some(route) = ctx.route.as_ref() {
-            for header in route.get_headers() {
-                if header.0 == "Host" {
-                    continue;
-                }
-                upstream_request.insert_header(header.0, header.1.as_str())?;
-            }
-        }
-        // Set Content-Length header based on ctx.vars["new_body_len"] if present
-        if let Some(len) = ctx.vars.get(NEW_BODY_LEN) {
-            upstream_request.insert_header("Content-Length", len)?;
-        }
-        
         log::info!("upstream request headers: {:?}", upstream_request.headers);
         Ok(())
     }
@@ -446,25 +423,9 @@ impl ProxyHttp for MCPProxyService {
             .response_filter(session, upstream_response, ctx)
             .await?;
 
-        // Check if this is a tools/call direct HTTP response that should preserve original headers
-        if is_direct_http_response(ctx) {
-            log::info!("Preserving original headers for direct HTTP response");
-            // For direct HTTP responses (tools/call), preserve the original Content-Length
-            // Don't modify transfer encoding - let the upstream response pass through as-is
-        } else {
-            // For MCP JSON-RPC responses, we need chunked encoding because body size may change
-            apply_chunked_encoding(upstream_response);
-        }
-        
-        // get content encoding,
-        // will be used to decompress the response body in the upstream_response_body_filter phase
-        // see details in the upstream_response_body_filter function
+        self.apply_transfer_encoding_policy(ctx, upstream_response);
         record_content_encoding(ctx, upstream_response);
-        
-        // Log the upstream response status for debugging
         log::info!("Upstream response status: {}", upstream_response.status);
-        
-        // Rebuild the response header with the original upstream status code
         *upstream_response = rebuild_response_header(upstream_response)?;
 
         // execute plugins
@@ -491,63 +452,9 @@ impl ProxyHttp for MCPProxyService {
             "Filters upstream_response_body_filter, Request path: {path}"
         );
 
-        // 累计缓冲区，仅记录尺寸避免泄露敏感内容
-        if let Some(b) = body {
-            log::debug!("upstream body size: {}", b.len());
-            ctx.body_buffer.push(b.clone());
-            // drop the body
-            b.clear();
-        } else {
-            log::debug!("upstream response Body is None");
-        }
+        self.buffer_body_chunk(body, ctx);
         log::debug!("【end_of_stream】: {end_of_stream}");
-        if end_of_stream {
-            let mut body_buffer = Some(concat_body_bytes(&ctx.body_buffer));
-            // SSE endpoint processing
-            if let (Some(session_id), Some(request_id)) =
-                (ctx.vars.get(MCP_SESSION_ID), ctx.vars.get(MCP_REQUEST_ID))
-            {
-                self.handle_json_rpc_response(
-                    ctx,
-                    request_id,
-                    &mut body_buffer,
-                    end_of_stream,
-                    Some(session_id.to_string()),
-                );
-            }
-
-            // Handle mcp streaming http responses
-            match ctx.vars.get(MCP_STREAMABLE_HTTP) {
-                Some(http_type) => match http_type.as_str() {
-                    "stream" => {
-                        log::debug!("Handling streaming responses");
-                        *body = Some(Bytes::from("Accepted"));
-                    }
-                    "stateless" => {
-                        log::debug!("Handling stateless responses");
-                        if let Some(request_id) = ctx.vars.get(MCP_REQUEST_ID) {
-                            self.handle_json_rpc_response(ctx, request_id, &mut body_buffer, end_of_stream, None);
-                        } else {
-                            log::warn!("MCP-REQUEST-ID not found");
-                        }
-                    }
-                    _ => log::error!("Invalid http_type value: {http_type}"),
-                },
-                None => {
-                    if let Some(request_id) = ctx.vars.get(MCP_REQUEST_ID) {
-                        self.handle_json_rpc_response(ctx, request_id, &mut body_buffer, end_of_stream, None);
-                    } else {
-                        log::error!("MCP-REQUEST-ID not found");
-                    }
-                }
-            };
-
-            log::debug!(
-                "Decoding body {body_buffer:?}"
-            );
-
-            *body = encode_body(ctx, &body_buffer);
-        }
+        if end_of_stream { self.process_end_of_stream(ctx, body, end_of_stream); }
         Ok(())
     }
 
@@ -649,4 +556,145 @@ fn rebuild_response_header(upstream_response: &ResponseHeader) -> Result<Respons
 fn set_tenant_context(ctx: &mut ProxyContext, session: &mut Session, tenant_id: String) {
     ctx.vars.insert(MCP_TENANT_ID.to_string(), tenant_id.clone());
     let _ = session.req_header_mut().insert_header(MCP_TENANT_ID, tenant_id);
+}
+
+// Request/response small helpers
+
+impl MCPProxyService {
+    async fn apply_upstream_request_plugins(
+        &self,
+        session: &mut Session,
+        upstream_request: &mut RequestHeader,
+        ctx: &mut ProxyContext,
+    ) -> Result<()> {
+        ctx.global_plugin
+            .clone()
+            .upstream_request_filter(session, upstream_request, ctx)
+            .await?;
+        ctx.plugin
+            .clone()
+            .upstream_request_filter(session, upstream_request, ctx)
+            .await
+    }
+
+    fn apply_upstream_header_rewrites(
+        &self,
+        upstream_request: &mut RequestHeader,
+        ctx: &mut ProxyContext,
+    ) {
+        if let Some(upstream) = ctx.route.as_ref().and_then(|r| r.resolve_upstream()) {
+            upstream.upstream_header_rewrite(upstream_request);
+            upstream.upstream_host_rewrite(upstream_request);
+        }
+    }
+
+    fn insert_headers_from_route_config(
+        &self,
+        upstream_request: &mut RequestHeader,
+        ctx: &mut ProxyContext,
+    ) -> Result<()> {
+        if let Some(route) = ctx.route.as_ref() {
+            for header in route.get_headers() {
+                if header.0 == "Host" {
+                    continue;
+                }
+                upstream_request.insert_header(header.0, header.1.as_str())?;
+            }
+        }
+        Ok(())
+    }
+
+    fn set_content_length_from_ctx(
+        &self,
+        upstream_request: &mut RequestHeader,
+        ctx: &mut ProxyContext,
+    ) -> Result<()> {
+        if let Some(len) = ctx.vars.get(NEW_BODY_LEN) {
+            upstream_request.insert_header("Content-Length", len)?;
+        }
+        Ok(())
+    }
+
+    fn apply_transfer_encoding_policy(
+        &self,
+        ctx: &ProxyContext,
+        upstream_response: &mut ResponseHeader,
+    ) {
+        if is_direct_http_response(ctx) {
+            log::info!("Preserving original headers for direct HTTP response");
+        } else {
+            apply_chunked_encoding(upstream_response);
+        }
+    }
+
+    fn buffer_body_chunk(&self, body: &mut Option<Bytes>, ctx: &mut ProxyContext) {
+        if let Some(b) = body {
+            log::debug!("upstream body size: {}", b.len());
+            ctx.body_buffer.push(b.clone());
+            b.clear();
+        } else {
+            log::debug!("upstream response Body is None");
+        }
+    }
+
+    fn process_end_of_stream(
+        &self,
+        ctx: &mut ProxyContext,
+        body: &mut Option<Bytes>,
+        end_of_stream: bool,
+    ) {
+        let mut body_buffer = Some(concat_body_bytes(&ctx.body_buffer));
+
+        if let (Some(session_id), Some(request_id)) =
+            (ctx.vars.get(MCP_SESSION_ID), ctx.vars.get(MCP_REQUEST_ID))
+        {
+            self.handle_json_rpc_response(
+                ctx,
+                request_id,
+                &mut body_buffer,
+                end_of_stream,
+                Some(session_id.to_string()),
+            );
+        }
+
+        match ctx.vars.get(MCP_STREAMABLE_HTTP) {
+            Some(http_type) => match http_type.as_str() {
+                "stream" => {
+                    log::debug!("Handling streaming responses");
+                    *body = Some(Bytes::from("Accepted"));
+                }
+                "stateless" => {
+                    log::debug!("Handling stateless responses");
+                    if let Some(request_id) = ctx.vars.get(MCP_REQUEST_ID) {
+                        self.handle_json_rpc_response(
+                            ctx,
+                            request_id,
+                            &mut body_buffer,
+                            end_of_stream,
+                            None,
+                        );
+                    } else {
+                        log::warn!("MCP-REQUEST-ID not found");
+                    }
+                }
+                _ => log::error!("Invalid http_type value: {http_type}"),
+            },
+            None => {
+                if let Some(request_id) = ctx.vars.get(MCP_REQUEST_ID) {
+                    self.handle_json_rpc_response(
+                        ctx,
+                        request_id,
+                        &mut body_buffer,
+                        end_of_stream,
+                        None,
+                    );
+                } else {
+                    log::error!("MCP-REQUEST-ID not found");
+                }
+            }
+        };
+
+        log::debug!("Decoding body {body_buffer:?}");
+        *body = encode_body(ctx, &body_buffer);
+    }
 }
