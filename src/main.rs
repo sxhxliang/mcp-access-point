@@ -69,8 +69,11 @@ fn main() {
     };
 
     // 先添加可选服务（包括 Admin），传递完整的 config
+    // 注意：目前不支持配置重新加载，因为 Config 不支持 Clone
+    // 如需支持配置重新加载，需要从配置文件路径重新加载
     let admin_service = if config.access_point.admin.is_some() {
         log::info!("Creating Admin Service (Enhanced)...");
+        log::warn!("Config reload from memory not supported. Use config file reload endpoint instead.");
         Some(AdminHttpApp::admin_http_service(&config))
     } else {
         None

@@ -1,0 +1,56 @@
+# MCP Access Point 测试配置
+# 用于测试增强版 Admin API（无需 etcd）
+
+# 访问点配置
+access_point:
+  # 监听地址
+  listeners:
+    - address: "0.0.0.0:8080"
+      offer_h2: false
+
+  # Admin API 配置（无需 etcd 即可使用）
+  admin:
+    address: "127.0.0.1:9090"
+    api_key: "test-api-key"
+
+  # Prometheus 配置（可选）
+  prometheus:
+    address: "0.0.0.0:9091"
+
+# 初始上游配置
+upstreams:
+  - id: test-upstream-1
+    type: RoundRobin
+    nodes:
+      - "httpbin.org:80"
+    timeout:
+      connect: 5
+      read: 10
+      send: 10
+
+# 初始服务配置
+services:
+  - id: test-service-1
+    upstream_id: test-upstream-1
+    hosts:
+      - "test.example.com"
+
+# 初始路由配置
+routes:
+  - id: test-route-1
+    service_id: test-service-1
+    uris:
+      - "/api/*"
+    methods:
+      - GET
+      - POST
+    priority: 100
+
+# 全局规则配置
+global_rules: []
+
+# MCP 服务配置
+mcps: []
+
+# SSL 配置
+ssls: []

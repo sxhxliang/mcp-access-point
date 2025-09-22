@@ -14,7 +14,7 @@ use std::{
     collections::{BTreeMap, HashMap},
     sync::Arc,
 };
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 
 use super::{
     resource_manager::ResourceManager,
@@ -316,6 +316,31 @@ async fn reload_resource_type(req: RequestDataEnhanced) -> Result<Response<Vec<u
     Ok(ResponseHelper::json_response(result))
 }
 
+// Handler for reloading configuration from file
+async fn reload_config_from_file(req: RequestDataEnhanced) -> Result<Response<Vec<u8>>, String> {
+    #[derive(serde::Deserialize)]
+    struct ConfigReloadRequest {
+        config_path: String,
+    }
+
+    // If body is provided, parse it for config path
+    let config_path = if !req.body_data.is_empty() {
+        validate_content_type(&req)?;
+        let reload_request: ConfigReloadRequest = serde_json::from_slice(&req.body_data)
+            .map_err(|e| format!("Invalid config reload request: {e}"))?;
+        reload_request.config_path
+    } else {
+        // Default to config.yaml if no body provided
+        "config.yaml".to_string()
+    };
+
+    let result = req.resource_manager
+        .reload_config_from_file(&config_path)
+        .await?;
+
+    Ok(ResponseHelper::json_response(result))
+}
+
 // Helper to validate content type
 fn validate_content_type(req: &RequestDataEnhanced) -> Result<(), String> {
     match req.get_header(header::CONTENT_TYPE) {
@@ -334,11 +359,17 @@ pub struct AdminHttpApp {
 
 impl AdminHttpApp {
     /// Create new enhanced admin app
-    pub fn new(config: &Config) -> Self {
+    pub fn new(config: &Config, config_ref: Option<Arc<RwLock<Config>>>) -> Self {
+        let resource_manager = if let Some(config_ref) = config_ref {
+            Arc::new(ResourceManager::new_with_config(config.pingora.work_stealing, config_ref))
+        } else {
+            Arc::new(ResourceManager::new(config.pingora.work_stealing))
+        };
+
         let mut this = Self {
             config: config.access_point.admin.clone().unwrap_or_default(),
             etcd: config.access_point.etcd.as_ref().map(|e| EtcdClientWrapper::new(e.clone())),
-            resource_manager: Arc::new(ResourceManager::new(config.pingora.work_stealing)),
+            resource_manager,
             router: Router::new(),
         };
 
@@ -410,6 +441,13 @@ impl AdminHttpApp {
             "/admin/reload/{type}".to_string(),
             reload_resource_type,
         ));
+
+        // Reload configuration from file
+        self.route(AsyncHandlerWithArg::new(
+            Method::POST,
+            "/admin/reload/config".to_string(),
+            reload_config_from_file,
+        ));
     }
 
     fn route(&mut self, handler: AsyncHandlerWithArg<RequestDataEnhanced>) -> &mut Self {
@@ -431,7 +469,17 @@ impl AdminHttpApp {
 
     /// Create admin http service
     pub fn admin_http_service(cfg: &Config) -> Service<AdminHttpApp> {
-        let app = AdminHttpApp::new(cfg);
+        let app = AdminHttpApp::new(cfg, None);
+        Self::create_service(app)
+    }
+
+    /// Create admin http service with config reloading support
+    pub fn admin_http_service_with_config_reload(cfg: &Config, config_ref: Arc<RwLock<Config>>) -> Service<AdminHttpApp> {
+        let app = AdminHttpApp::new(cfg, Some(config_ref));
+        Self::create_service(app)
+    }
+
+    fn create_service(app: AdminHttpApp) -> Service<AdminHttpApp> {
         let addr = app.config.address.to_string();
 
         // Log all available routes
@@ -446,6 +494,7 @@ impl AdminHttpApp {
         log::info!("  POST   /admin/validate/{{type}}/{{id}} - Validate resource");
         log::info!("  POST   /admin/batch - Execute batch operations");
         log::info!("  POST   /admin/reload/{{type}} - Reload resource type");
+        log::info!("  POST   /admin/reload/config - Reload configuration from file");
 
         let mut service = Service::new("Admin HTTP Enhanced".to_string(), app);
         service.add_tcp(&addr);

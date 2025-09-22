@@ -38,7 +38,7 @@ mcps:
         uri: /points/{latitude},{longitude} # Path to match (e.g., /api/v1/*)
         method: GET
         meta:
-          name: get_weather222
+          name: get_weather
           description: get weather by latitude and longitude
           inputSchema: # Input schema validation (optional)
             type: object
