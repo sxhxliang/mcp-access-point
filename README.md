@@ -112,7 +112,7 @@ The configuration file supports multi-tenancy, allowing independent configuratio
 1. **mcps** - MCP service list
    - `id`: Unique service identifier used to generate access paths
    - `upstream_id`: Associated upstream service ID
-   - `path`: OpenAPI specification file path (local or remote)
+   - `path`: OpenAPI specification file path. Supports local files (e.g., `config/openapi.json`) and remote HTTP/HTTPS URLs (e.g., `https://petstore.swagger.io/v2/swagger.json`). Both JSON and YAML formats are supported.
    - `routes`: Custom routing configuration (optional)
    - `upstream`: Upstream service specific configuration (optional)
 
@@ -260,7 +260,7 @@ Add the following to your `config.yaml` to enable the Admin API:
 ```yaml
 access_point:
   admin:
-    address: "127.0.0.1:9090"  # Admin API listening address
+    address: "127.0.0.1:8081"  # Admin API listening address
     api_key: "your-api-key"    # Optional API key for authentication
 ```
 
@@ -278,6 +278,7 @@ access_point:
 - `POST /admin/validate/{type}/{id}` - Validate resource configuration
 - `POST /admin/batch` - Execute batch operations
 - `POST /admin/reload/{type}` - Reload a specific resource type
+- `POST /admin/reload/config` - Reload full configuration from file (defaults to `config.yaml`). Optional JSON body: `{ "config_path": "path/to/config.yaml" }`
 
 #### Supported Resource Types
 - `upstreams` - Backend server configurations
@@ -291,7 +292,7 @@ access_point:
 
 #### Create a new upstream
 ```bash
-curl -X POST http://localhost:9090/admin/resources/upstreams/my-upstream \
+curl -X POST http://localhost:8081/admin/resources/upstreams/my-upstream \
   -H "Content-Type: application/json" \
   -d '{
     "id": "my-upstream",
@@ -307,7 +308,7 @@ curl -X POST http://localhost:9090/admin/resources/upstreams/my-upstream \
 
 #### Create a service
 ```bash
-curl -X POST http://localhost:9090/admin/resources/services/my-service \
+curl -X POST http://localhost:8081/admin/resources/services/my-service \
   -H "Content-Type: application/json" \
   -d '{
     "id": "my-service",
@@ -318,7 +319,7 @@ curl -X POST http://localhost:9090/admin/resources/services/my-service \
 
 #### Batch operations
 ```bash
-curl -X POST http://localhost:9090/admin/batch \
+curl -X POST http://localhost:8081/admin/batch \
   -H "Content-Type: application/json" \
   -d '{
     "dry_run": false,
@@ -348,7 +349,21 @@ curl -X POST http://localhost:9090/admin/batch \
 
 #### Get resource statistics
 ```bash
-curl http://localhost:9090/admin/resources
+curl http://localhost:8081/admin/resources
+```
+
+#### Reload configuration from file
+```bash
+# Uses default config.yaml
+curl -X POST http://localhost:8081/admin/reload/config \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: your-api-key"
+
+# Or specify a different config path
+curl -X POST http://localhost:8081/admin/reload/config \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: your-api-key" \
+  -d '{"config_path": "./config.yaml"}'
 ```
 
 ### Testing the Admin API

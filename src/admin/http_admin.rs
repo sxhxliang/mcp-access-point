@@ -22,7 +22,7 @@ use super::{
         BatchOperationRequest, ResourceType,
     },
 };
-use crate::config::{AccessPointConfig, Admin, Config, EtcdClientWrapper};
+use crate::config::{Admin, Config, EtcdClientWrapper};
 
 type RequestParams = BTreeMap<String, String>;
 type ResponseResult = Result<Response<Vec<u8>>, String>;

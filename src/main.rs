@@ -36,7 +36,7 @@ fn main() {
     std::env::set_var("RUST_LOG", format!("{log_level},pingora_core=warn, pingora_proxy=warn"));
 
     let cli_options = Opt::parse_args();
-    let mut config =
+    let config =
         Config::load_yaml_with_opt_override(&cli_options).expect("Failed to load configuration");
 
     // 初始化日志

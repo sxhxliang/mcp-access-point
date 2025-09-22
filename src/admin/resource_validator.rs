@@ -419,58 +419,55 @@ impl ResourceValidator {
         let mut creates_services = HashSet::new();
 
         for op in operations {
-            match op.operation_type {
-                super::resource_types::OperationType::Create => {
-                    match op.resource_type {
-                        ResourceType::Upstreams => {
-                            creates_upstreams.insert(&op.resource_id);
-                        }
-                        ResourceType::Services => {
-                            creates_services.insert(&op.resource_id);
-                            // Check if service references an upstream that will be created
-                            if let Some(data) = &op.data {
-                                if let Ok(service) = serde_json::from_value::<config::Service>(data.clone()) {
-                                    if let Some(ref upstream_id) = service.upstream_id {
-                                        if !creates_upstreams.contains(upstream_id) && UPSTREAM_MAP.get(upstream_id).is_none() {
-                                            errors.push(ValidationError {
-                                                field: format!("operations[{}].data.upstream_id", operations.iter().position(|x| x.resource_id == op.resource_id).unwrap()),
-                                                message: format!("Service references upstream '{}' which doesn't exist and isn't being created", upstream_id),
-                                                error_type: ValidationErrorType::MissingDependency,
-                                            });
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        ResourceType::Routes => {
-                            // Similar dependency checking for routes
-                            if let Some(data) = &op.data {
-                                if let Ok(route) = serde_json::from_value::<config::Route>(data.clone()) {
-                                    if let Some(ref upstream_id) = route.upstream_id {
-                                        if !creates_upstreams.contains(upstream_id) && UPSTREAM_MAP.get(upstream_id).is_none() {
-                                            errors.push(ValidationError {
-                                                field: format!("operations[{}].data.upstream_id", operations.iter().position(|x| x.resource_id == op.resource_id).unwrap()),
-                                                message: format!("Route references upstream '{}' which doesn't exist and isn't being created", upstream_id),
-                                                error_type: ValidationErrorType::MissingDependency,
-                                            });
-                                        }
-                                    }
-                                    if let Some(ref service_id) = route.service_id {
-                                        if !creates_services.contains(service_id) && SERVICE_MAP.get(service_id).is_none() {
-                                            errors.push(ValidationError {
-                                                field: format!("operations[{}].data.service_id", operations.iter().position(|x| x.resource_id == op.resource_id).unwrap()),
-                                                message: format!("Route references service '{}' which doesn't exist and isn't being created", service_id),
-                                                error_type: ValidationErrorType::MissingDependency,
-                                            });
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        _ => {}
+            if let super::resource_types::OperationType::Create = op.operation_type {
+                match op.resource_type {
+                    ResourceType::Upstreams => {
+                        creates_upstreams.insert(&op.resource_id);
                     }
+                    ResourceType::Services => {
+                        creates_services.insert(&op.resource_id);
+                        // Check if service references an upstream that will be created
+                        if let Some(data) = &op.data {
+                            if let Ok(service) = serde_json::from_value::<config::Service>(data.clone()) {
+                                if let Some(ref upstream_id) = service.upstream_id {
+                                    if !creates_upstreams.contains(upstream_id) && UPSTREAM_MAP.get(upstream_id).is_none() {
+                                        errors.push(ValidationError {
+                                            field: format!("operations[{}].data.upstream_id", operations.iter().position(|x| x.resource_id == op.resource_id).unwrap()),
+                                            message: format!("Service references upstream '{}' which doesn't exist and isn't being created", upstream_id),
+                                            error_type: ValidationErrorType::MissingDependency,
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    ResourceType::Routes => {
+                        // Similar dependency checking for routes
+                        if let Some(data) = &op.data {
+                            if let Ok(route) = serde_json::from_value::<config::Route>(data.clone()) {
+                                if let Some(ref upstream_id) = route.upstream_id {
+                                    if !creates_upstreams.contains(upstream_id) && UPSTREAM_MAP.get(upstream_id).is_none() {
+                                        errors.push(ValidationError {
+                                            field: format!("operations[{}].data.upstream_id", operations.iter().position(|x| x.resource_id == op.resource_id).unwrap()),
+                                            message: format!("Route references upstream '{}' which doesn't exist and isn't being created", upstream_id),
+                                            error_type: ValidationErrorType::MissingDependency,
+                                        });
+                                    }
+                                }
+                                if let Some(ref service_id) = route.service_id {
+                                    if !creates_services.contains(service_id) && SERVICE_MAP.get(service_id).is_none() {
+                                        errors.push(ValidationError {
+                                            field: format!("operations[{}].data.service_id", operations.iter().position(|x| x.resource_id == op.resource_id).unwrap()),
+                                            message: format!("Route references service '{}' which doesn't exist and isn't being created", service_id),
+                                            error_type: ValidationErrorType::MissingDependency,
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
                 }
-                _ => {}
             }
         }
 

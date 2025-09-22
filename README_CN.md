@@ -108,7 +108,7 @@ mcps:
 1. **mcps** - MCP服务列表
    - `id`: 服务唯一标识，用于生成访问路径(/api/{id}/sse 或 /api/{id}/mcp)
    - `upstream_id`: 关联的上游服务ID
-   - `path`: OpenAPI规范文件路径(本地或远程)
+   - `path`: OpenAPI 规范文件路径。支持本地文件（如 `config/openapi.json`）和远程 HTTP/HTTPS URL（如 `https://petstore.swagger.io/v2/swagger.json`），同时支持 JSON 与 YAML 格式。
    - `routes`: 自定义路由配置(可选)
    - `upstream`: 上游服务特定配置(可选)
 
@@ -258,7 +258,7 @@ MCP Access Point 现在支持通过 RESTful 管理 API 进行动态配置管理�
 ```yaml
 access_point:
   admin:
-    address: "127.0.0.1:9090"  # 管理 API 监听地址
+    address: "127.0.0.1:8081"  # 管理 API 监听地址
     api_key: "your-api-key"    # 可选的 API 密钥认证
 ```
 
@@ -276,6 +276,7 @@ access_point:
 - `POST /admin/validate/{type}/{id}` - 验证资源配置
 - `POST /admin/batch` - 执行批量操作
 - `POST /admin/reload/{type}` - 重载指定的资源类型
+- `POST /admin/reload/config` - 从配置文件重载全量配置（默认 `config.yaml`）。支持可选 JSON 请求体：`{ "config_path": "path/to/config.yaml" }`
 
 #### 支持的资源类型
 - `upstreams` - 后端服务器配置
@@ -289,7 +290,7 @@ access_point:
 
 #### 创建新的上游服务器
 ```bash
-curl -X POST http://localhost:9090/admin/resources/upstreams/my-upstream \
+curl -X POST http://localhost:8081/admin/resources/upstreams/my-upstream \
   -H "Content-Type: application/json" \
   -d '{
     "id": "my-upstream",
@@ -305,7 +306,7 @@ curl -X POST http://localhost:9090/admin/resources/upstreams/my-upstream \
 
 #### 创建服务
 ```bash
-curl -X POST http://localhost:9090/admin/resources/services/my-service \
+curl -X POST http://localhost:8081/admin/resources/services/my-service \
   -H "Content-Type: application/json" \
   -d '{
     "id": "my-service",
@@ -316,7 +317,7 @@ curl -X POST http://localhost:9090/admin/resources/services/my-service \
 
 #### 批量操作
 ```bash
-curl -X POST http://localhost:9090/admin/batch \
+curl -X POST http://localhost:8081/admin/batch \
   -H "Content-Type: application/json" \
   -d '{
     "dry_run": false,
@@ -346,7 +347,21 @@ curl -X POST http://localhost:9090/admin/batch \
 
 #### 获取资源统计
 ```bash
-curl http://localhost:9090/admin/resources
+curl http://localhost:8081/admin/resources
+```
+
+#### 从文件重载配置
+```bash
+# 使用默认的 config.yaml
+curl -X POST http://localhost:8081/admin/reload/config \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: your-api-key"
+
+# 或者指定不同的配置路径
+curl -X POST http://localhost:8081/admin/reload/config \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: your-api-key" \
+  -d '{"config_path": "./config.yaml"}'
 ```
 
 ### 测试管理 API
