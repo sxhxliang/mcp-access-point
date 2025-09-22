@@ -10,7 +10,7 @@ use crate::config::{CLIENT_MESSAGE_ENDPOINT, SERVER_WITH_AUTH};
 use crate::sse_event::SseEvent;
 use crate::utils;
 
-use super::mcp::MCPProxyService;
+use super::{mcp::MCPProxyService, constants::MCP_TENANT_ID};
 
 impl MCPProxyService {
     /// Handles Server-Sent Events (SSE) connection
@@ -48,7 +48,7 @@ impl MCPProxyService {
         }
 
         // Handle tenant ID if present
-        if let Some(tenant_id) = session.req_header_mut().remove_header("MCP_TENANT_ID") {
+        if let Some(tenant_id) = session.req_header_mut().remove_header(MCP_TENANT_ID) {
             match tenant_id.to_str() {
                 Ok(id) => {
                     log::debug!("tenant_id: {id}");

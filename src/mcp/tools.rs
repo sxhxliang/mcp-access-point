@@ -13,7 +13,7 @@ use crate::{
         mcp::{global_openapi_tools_fetch, mcp_service_fetch},
         route,
     },
-    service::mcp::MCPProxyService,
+    service::{mcp::MCPProxyService, constants::{MCP_TENANT_ID, NEW_BODY, NEW_BODY_LEN}},
     types::{CallToolResult, CallToolResultContentItem, ListToolsResult, RequestId, TextContent},
     utils::request::build_uri_with_path_and_query,
 };
@@ -103,7 +103,7 @@ pub async fn request_processing(
             log::debug!("params {params:?}");
             // match route_proxy
             // let route_meta_info = global_mcp_route_meta_info_fetch(&params.name);
-            let route_meta_info = match ctx.vars.get("MCP_TENANT_ID") {
+            let route_meta_info = match ctx.vars.get(MCP_TENANT_ID) {
                 Some(tenant_id) => {
                     log::debug!("tools/call--tenant_id {tenant_id:?}");
                     mcp_service_fetch(tenant_id)
@@ -208,8 +208,8 @@ fn extract_and_store_request_body(ctx: &mut crate::proxy::ProxyContext, route_me
                 log::info!("Extracted body for upstream: {}", String::from_utf8_lossy(&new_body_bytes));
             
                 // Store the extracted body in context for later use in request_body_filter
-                ctx.vars.insert("new_body".to_string(), String::from_utf8_lossy(&new_body_bytes).to_string());
-                ctx.vars.insert("new_body_len".to_string(), new_body_bytes.len().to_string());
+                ctx.vars.insert(NEW_BODY.to_string(), String::from_utf8_lossy(&new_body_bytes).to_string());
+                ctx.vars.insert(NEW_BODY_LEN.to_string(), new_body_bytes.len().to_string());
             
                 log::info!("Stored extracted body in context for method {method_str}");
             }
@@ -217,7 +217,7 @@ fn extract_and_store_request_body(ctx: &mut crate::proxy::ProxyContext, route_me
     } else {
         // For methods without body (GET, HEAD), ensure no body is sent
         log::info!("Method {method_str} does not support body - ensuring no body is sent");
-        ctx.vars.insert("new_body".to_string(), String::new());
-        ctx.vars.insert("new_body_len".to_string(), "0".to_string());
-    }
+        ctx.vars.insert(NEW_BODY.to_string(), String::new());
+        ctx.vars.insert(NEW_BODY_LEN.to_string(), "0".to_string());
+}
 }
