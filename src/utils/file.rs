@@ -3,8 +3,6 @@ use std::{fs, path::Path};
 use url::Url;
 
 use log::{error, info};
-use reqwest::blocking::Client;
-use serde_json::Value;
 
 pub fn read_from_local_or_remote(filename: &str) -> Result<(bool, String), String> {
     let is_url = Url::parse(filename);
@@ -12,29 +10,20 @@ pub fn read_from_local_or_remote(filename: &str) -> Result<(bool, String), Strin
     match is_url {
         Ok(_) => {
             info!("openapi file is a URL: {filename}");
-            let client = Client::new();
-            match client.get(filename).send() {
+            // Use a synchronous, non-Tokio HTTP client to avoid runtime conflicts
+            match ureq::get(filename).call() {
                 Ok(response) => {
-                    if response.status().is_success() {
-                        match response.json::<Value>() {
-                            Ok(openapi_data) => match serde_json::to_string(&openapi_data) {
-                                Ok(content) => Ok((true, content)),
-                                Err(e) => {
-                                    error!("Failed to serialize openapi data: {e}");
-                                    Err("Failed to serialize openapi data".to_string())
-                                }
-                            },
+                    if response.status() >= 200 && response.status() < 300 {
+                        match response.into_string() {
+                            Ok(body) => Ok((true, body)),
                             Err(e) => {
-                                error!("Failed to parse openapi file as JSON: {e}");
-                                Err("Failed to parse openapi file as JSON".to_string())
+                                error!("Failed to read HTTP response body: {e}");
+                                Err(format!("Failed to read HTTP response body: {e}"))
                             }
                         }
                     } else {
                         error!("HTTP request failed with status: {}", response.status());
-                        Err(format!(
-                            "HTTP request failed with status: {}",
-                            response.status()
-                        ))
+                        Err(format!("HTTP request failed with status: {}", response.status()))
                     }
                 }
                 Err(e) => {

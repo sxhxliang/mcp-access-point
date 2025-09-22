@@ -200,15 +200,12 @@ impl Drop for ProxyUpstream {
 
         // Ensure other resources like runtime are released
         if let Some(runtime) = self.runtime.take() {
-            // Get the runtime handle
-            let handler = runtime.get_handle().clone();
-
-            // Use handler to execute shutdown logic
-            handler.spawn_blocking(move || {
+            // Drop and shutdown the runtime on a plain OS thread to avoid
+            // dropping a Tokio runtime inside an async/blocking context.
+            std::thread::spawn(move || {
                 runtime.shutdown_timeout(Duration::from_secs(1));
+                info!("Runtime shutdown successfully.");
             });
-
-            info!("Runtime shutdown successfully.");
         }
     }
 }
