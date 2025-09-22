@@ -1,17 +1,14 @@
 use std::time::Duration;
 
-use async_stream::stream;
 use async_trait::async_trait;
-use bytes::{Bytes, BytesMut, BufMut};
-use futures::StreamExt;
+use bytes::Bytes;
 use http::{
-    header::{CACHE_CONTROL, CONTENT_ENCODING, CONTENT_LENGTH, CONTENT_TYPE},
+    header::{CONTENT_ENCODING, CONTENT_LENGTH, CONTENT_TYPE},
     StatusCode,
 };
 
 use pingora::{
     modules::http::{compression::ResponseCompressionBuilder, grpc_web::GrpcWeb, HttpModules},
-    protocols::http::compression::Algorithm,
     ErrorType,
 };
 use pingora_core::upstreams::peer::HttpPeer;
@@ -24,15 +21,17 @@ use tokio::sync::broadcast;
 use crate::{
     config::{
         CLIENT_MESSAGE_ENDPOINT, CLIENT_SSE_ENDPOINT, CLIENT_STREAMABLE_HTTP_ENDPOINT,
-        SERVER_WITH_AUTH,
     },
     jsonrpc::{create_json_rpc_response, JSONRPCRequest},
     plugin::ProxyPlugin,
     proxy::{global_rule::global_plugin_fetch, route::global_route_match_fetch, ProxyContext},
-    service::endpoint::{self, MCP_REQUEST_ID, MCP_SESSION_ID, MCP_STREAMABLE_HTTP},
+    service::{
+        body::{concat_body_bytes, decode_body, encode_body},
+        constants::{MCP_REQUEST_ID, MCP_SESSION_ID, MCP_STREAMABLE_HTTP},
+        endpoint::{self},
+    },
     sse_event::SseEvent,
     utils::{
-        self,
         request::{match_api_path, PathMatch, apply_chunked_encoding},
     },
 };
@@ -118,103 +117,7 @@ impl MCPProxyService {
             .await
     }
 
-    /// Handles Server-Sent Events (SSE) connection
-    ///
-    /// # Arguments
-    /// * `session` - The HTTP session to establish SSE connection
-    ///
-    /// # Returns
-    /// Result indicating success or failure
-    pub async fn response_sse(&self, session: &mut Session) -> Result<bool> {
-        // Build SSE headers
-        let mut resp = ResponseHeader::build(StatusCode::OK, Some(4))?;
-        resp.insert_header(CONTENT_TYPE, "text/event-stream")?;
-        resp.insert_header(CACHE_CONTROL, "no-cache")?;
-        session.write_response_header(Box::new(resp), false).await?;
-
-        // Generate unique session ID
-        let session_id = uuid::Uuid::new_v4().to_string();
-
-        // Build message URL with optional auth token
-        let message_url = self.build_sse_message_url(session, &session_id)?;
-
-        // Subscribe to event channel
-        let rx = self.tx.subscribe();
-
-        // Create and handle SSE stream
-        self.handle_sse_stream(session, &session_id, &message_url, rx)
-            .await
-    }
-
-    /// Builds SSE message URL with optional auth token
-    fn build_sse_message_url(&self, session: &mut Session, session_id: &str) -> Result<String> {
-        let mut base_url = String::new();
-        let mut query_params = format!("session_id={session_id}");
-
-        // Handle auth token if enabled
-        if SERVER_WITH_AUTH {
-            let parsed = utils::request::query_to_map(&session.req_header().uri);
-            if let Some(token) = parsed.get("token") {
-                query_params.push_str(&format!("&token={token}"));
-            }
-        }
-
-        // Handle tenant ID if present
-        if let Some(tenant_id) = session.req_header_mut().remove_header("MCP_TENANT_ID") {
-            match tenant_id.to_str() {
-                Ok(id) => {
-                    log::debug!("tenant_id: {id}");
-                    base_url.push_str(&format!("/api/{id}"));
-                }
-                Err(e) => {
-                    log::error!("MCP_TENANT_ID header contains invalid UTF-8: {e}");
-                    return Err(Error::new(ErrorType::InvalidHTTPHeader));
-                }
-            }
-        }
-
-        base_url.push_str(CLIENT_MESSAGE_ENDPOINT);
-        Ok(format!("{base_url}?{query_params}"))
-    }
-
-    /// Handles SSE event stream
-    async fn handle_sse_stream(
-        &self,
-        session: &mut Session,
-        session_id: &str,
-        message_url: &str,
-        mut rx: broadcast::Receiver<SseEvent>,
-    ) -> Result<bool> {
-        let body = stream! {
-            // Send initial connection event
-            let event = SseEvent::new_event(session_id, "endpoint", message_url);
-            yield event.to_bytes();
-
-            // Process incoming events
-            while let Ok(event) = rx.recv().await {
-                log::debug!("Received SSE event for session: {session_id}");
-                if event.session_id == session_id {
-                    yield event.to_bytes();
-                }
-            }
-        };
-
-        // Stream events to client
-        let mut body_stream = Box::pin(body);
-        while let Some(chunk) = body_stream.next().await {
-            session
-                .write_response_body(Some(chunk.into()), false)
-                .await
-                .map_err(|e| {
-                    log::error!(
-                        "[SSE] Failed to send event, session_id: {session_id:?}, error: {e}"
-                    );
-                    e
-                })?;
-        }
-
-        Ok(true)
-    }
+    // SSE handling functions are split into src/service/sse.rs
     /// Parses JSON-RPC request from session body
     pub async fn parse_json_rpc_request(&self, session: &mut Session) -> Result<JSONRPCRequest> {
         // Read request body
@@ -285,18 +188,7 @@ impl MCPProxyService {
     }
 }
 
-fn concat_body_bytes(parts: &[Bytes]) -> Bytes {
-    let mut total_len = 0;
-    for part in parts {
-        total_len += part.len();
-    }
-    
-    let mut buf = BytesMut::with_capacity(total_len);
-    for part in parts {
-        buf.put_slice(part);
-    }
-    buf.freeze()
-}
+// concat_body_bytes is provided by src/service/body.rs
 
 /// Implementation of ProxyHttp trait for MCPProxyService.
 /// This implementation handles the HTTP requests and responses.
@@ -751,36 +643,4 @@ impl ProxyHttp for MCPProxyService {
     }
 }
 
-/// Decodes response body based on content-encoding header
-fn decode_body(ctx: &<MCPProxyService as ProxyHttp>::CTX, body: &Option<Bytes>) -> Option<Bytes> {
-    match ctx.vars.get(CONTENT_ENCODING.as_str()) {
-        Some(content_encoding) => {
-            if let Some(b) = body {
-                if content_encoding.contains("gzip") {
-                    log::debug!("Decompressing GZIP body");
-                    let mut decompressor = Algorithm::Gzip.decompressor(true).unwrap();
-                    return decompressor.encode(b.as_ref(), true).ok();
-                }
-            }
-            body.clone()
-        }
-        None => body.clone(),
-    }
-}
-
-/// Encodes response body based on content-encoding header
-fn encode_body(ctx: &<MCPProxyService as ProxyHttp>::CTX, body: &Option<Bytes>) -> Option<Bytes> {
-    match ctx.vars.get(CONTENT_ENCODING.as_str()) {
-        Some(content_encoding) => {
-            if let Some(b) = body {
-                if content_encoding.contains("gzip") {
-                    log::debug!("Compressing GZIP body");
-                    let mut compressor = Algorithm::Gzip.compressor(5).unwrap();
-                    return compressor.encode(b.as_ref(), true).ok();
-                }
-            }
-            body.clone()
-        }
-        None => body.clone(),
-    }
-}
+// decode_body/encode_body are provided by src/service/body.rs

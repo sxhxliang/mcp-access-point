@@ -1,13 +1,7 @@
-use crate::{mcp, service::mcp::MCPProxyService, utils};
+use crate::{mcp, service::{mcp::MCPProxyService, constants::{MCP_STREAMABLE_HTTP, MCP_SESSION_ID, MCP_REQUEST_ID}}, utils};
 use pingora::Result;
 use pingora_proxy::{ProxyHttp, Session};
 
-/// Constant for identifying streamable HTTP requests in context variables
-pub const MCP_STREAMABLE_HTTP: &str = "streamable_http";
-/// Constant for storing session ID in HTTP headers
-pub const MCP_SESSION_ID: &str = "mcp-session-id";
-/// Constant for storing request ID in context variables
-pub const MCP_REQUEST_ID: &str = "mcp-request-id";
 /// Handles streamable HTTP endpoint requests (both GET and POST methods)
 /// GET: Establishes SSE stream connection
 /// POST: Processes initialization or resuming of a stream
