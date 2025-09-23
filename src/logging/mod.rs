@@ -21,9 +21,7 @@ pub struct AsyncWriter {
 impl Write for AsyncWriter {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let data = buf.to_vec();
-        self.sender
-            .send(data)
-            .map_err(io::Error::other)?;
+        self.sender.send(data).map_err(io::Error::other)?;
         Ok(buf.len())
     }
 

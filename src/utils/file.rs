@@ -23,7 +23,10 @@ pub fn read_from_local_or_remote(filename: &str) -> Result<(bool, String), Strin
                         }
                     } else {
                         error!("HTTP request failed with status: {}", response.status());
-                        Err(format!("HTTP request failed with status: {}", response.status()))
+                        Err(format!(
+                            "HTTP request failed with status: {}",
+                            response.status()
+                        ))
                     }
                 }
                 Err(e) => {

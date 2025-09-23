@@ -4,12 +4,8 @@ use validator::Validate;
 use crate::{
     config::{self, json_to_resource, Identifiable},
     proxy::{
-        global_rule::GLOBAL_RULE_MAP,
-        mcp::MCP_SERVICE_MAP,
-        route::ROUTE_MAP,
-        service::SERVICE_MAP,
-        ssl::SSL_MAP,
-        upstream::UPSTREAM_MAP,
+        global_rule::GLOBAL_RULE_MAP, mcp::MCP_SERVICE_MAP, route::ROUTE_MAP, service::SERVICE_MAP,
+        ssl::SSL_MAP, upstream::UPSTREAM_MAP,
     },
 };
 
@@ -35,7 +31,7 @@ impl ResourceValidator {
 
         // Basic JSON validation and type-specific validation
         match Self::validate_resource_format(resource_type, data) {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(err_msgs) => {
                 errors.extend(err_msgs.into_iter().map(|msg| ValidationError {
                     field: "format".to_string(),
@@ -72,9 +68,7 @@ impl ResourceValidator {
             ResourceType::Upstreams => {
                 let upstream = json_to_resource::<config::Upstream>(data)
                     .map_err(|e| vec![format!("Invalid JSON: {e}")])?;
-                upstream
-                    .validate()
-                    .map_err(|e| vec![e.to_string()])?;
+                upstream.validate().map_err(|e| vec![e.to_string()])?;
 
                 // Additional validation for upstreams
                 if upstream.nodes.is_empty() {
@@ -85,9 +79,7 @@ impl ResourceValidator {
             ResourceType::Services => {
                 let service = json_to_resource::<config::Service>(data)
                     .map_err(|e| vec![format!("Invalid JSON: {e}")])?;
-                service
-                    .validate()
-                    .map_err(|e| vec![e.to_string()])?;
+                service.validate().map_err(|e| vec![e.to_string()])?;
                 service
                     .validate_plugins()
                     .map_err(|e| vec![e.to_string()])?;
@@ -96,21 +88,15 @@ impl ResourceValidator {
             ResourceType::GlobalRules => {
                 let rule = json_to_resource::<config::GlobalRule>(data)
                     .map_err(|e| vec![format!("Invalid JSON: {e}")])?;
-                rule.validate()
-                    .map_err(|e| vec![e.to_string()])?;
-                rule.validate_plugins()
-                    .map_err(|e| vec![e.to_string()])?;
+                rule.validate().map_err(|e| vec![e.to_string()])?;
+                rule.validate_plugins().map_err(|e| vec![e.to_string()])?;
                 Ok(())
             }
             ResourceType::Routes => {
                 let route = json_to_resource::<config::Route>(data)
                     .map_err(|e| vec![format!("Invalid JSON: {e}")])?;
-                route
-                    .validate()
-                    .map_err(|e| vec![e.to_string()])?;
-                route
-                    .validate_plugins()
-                    .map_err(|e| vec![e.to_string()])?;
+                route.validate().map_err(|e| vec![e.to_string()])?;
+                route.validate_plugins().map_err(|e| vec![e.to_string()])?;
                 Ok(())
             }
             ResourceType::McpServices => {
@@ -126,8 +112,7 @@ impl ResourceValidator {
             ResourceType::Ssls => {
                 let ssl = json_to_resource::<config::SSL>(data)
                     .map_err(|e| vec![format!("Invalid JSON: {e}")])?;
-                ssl.validate()
-                    .map_err(|e| vec![e.to_string()])?;
+                ssl.validate().map_err(|e| vec![e.to_string()])?;
                 Ok(())
             }
         }
@@ -143,8 +128,8 @@ impl ResourceValidator {
 
         match resource_type {
             ResourceType::Services => {
-                let service = json_to_resource::<config::Service>(data)
-                    .map_err(|e| ValidationError {
+                let service =
+                    json_to_resource::<config::Service>(data).map_err(|e| ValidationError {
                         field: "service".to_string(),
                         message: format!("Failed to parse service: {e}"),
                         error_type: ValidationErrorType::InvalidFormat,
@@ -162,8 +147,8 @@ impl ResourceValidator {
                 }
             }
             ResourceType::Routes => {
-                let route = json_to_resource::<config::Route>(data)
-                    .map_err(|e| ValidationError {
+                let route =
+                    json_to_resource::<config::Route>(data).map_err(|e| ValidationError {
                         field: "route".to_string(),
                         message: format!("Failed to parse route: {e}"),
                         error_type: ValidationErrorType::InvalidFormat,
@@ -200,8 +185,8 @@ impl ResourceValidator {
                 }
             }
             ResourceType::McpServices => {
-                let mcp_service = json_to_resource::<config::MCPService>(data)
-                    .map_err(|e| ValidationError {
+                let mcp_service =
+                    json_to_resource::<config::MCPService>(data).map_err(|e| ValidationError {
                         field: "mcp_service".to_string(),
                         message: format!("Failed to parse MCP service: {e}"),
                         error_type: ValidationErrorType::InvalidFormat,
@@ -238,10 +223,7 @@ impl ResourceValidator {
     }
 
     /// Validate deletion of a resource (check if it's referenced by other resources)
-    pub fn validate_deletion(
-        resource_type: ResourceType,
-        resource_id: &str,
-    ) -> ValidationResult {
+    pub fn validate_deletion(resource_type: ResourceType, resource_id: &str) -> ValidationResult {
         let mut errors = Vec::new();
         let mut warnings = Vec::new();
 
@@ -428,9 +410,13 @@ impl ResourceValidator {
                         creates_services.insert(&op.resource_id);
                         // Check if service references an upstream that will be created
                         if let Some(data) = &op.data {
-                            if let Ok(service) = serde_json::from_value::<config::Service>(data.clone()) {
+                            if let Ok(service) =
+                                serde_json::from_value::<config::Service>(data.clone())
+                            {
                                 if let Some(ref upstream_id) = service.upstream_id {
-                                    if !creates_upstreams.contains(upstream_id) && UPSTREAM_MAP.get(upstream_id).is_none() {
+                                    if !creates_upstreams.contains(upstream_id)
+                                        && UPSTREAM_MAP.get(upstream_id).is_none()
+                                    {
                                         errors.push(ValidationError {
                                             field: format!("operations[{}].data.upstream_id", operations.iter().position(|x| x.resource_id == op.resource_id).unwrap()),
                                             message: format!("Service references upstream '{}' which doesn't exist and isn't being created", upstream_id),
@@ -444,9 +430,12 @@ impl ResourceValidator {
                     ResourceType::Routes => {
                         // Similar dependency checking for routes
                         if let Some(data) = &op.data {
-                            if let Ok(route) = serde_json::from_value::<config::Route>(data.clone()) {
+                            if let Ok(route) = serde_json::from_value::<config::Route>(data.clone())
+                            {
                                 if let Some(ref upstream_id) = route.upstream_id {
-                                    if !creates_upstreams.contains(upstream_id) && UPSTREAM_MAP.get(upstream_id).is_none() {
+                                    if !creates_upstreams.contains(upstream_id)
+                                        && UPSTREAM_MAP.get(upstream_id).is_none()
+                                    {
                                         errors.push(ValidationError {
                                             field: format!("operations[{}].data.upstream_id", operations.iter().position(|x| x.resource_id == op.resource_id).unwrap()),
                                             message: format!("Route references upstream '{}' which doesn't exist and isn't being created", upstream_id),
@@ -455,7 +444,9 @@ impl ResourceValidator {
                                     }
                                 }
                                 if let Some(ref service_id) = route.service_id {
-                                    if !creates_services.contains(service_id) && SERVICE_MAP.get(service_id).is_none() {
+                                    if !creates_services.contains(service_id)
+                                        && SERVICE_MAP.get(service_id).is_none()
+                                    {
                                         errors.push(ValidationError {
                                             field: format!("operations[{}].data.service_id", operations.iter().position(|x| x.resource_id == op.resource_id).unwrap()),
                                             message: format!("Route references service '{}' which doesn't exist and isn't being created", service_id),
@@ -489,14 +480,14 @@ mod tests {
     fn test_validate_upstream() {
         let mut nodes: HashMap<String, u32> = HashMap::new();
         nodes.insert("127.0.0.1:8080".to_string(), 1);
-        let upstream = Upstream { id: "test".to_string(), nodes, ..Default::default() };
+        let upstream = Upstream {
+            id: "test".to_string(),
+            nodes,
+            ..Default::default()
+        };
 
         let data = serde_json::to_vec(&upstream).unwrap();
-        let result = ResourceValidator::validate_resource(
-            ResourceType::Upstreams,
-            "test",
-            &data,
-        );
+        let result = ResourceValidator::validate_resource(ResourceType::Upstreams, "test", &data);
 
         assert!(result.valid);
         assert!(result.errors.is_empty());
@@ -504,14 +495,14 @@ mod tests {
 
     #[test]
     fn test_validate_empty_upstream_nodes() {
-        let upstream = Upstream { id: "test".to_string(), nodes: HashMap::new(), ..Default::default() };
+        let upstream = Upstream {
+            id: "test".to_string(),
+            nodes: HashMap::new(),
+            ..Default::default()
+        };
 
         let data = serde_json::to_vec(&upstream).unwrap();
-        let result = ResourceValidator::validate_resource(
-            ResourceType::Upstreams,
-            "test",
-            &data,
-        );
+        let result = ResourceValidator::validate_resource(ResourceType::Upstreams, "test", &data);
 
         assert!(!result.valid);
         assert!(!result.errors.is_empty());

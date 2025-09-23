@@ -18,9 +18,7 @@ use tokio::sync::{Mutex, RwLock};
 
 use super::{
     resource_manager::ResourceManager,
-    resource_types::{
-        BatchOperationRequest, ResourceType,
-    },
+    resource_types::{BatchOperationRequest, ResourceType},
 };
 use crate::config::{Admin, Config, EtcdClientWrapper};
 
@@ -79,7 +77,8 @@ impl ResponseHelper {
             success: false,
             message: message.to_string(),
         };
-        let body = serde_json::to_vec(&error_response).unwrap_or_else(|_| message.as_bytes().to_vec());
+        let body =
+            serde_json::to_vec(&error_response).unwrap_or_else(|_| message.as_bytes().to_vec());
 
         Response::builder()
             .status(status)
@@ -91,7 +90,10 @@ impl ResponseHelper {
     pub fn json_response<T: Serialize>(data: T) -> Response<Vec<u8>> {
         match serde_json::to_vec(&data) {
             Ok(body) => Self::success(body, Some("application/json")),
-            Err(e) => Self::error(StatusCode::INTERNAL_SERVER_ERROR, &format!("Failed to serialize response: {e}"))
+            Err(e) => Self::error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                &format!("Failed to serialize response: {e}"),
+            ),
         }
     }
 }
@@ -155,7 +157,8 @@ async fn get_resources_summary(req: RequestDataEnhanced) -> Result<Response<Vec<
 
 // Handler for listing resources of a specific type
 async fn list_resources_by_type(req: RequestDataEnhanced) -> Result<Response<Vec<u8>>, String> {
-    let resource_type_str = req.params
+    let resource_type_str = req
+        .params
         .get("type")
         .ok_or_else(|| "Missing resource type parameter".to_string())?;
 
@@ -168,20 +171,28 @@ async fn list_resources_by_type(req: RequestDataEnhanced) -> Result<Response<Vec
 
 // Handler for getting a specific resource
 async fn get_resource(req: RequestDataEnhanced) -> Result<Response<Vec<u8>>, String> {
-    let resource_type_str = req.params
+    let resource_type_str = req
+        .params
         .get("type")
         .ok_or_else(|| "Missing resource type parameter".to_string())?;
 
-    let resource_id = req.params
+    let resource_id = req
+        .params
         .get("id")
         .ok_or_else(|| "Missing resource id parameter".to_string())?;
 
     let resource_type = ResourceType::from_str(resource_type_str)
         .ok_or_else(|| format!("Invalid resource type: {resource_type_str}"))?;
 
-    match req.resource_manager.get_resource(resource_type, resource_id) {
+    match req
+        .resource_manager
+        .get_resource(resource_type, resource_id)
+    {
         Some(resource) => Ok(ResponseHelper::json_response(resource)),
-        None => Ok(ResponseHelper::error(StatusCode::NOT_FOUND, &format!("Resource not found: {resource_id}"))),
+        None => Ok(ResponseHelper::error(
+            StatusCode::NOT_FOUND,
+            &format!("Resource not found: {resource_id}"),
+        )),
     }
 }
 
@@ -189,25 +200,31 @@ async fn get_resource(req: RequestDataEnhanced) -> Result<Response<Vec<u8>>, Str
 async fn create_resource(req: RequestDataEnhanced) -> Result<Response<Vec<u8>>, String> {
     validate_content_type(&req)?;
 
-    let resource_type_str = req.params
+    let resource_type_str = req
+        .params
         .get("type")
         .ok_or_else(|| "Missing resource type parameter".to_string())?;
 
-    let resource_id = req.params
+    let resource_id = req
+        .params
         .get("id")
         .ok_or_else(|| "Missing resource id parameter".to_string())?;
 
     let resource_type = ResourceType::from_str(resource_type_str)
         .ok_or_else(|| format!("Invalid resource type: {resource_type_str}"))?;
 
-    let result = req.resource_manager
+    let result = req
+        .resource_manager
         .create_resource(resource_type, resource_id.clone(), &req.body_data)
         .await?;
 
     if result.success {
         Ok(ResponseHelper::json_response(result))
     } else {
-        Ok(ResponseHelper::error(StatusCode::BAD_REQUEST, &result.message))
+        Ok(ResponseHelper::error(
+            StatusCode::BAD_REQUEST,
+            &result.message,
+        ))
     }
 }
 
@@ -215,49 +232,61 @@ async fn create_resource(req: RequestDataEnhanced) -> Result<Response<Vec<u8>>, 
 async fn update_resource(req: RequestDataEnhanced) -> Result<Response<Vec<u8>>, String> {
     validate_content_type(&req)?;
 
-    let resource_type_str = req.params
+    let resource_type_str = req
+        .params
         .get("type")
         .ok_or_else(|| "Missing resource type parameter".to_string())?;
 
-    let resource_id = req.params
+    let resource_id = req
+        .params
         .get("id")
         .ok_or_else(|| "Missing resource id parameter".to_string())?;
 
     let resource_type = ResourceType::from_str(resource_type_str)
         .ok_or_else(|| format!("Invalid resource type: {resource_type_str}"))?;
 
-    let result = req.resource_manager
+    let result = req
+        .resource_manager
         .update_resource(resource_type, resource_id.clone(), &req.body_data)
         .await?;
 
     if result.success {
         Ok(ResponseHelper::json_response(result))
     } else {
-        Ok(ResponseHelper::error(StatusCode::BAD_REQUEST, &result.message))
+        Ok(ResponseHelper::error(
+            StatusCode::BAD_REQUEST,
+            &result.message,
+        ))
     }
 }
 
 // Handler for deleting a resource
 async fn delete_resource(req: RequestDataEnhanced) -> Result<Response<Vec<u8>>, String> {
-    let resource_type_str = req.params
+    let resource_type_str = req
+        .params
         .get("type")
         .ok_or_else(|| "Missing resource type parameter".to_string())?;
 
-    let resource_id = req.params
+    let resource_id = req
+        .params
         .get("id")
         .ok_or_else(|| "Missing resource id parameter".to_string())?;
 
     let resource_type = ResourceType::from_str(resource_type_str)
         .ok_or_else(|| format!("Invalid resource type: {resource_type_str}"))?;
 
-    let result = req.resource_manager
+    let result = req
+        .resource_manager
         .delete_resource(resource_type, resource_id.clone())
         .await?;
 
     if result.success {
         Ok(ResponseHelper::json_response(result))
     } else {
-        Ok(ResponseHelper::error(StatusCode::BAD_REQUEST, &result.message))
+        Ok(ResponseHelper::error(
+            StatusCode::BAD_REQUEST,
+            &result.message,
+        ))
     }
 }
 
@@ -265,19 +294,22 @@ async fn delete_resource(req: RequestDataEnhanced) -> Result<Response<Vec<u8>>, 
 async fn validate_resource(req: RequestDataEnhanced) -> Result<Response<Vec<u8>>, String> {
     validate_content_type(&req)?;
 
-    let resource_type_str = req.params
+    let resource_type_str = req
+        .params
         .get("type")
         .ok_or_else(|| "Missing resource type parameter".to_string())?;
 
-    let resource_id = req.params
+    let resource_id = req
+        .params
         .get("id")
         .ok_or_else(|| "Missing resource id parameter".to_string())?;
 
     let resource_type = ResourceType::from_str(resource_type_str)
         .ok_or_else(|| format!("Invalid resource type: {resource_type_str}"))?;
 
-    let validation_result = req.resource_manager
-        .validate_resource(resource_type, resource_id, &req.body_data);
+    let validation_result =
+        req.resource_manager
+            .validate_resource(resource_type, resource_id, &req.body_data);
 
     Ok(ResponseHelper::json_response(validation_result))
 }
@@ -289,27 +321,33 @@ async fn batch_operations(req: RequestDataEnhanced) -> Result<Response<Vec<u8>>,
     let batch_request: BatchOperationRequest = serde_json::from_slice(&req.body_data)
         .map_err(|e| format!("Invalid batch request: {e}"))?;
 
-    let result = req.resource_manager
+    let result = req
+        .resource_manager
         .execute_batch_operations(batch_request)
         .await?;
 
     if result.success {
         Ok(ResponseHelper::json_response(result))
     } else {
-        Ok(ResponseHelper::error(StatusCode::BAD_REQUEST, &result.summary))
+        Ok(ResponseHelper::error(
+            StatusCode::BAD_REQUEST,
+            &result.summary,
+        ))
     }
 }
 
 // Handler for reloading a resource type
 async fn reload_resource_type(req: RequestDataEnhanced) -> Result<Response<Vec<u8>>, String> {
-    let resource_type_str = req.params
+    let resource_type_str = req
+        .params
         .get("type")
         .ok_or_else(|| "Missing resource type parameter".to_string())?;
 
     let resource_type = ResourceType::from_str(resource_type_str)
         .ok_or_else(|| format!("Invalid resource type: {resource_type_str}"))?;
 
-    let result = req.resource_manager
+    let result = req
+        .resource_manager
         .reload_resource_type(resource_type)
         .await?;
 
@@ -334,7 +372,8 @@ async fn reload_config_from_file(req: RequestDataEnhanced) -> Result<Response<Ve
         "config.yaml".to_string()
     };
 
-    let result = req.resource_manager
+    let result = req
+        .resource_manager
         .reload_config_from_file(&config_path)
         .await?;
 
@@ -361,14 +400,21 @@ impl AdminHttpApp {
     /// Create new enhanced admin app
     pub fn new(config: &Config, config_ref: Option<Arc<RwLock<Config>>>) -> Self {
         let resource_manager = if let Some(config_ref) = config_ref {
-            Arc::new(ResourceManager::new_with_config(config.pingora.work_stealing, config_ref))
+            Arc::new(ResourceManager::new_with_config(
+                config.pingora.work_stealing,
+                config_ref,
+            ))
         } else {
             Arc::new(ResourceManager::new(config.pingora.work_stealing))
         };
 
         let mut this = Self {
             config: config.access_point.admin.clone().unwrap_or_default(),
-            etcd: config.access_point.etcd.as_ref().map(|e| EtcdClientWrapper::new(e.clone())),
+            etcd: config
+                .access_point
+                .etcd
+                .as_ref()
+                .map(|e| EtcdClientWrapper::new(e.clone())),
             resource_manager,
             router: Router::new(),
         };
@@ -474,7 +520,10 @@ impl AdminHttpApp {
     }
 
     /// Create admin http service with config reloading support
-    pub fn admin_http_service_with_config_reload(cfg: &Config, config_ref: Arc<RwLock<Config>>) -> Service<AdminHttpApp> {
+    pub fn admin_http_service_with_config_reload(
+        cfg: &Config,
+        config_ref: Arc<RwLock<Config>>,
+    ) -> Service<AdminHttpApp> {
         let app = AdminHttpApp::new(cfg, Some(config_ref));
         Self::create_service(app)
     }

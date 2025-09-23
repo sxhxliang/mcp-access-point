@@ -19,21 +19,20 @@ use pingora_proxy::{ProxyHttp, Session};
 use tokio::sync::broadcast;
 
 use crate::{
-    config::{
-        CLIENT_MESSAGE_ENDPOINT, CLIENT_SSE_ENDPOINT, CLIENT_STREAMABLE_HTTP_ENDPOINT,
-    },
+    config::{CLIENT_MESSAGE_ENDPOINT, CLIENT_SSE_ENDPOINT, CLIENT_STREAMABLE_HTTP_ENDPOINT},
     jsonrpc::{create_json_rpc_response, JSONRPCRequest},
     plugin::ProxyPlugin,
     proxy::{global_rule::global_plugin_fetch, route::global_route_match_fetch, ProxyContext},
     service::{
         body::{concat_body_bytes, decode_body, encode_body},
-        constants::{MCP_REQUEST_ID, MCP_SESSION_ID, MCP_STREAMABLE_HTTP, MCP_TENANT_ID, NEW_BODY, NEW_BODY_LEN},
+        constants::{
+            MCP_REQUEST_ID, MCP_SESSION_ID, MCP_STREAMABLE_HTTP, MCP_TENANT_ID, NEW_BODY,
+            NEW_BODY_LEN,
+        },
         endpoint::{self},
     },
     sse_event::SseEvent,
-    utils::{
-        request::{match_api_path, PathMatch, apply_chunked_encoding},
-    },
+    utils::request::{apply_chunked_encoding, match_api_path, PathMatch},
 };
 
 // Strategy for handling upstream response body
@@ -76,7 +75,9 @@ impl MCPProxyService {
             let path = uri.path();
             if !is_known_mcp_path(path) {
                 log::warn!("Route not found for path: {path}");
-                session.respond_error(StatusCode::NOT_FOUND.as_u16()).await?;
+                session
+                    .respond_error(StatusCode::NOT_FOUND.as_u16())
+                    .await?;
                 return Ok(true);
             }
         }
@@ -303,7 +304,9 @@ impl ProxyHttp for MCPProxyService {
 
     /// Filters incoming requests
     async fn request_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> Result<bool> {
-        if self.ensure_known_route_or_404(session, ctx).await? { return Ok(true); }
+        if self.ensure_known_route_or_404(session, ctx).await? {
+            return Ok(true);
+        }
 
         // execute global rule plugins
         if ctx
@@ -326,7 +329,9 @@ impl ProxyHttp for MCPProxyService {
         );
         let path = session.req_header().uri.path().to_string();
         // Dispatch to MCP endpoints when matched; otherwise continue upstream
-        return self.dispatch_mcp_endpoints(ctx, session, path.as_str()).await;
+        return self
+            .dispatch_mcp_endpoints(ctx, session, path.as_str())
+            .await;
     }
 
     /// Selects an upstream peer for the request
@@ -367,13 +372,12 @@ impl ProxyHttp for MCPProxyService {
         end_of_stream: bool,
         ctx: &mut Self::CTX,
     ) -> Result<()> {
-
         // Replace the body with the new body from ctx.vars[NEW_BODY] if present
         if let Some(new_body) = ctx.vars.get(NEW_BODY) {
             let bytes = Bytes::from(new_body.clone());
             *body = Some(bytes);
         }
-           
+
         Ok(())
     }
 
@@ -387,7 +391,8 @@ impl ProxyHttp for MCPProxyService {
         upstream_request: &mut RequestHeader,
         ctx: &mut Self::CTX,
     ) -> Result<()> {
-        self.apply_upstream_request_plugins(session, upstream_request, ctx).await?;
+        self.apply_upstream_request_plugins(session, upstream_request, ctx)
+            .await?;
         self.apply_upstream_header_rewrites(upstream_request, ctx);
         self.insert_headers_from_route_config(upstream_request, ctx)?;
         self.set_content_length_from_ctx(upstream_request, ctx)?;
@@ -405,7 +410,11 @@ impl ProxyHttp for MCPProxyService {
         if ctx.vars.contains_key(MCP_STREAMABLE_HTTP) {
             // todo add support for content-type
             if let Some(content_type) = upstream_response.headers.get(CONTENT_TYPE) {
-                if content_type.to_str().map(|s| s != "application/json").unwrap_or(true) {
+                if content_type
+                    .to_str()
+                    .map(|s| s != "application/json")
+                    .unwrap_or(true)
+                {
                     log::warn!(
                         "upstream service response content-type is {:?} ,not \"application/json\"",
                         content_type.to_str().unwrap_or("<invalid>")
@@ -467,14 +476,20 @@ impl ProxyHttp for MCPProxyService {
             }
             BodyHandlingStrategy::DropAndAccept => {
                 // 丢弃：不缓存上游响应体，仅在结束时返回 202 Accepted。
-                if let Some(b) = body { b.clear(); }
-                if end_of_stream { *body = Some(Bytes::from("Accepted")); }
+                if let Some(b) = body {
+                    b.clear();
+                }
+                if end_of_stream {
+                    *body = Some(Bytes::from("Accepted"));
+                }
                 return Ok(());
             }
             BodyHandlingStrategy::Aggregate => {
                 // 聚合：维持现有 JSON-RPC 打包流程，仅在结束时组装。
                 self.buffer_body_chunk(body, ctx);
-                if end_of_stream { self.process_end_of_stream(ctx, body, end_of_stream); }
+                if end_of_stream {
+                    self.process_end_of_stream(ctx, body, end_of_stream);
+                }
             }
         }
         Ok(())
@@ -557,7 +572,8 @@ fn record_content_encoding(ctx: &mut ProxyContext, upstream_response: &ResponseH
         log::debug!("Content-Encoding: {:?}", encoding.to_str());
         log::debug!("upstream_response.headers: {:?}", upstream_response.headers);
         if let Ok(enc) = encoding.to_str() {
-            ctx.vars.insert(CONTENT_ENCODING.to_string(), enc.to_string());
+            ctx.vars
+                .insert(CONTENT_ENCODING.to_string(), enc.to_string());
         }
     }
 }
@@ -576,8 +592,11 @@ fn rebuild_response_header(upstream_response: &ResponseHeader) -> Result<Respons
 // decode_body/encode_body are provided by src/service/body.rs
 
 fn set_tenant_context(ctx: &mut ProxyContext, session: &mut Session, tenant_id: String) {
-    ctx.vars.insert(MCP_TENANT_ID.to_string(), tenant_id.clone());
-    let _ = session.req_header_mut().insert_header(MCP_TENANT_ID, tenant_id);
+    ctx.vars
+        .insert(MCP_TENANT_ID.to_string(), tenant_id.clone());
+    let _ = session
+        .req_header_mut()
+        .insert_header(MCP_TENANT_ID, tenant_id);
 }
 
 // Request/response small helpers

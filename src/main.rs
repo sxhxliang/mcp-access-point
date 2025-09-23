@@ -33,7 +33,10 @@ fn main() {
     // std::env::set_var("RUST_LOG", "info,pingora_core=warn");
     // std::env::set_var("RUST_LOG", "debug");
     let log_level = std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string());
-    std::env::set_var("RUST_LOG", format!("{log_level},pingora_core=warn, pingora_proxy=warn"));
+    std::env::set_var(
+        "RUST_LOG",
+        format!("{log_level},pingora_core=warn, pingora_proxy=warn"),
+    );
 
     let cli_options = Opt::parse_args();
     let config =
@@ -73,7 +76,9 @@ fn main() {
     // 如需支持配置重新加载，需要从配置文件路径重新加载
     let admin_service = if config.access_point.admin.is_some() {
         log::info!("Creating Admin Service (Enhanced)...");
-        log::warn!("Config reload from memory not supported. Use config file reload endpoint instead.");
+        log::warn!(
+            "Config reload from memory not supported. Use config file reload endpoint instead."
+        );
         Some(AdminHttpApp::admin_http_service(&config))
     } else {
         None
@@ -99,7 +104,6 @@ fn main() {
         log::info!("Adding Admin Service (Enhanced)...");
         access_point_server.add_service(admin_service);
     }
-
 
     let (tx, _) = broadcast::channel(16);
 
@@ -136,9 +140,8 @@ fn main() {
             log::info!("-------->HTTP Endpoint: {addr}/api/{id}/mcp");
             log::info!("-------->SSE  Endpoint: {addr}/api/{id}/sse");
         });
-
     }
-    
+
     access_point_server.run_forever();
 }
 

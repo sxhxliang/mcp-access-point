@@ -13,8 +13,10 @@ pub fn convert_openapi_path_to_name(method: &str, path: &str) -> String {
     .iter()
     .cloned()
     .collect();
-    
-    let action = method_mapping.get(method.trim().to_lowercase().as_str()).unwrap_or(&method);
+
+    let action = method_mapping
+        .get(method.trim().to_lowercase().as_str())
+        .unwrap_or(&method);
 
     let mut segments = Vec::new();
     for segment in path.trim().split('/').filter(|s| !s.is_empty()) {
@@ -41,22 +43,34 @@ mod tests {
 
     #[test]
     fn test_get_with_path_and_param() {
-        assert_eq!(convert_openapi_path_to_name("get", "/users/{id}"), "get_users_by_id");
+        assert_eq!(
+            convert_openapi_path_to_name("get", "/users/{id}"),
+            "get_users_by_id"
+        );
     }
 
     #[test]
     fn test_post_with_path() {
-        assert_eq!(convert_openapi_path_to_name("post", "/users"), "create_users");
+        assert_eq!(
+            convert_openapi_path_to_name("post", "/users"),
+            "create_users"
+        );
     }
 
     #[test]
     fn test_put_with_path_and_param() {
-        assert_eq!(convert_openapi_path_to_name("put", "/users/{id}"), "update_users_by_id");
+        assert_eq!(
+            convert_openapi_path_to_name("put", "/users/{id}"),
+            "update_users_by_id"
+        );
     }
 
     #[test]
     fn test_delete_with_path_and_param() {
-        assert_eq!(convert_openapi_path_to_name("delete", "/users/{id}"), "delete_users_by_id");
+        assert_eq!(
+            convert_openapi_path_to_name("delete", "/users/{id}"),
+            "delete_users_by_id"
+        );
     }
 
     #[test]
@@ -74,7 +88,10 @@ mod tests {
 
     #[test]
     fn test_custom_method() {
-        assert_eq!(convert_openapi_path_to_name("custom", "/test"), "custom_test");
+        assert_eq!(
+            convert_openapi_path_to_name("custom", "/test"),
+            "custom_test"
+        );
     }
 
     #[test]

@@ -10,7 +10,7 @@ use crate::config::{CLIENT_MESSAGE_ENDPOINT, SERVER_WITH_AUTH};
 use crate::sse_event::SseEvent;
 use crate::utils;
 
-use super::{mcp::MCPProxyService, constants::MCP_TENANT_ID};
+use super::{constants::MCP_TENANT_ID, mcp::MCPProxyService};
 
 impl MCPProxyService {
     /// Handles Server-Sent Events (SSE) connection
@@ -31,7 +31,8 @@ impl MCPProxyService {
         let rx = self.tx.subscribe();
 
         // Create and handle SSE stream
-        self.handle_sse_stream(session, &session_id, &message_url, rx).await
+        self.handle_sse_stream(session, &session_id, &message_url, rx)
+            .await
     }
 
     /// Builds SSE message URL with optional auth token
@@ -56,7 +57,9 @@ impl MCPProxyService {
                 }
                 Err(e) => {
                     log::error!("MCP_TENANT_ID header contains invalid UTF-8: {e}");
-                    return Err(pingora_error::Error::new(pingora::ErrorType::InvalidHTTPHeader));
+                    return Err(pingora_error::Error::new(
+                        pingora::ErrorType::InvalidHTTPHeader,
+                    ));
                 }
             }
         }

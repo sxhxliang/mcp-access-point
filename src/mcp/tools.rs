@@ -13,7 +13,10 @@ use crate::{
         mcp::{global_openapi_tools_fetch, mcp_service_fetch},
         route,
     },
-    service::{mcp::MCPProxyService, constants::{MCP_TENANT_ID, NEW_BODY, NEW_BODY_LEN}},
+    service::{
+        constants::{MCP_TENANT_ID, NEW_BODY, NEW_BODY_LEN},
+        mcp::MCPProxyService,
+    },
     types::{CallToolResult, CallToolResultContentItem, ListToolsResult, RequestId, TextContent},
     utils::request::{build_uri_with_path_and_query, flatten_json},
 };
@@ -128,8 +131,15 @@ pub async fn request_processing(
                     let mut flattened_params = HashMap::new();
                     flatten_json("", arguments, &mut flattened_params);
 
-                    log::debug!("Building URL with path and query params: {} with {:?}", route_meta_info.uri().path(), arguments);
-                    let path_and_query = build_uri_with_path_and_query(route_meta_info.uri().path(), &flattened_params);
+                    log::debug!(
+                        "Building URL with path and query params: {} with {:?}",
+                        route_meta_info.uri().path(),
+                        arguments
+                    );
+                    let path_and_query = build_uri_with_path_and_query(
+                        route_meta_info.uri().path(),
+                        &flattened_params,
+                    );
                     log::debug!("new_path_and_query {path_and_query:?}");
 
                     // add headers from upstream config
@@ -164,7 +174,7 @@ pub async fn request_processing(
                     session
                         .req_header_mut()
                         .set_uri(Uri::from_str(&path_and_query).unwrap());
-                    
+
                     extract_and_store_request_body(ctx, route_meta_info, arguments);
 
                     Ok(false)
@@ -198,24 +208,39 @@ pub async fn request_processing(
     // Ok(false)
 }
 
-fn extract_and_store_request_body(ctx: &mut crate::proxy::ProxyContext, route_meta_info: Arc<config::MCPRouteMetaInfo>, arguments: &serde_json::Value) {
+fn extract_and_store_request_body(
+    ctx: &mut crate::proxy::ProxyContext,
+    route_meta_info: Arc<config::MCPRouteMetaInfo>,
+    arguments: &serde_json::Value,
+) {
     // Extract and store the proper body for methods that support it
     let method = route_meta_info.method().clone();
     let method_str = method.as_str();
     let methods_with_body = ["POST", "PUT", "PATCH", "DELETE", "OPTIONS"];
-                    
+
     if methods_with_body.contains(&method_str) {
         log::info!("Method {method_str} supports body - extracting from JSON-RPC arguments");
-    
+
         // We already have the arguments from the tool call
-        if let Some(body_value) = arguments.get("body").cloned().or_else(|| Some(arguments.clone())) {
+        if let Some(body_value) = arguments
+            .get("body")
+            .cloned()
+            .or_else(|| Some(arguments.clone()))
+        {
             if let Ok(new_body_bytes) = serde_json::to_vec(&body_value) {
-                log::info!("Extracted body for upstream: {}", String::from_utf8_lossy(&new_body_bytes));
-            
+                log::info!(
+                    "Extracted body for upstream: {}",
+                    String::from_utf8_lossy(&new_body_bytes)
+                );
+
                 // Store the extracted body in context for later use in request_body_filter
-                ctx.vars.insert(NEW_BODY.to_string(), String::from_utf8_lossy(&new_body_bytes).to_string());
-                ctx.vars.insert(NEW_BODY_LEN.to_string(), new_body_bytes.len().to_string());
-            
+                ctx.vars.insert(
+                    NEW_BODY.to_string(),
+                    String::from_utf8_lossy(&new_body_bytes).to_string(),
+                );
+                ctx.vars
+                    .insert(NEW_BODY_LEN.to_string(), new_body_bytes.len().to_string());
+
                 log::info!("Stored extracted body in context for method {method_str}");
             }
         }
@@ -224,5 +249,5 @@ fn extract_and_store_request_body(ctx: &mut crate::proxy::ProxyContext, route_me
         log::info!("Method {method_str} does not support body - ensuring no body is sent");
         ctx.vars.insert(NEW_BODY.to_string(), String::new());
         ctx.vars.insert(NEW_BODY_LEN.to_string(), "0".to_string());
-}
+    }
 }

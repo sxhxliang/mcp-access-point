@@ -11,11 +11,7 @@ use crate::{
     jsonrpc::{JSONRPCRequest, JSONRPCResponse, LATEST_PROTOCOL_VERSION},
     service::mcp::MCPProxyService,
     sse_event::SseEvent,
-    types::{
-        Implementation, InitializeResult,
-        ServerCapabilities,
-        ServerCapabilitiesTools,
-    },
+    types::{Implementation, InitializeResult, ServerCapabilities, ServerCapabilitiesTools},
 };
 
 use http::StatusCode;

@@ -219,15 +219,24 @@ mod tests {
 
     #[test]
     fn test_resource_type_from_str() {
-        assert_eq!(ResourceType::from_str("upstreams"), Some(ResourceType::Upstreams));
-        assert_eq!(ResourceType::from_str("services"), Some(ResourceType::Services));
+        assert_eq!(
+            ResourceType::from_str("upstreams"),
+            Some(ResourceType::Upstreams)
+        );
+        assert_eq!(
+            ResourceType::from_str("services"),
+            Some(ResourceType::Services)
+        );
         assert_eq!(ResourceType::from_str("invalid"), None);
     }
 
     #[test]
     fn test_resource_dependencies() {
         assert_eq!(ResourceType::Upstreams.dependencies(), &[]);
-        assert_eq!(ResourceType::Services.dependencies(), &[ResourceType::Upstreams]);
+        assert_eq!(
+            ResourceType::Services.dependencies(),
+            &[ResourceType::Upstreams]
+        );
         assert_eq!(
             ResourceType::Routes.dependencies(),
             &[ResourceType::Upstreams, ResourceType::Services]
@@ -238,7 +247,11 @@ mod tests {
     fn test_resource_dependents() {
         assert_eq!(
             ResourceType::Upstreams.dependents(),
-            &[ResourceType::Services, ResourceType::Routes, ResourceType::McpServices]
+            &[
+                ResourceType::Services,
+                ResourceType::Routes,
+                ResourceType::McpServices
+            ]
         );
         assert_eq!(ResourceType::Services.dependents(), &[ResourceType::Routes]);
     }

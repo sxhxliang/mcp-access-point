@@ -1,4 +1,11 @@
-use crate::{mcp, service::{mcp::MCPProxyService, constants::{MCP_STREAMABLE_HTTP, MCP_SESSION_ID, MCP_REQUEST_ID}}, utils};
+use crate::{
+    mcp,
+    service::{
+        constants::{MCP_REQUEST_ID, MCP_SESSION_ID, MCP_STREAMABLE_HTTP},
+        mcp::MCPProxyService,
+    },
+    utils,
+};
 use pingora::Result;
 use pingora_proxy::{ProxyHttp, Session};
 
@@ -24,13 +31,9 @@ pub async fn handle_streamable_http_endpoint(
             log::debug!("req_header: {:?}", session.req_header());
 
             if let Some(last_event_id) = last_event_id {
-                log::info!(
-                    "Client reconnecting with Last-Event-ID: {last_event_id:?}"
-                );
+                log::info!("Client reconnecting with Last-Event-ID: {last_event_id:?}");
             } else {
-                log::info!(
-                    "Establishing new SSE stream for session {mcp_session_id:?}"
-                );
+                log::info!("Establishing new SSE stream for session {mcp_session_id:?}");
             }
             mcp_proxy.response_sse(session).await
         }
@@ -49,8 +52,7 @@ pub async fn handle_streamable_http_endpoint(
                     Ok(request) => {
                         // add vars to ctx
                         if let Some(id) = &request.id {
-                            ctx.vars
-                                .insert(MCP_REQUEST_ID.to_string(), id.to_string());
+                            ctx.vars.insert(MCP_REQUEST_ID.to_string(), id.to_string());
                         }
                         mcp::request_processing_streamable_http(
                             ctx,

@@ -6,12 +6,14 @@ use tokio::sync::RwLock;
 use crate::{
     config::{self, json_to_resource, Config},
     proxy::{
-        global_rule::{reload_global_plugin, ProxyGlobalRule, GLOBAL_RULE_MAP, load_static_global_rules},
-        mcp::{ProxyMCPService, MCP_SERVICE_MAP, load_static_mcp_services},
-        route::{reload_global_route_match, ProxyRoute, ROUTE_MAP, load_static_routes},
-        service::{ProxyService, SERVICE_MAP, load_static_services},
-        ssl::{ProxySSL, SSL_MAP, load_static_ssls},
-        upstream::{ProxyUpstream, UPSTREAM_MAP, load_static_upstreams},
+        global_rule::{
+            load_static_global_rules, reload_global_plugin, ProxyGlobalRule, GLOBAL_RULE_MAP,
+        },
+        mcp::{load_static_mcp_services, ProxyMCPService, MCP_SERVICE_MAP},
+        route::{load_static_routes, reload_global_route_match, ProxyRoute, ROUTE_MAP},
+        service::{load_static_services, ProxyService, SERVICE_MAP},
+        ssl::{load_static_ssls, ProxySSL, SSL_MAP},
+        upstream::{load_static_upstreams, ProxyUpstream, UPSTREAM_MAP},
         MapOperations,
     },
 };
@@ -143,7 +145,11 @@ impl ResourceManager {
         // Validate the resource first
         let validation = self.validate_resource(resource_type, &resource_id, data);
         if !validation.valid {
-            let error_messages: Vec<String> = validation.errors.iter().map(|e| e.message.clone()).collect();
+            let error_messages: Vec<String> = validation
+                .errors
+                .iter()
+                .map(|e| e.message.clone())
+                .collect();
             return Ok(ResourceOperationResult {
                 success: false,
                 message: format!("Validation failed: {}", error_messages.join(", ")),
@@ -154,24 +160,12 @@ impl ResourceManager {
         }
 
         let result = match resource_type {
-            ResourceType::Upstreams => {
-                self.create_upstream(resource_id.clone(), data).await
-            }
-            ResourceType::Services => {
-                self.create_service(resource_id.clone(), data).await
-            }
-            ResourceType::GlobalRules => {
-                self.create_global_rule(resource_id.clone(), data).await
-            }
-            ResourceType::Routes => {
-                self.create_route(resource_id.clone(), data).await
-            }
-            ResourceType::McpServices => {
-                self.create_mcp_service(resource_id.clone(), data).await
-            }
-            ResourceType::Ssls => {
-                self.create_ssl(resource_id.clone(), data).await
-            }
+            ResourceType::Upstreams => self.create_upstream(resource_id.clone(), data).await,
+            ResourceType::Services => self.create_service(resource_id.clone(), data).await,
+            ResourceType::GlobalRules => self.create_global_rule(resource_id.clone(), data).await,
+            ResourceType::Routes => self.create_route(resource_id.clone(), data).await,
+            ResourceType::McpServices => self.create_mcp_service(resource_id.clone(), data).await,
+            ResourceType::Ssls => self.create_ssl(resource_id.clone(), data).await,
         };
 
         let operation_result = match result {
@@ -182,7 +176,8 @@ impl ResourceManager {
                     operation: OperationType::Create,
                     timestamp: SystemTime::now(),
                     user: None,
-                }).await;
+                })
+                .await;
 
                 ResourceOperationResult {
                     success: true,
@@ -214,7 +209,11 @@ impl ResourceManager {
         // Validate the resource first
         let validation = self.validate_resource(resource_type, &resource_id, data);
         if !validation.valid {
-            let error_messages: Vec<String> = validation.errors.iter().map(|e| e.message.clone()).collect();
+            let error_messages: Vec<String> = validation
+                .errors
+                .iter()
+                .map(|e| e.message.clone())
+                .collect();
             return Ok(ResourceOperationResult {
                 success: false,
                 message: format!("Validation failed: {}", error_messages.join(", ")),
@@ -225,24 +224,12 @@ impl ResourceManager {
         }
 
         let result = match resource_type {
-            ResourceType::Upstreams => {
-                self.update_upstream(resource_id.clone(), data).await
-            }
-            ResourceType::Services => {
-                self.update_service(resource_id.clone(), data).await
-            }
-            ResourceType::GlobalRules => {
-                self.update_global_rule(resource_id.clone(), data).await
-            }
-            ResourceType::Routes => {
-                self.update_route(resource_id.clone(), data).await
-            }
-            ResourceType::McpServices => {
-                self.update_mcp_service(resource_id.clone(), data).await
-            }
-            ResourceType::Ssls => {
-                self.update_ssl(resource_id.clone(), data).await
-            }
+            ResourceType::Upstreams => self.update_upstream(resource_id.clone(), data).await,
+            ResourceType::Services => self.update_service(resource_id.clone(), data).await,
+            ResourceType::GlobalRules => self.update_global_rule(resource_id.clone(), data).await,
+            ResourceType::Routes => self.update_route(resource_id.clone(), data).await,
+            ResourceType::McpServices => self.update_mcp_service(resource_id.clone(), data).await,
+            ResourceType::Ssls => self.update_ssl(resource_id.clone(), data).await,
         };
 
         let operation_result = match result {
@@ -253,7 +240,8 @@ impl ResourceManager {
                     operation: OperationType::Update,
                     timestamp: SystemTime::now(),
                     user: None,
-                }).await;
+                })
+                .await;
 
                 ResourceOperationResult {
                     success: true,
@@ -284,7 +272,11 @@ impl ResourceManager {
         // Validate deletion
         let validation = self.validate_deletion(resource_type, &resource_id);
         if !validation.valid {
-            let error_messages: Vec<String> = validation.errors.iter().map(|e| e.message.clone()).collect();
+            let error_messages: Vec<String> = validation
+                .errors
+                .iter()
+                .map(|e| e.message.clone())
+                .collect();
             return Ok(ResourceOperationResult {
                 success: false,
                 message: format!("Cannot delete resource: {}", error_messages.join(", ")),
@@ -332,7 +324,8 @@ impl ResourceManager {
                     operation: OperationType::Delete,
                     timestamp: SystemTime::now(),
                     user: None,
-                }).await;
+                })
+                .await;
 
                 ResourceOperationResult {
                     success: true,
@@ -357,48 +350,54 @@ impl ResourceManager {
     /// Get resource by ID
     pub fn get_resource(&self, resource_type: ResourceType, resource_id: &str) -> Option<Value> {
         match resource_type {
-            ResourceType::Upstreams => {
-                UPSTREAM_MAP.get(resource_id).map(|r| serde_json::to_value(&r.inner).unwrap())
-            }
-            ResourceType::Services => {
-                SERVICE_MAP.get(resource_id).map(|r| serde_json::to_value(&r.inner).unwrap())
-            }
-            ResourceType::GlobalRules => {
-                GLOBAL_RULE_MAP.get(resource_id).map(|r| serde_json::to_value(&r.inner).unwrap())
-            }
-            ResourceType::Routes => {
-                ROUTE_MAP.get(resource_id).map(|r| serde_json::to_value(&r.inner).unwrap())
-            }
-            ResourceType::McpServices => {
-                MCP_SERVICE_MAP.get(resource_id).map(|r| serde_json::to_value(&r.inner).unwrap())
-            }
-            ResourceType::Ssls => {
-                SSL_MAP.get(resource_id).map(|r| serde_json::to_value(&r.inner).unwrap())
-            }
+            ResourceType::Upstreams => UPSTREAM_MAP
+                .get(resource_id)
+                .map(|r| serde_json::to_value(&r.inner).unwrap()),
+            ResourceType::Services => SERVICE_MAP
+                .get(resource_id)
+                .map(|r| serde_json::to_value(&r.inner).unwrap()),
+            ResourceType::GlobalRules => GLOBAL_RULE_MAP
+                .get(resource_id)
+                .map(|r| serde_json::to_value(&r.inner).unwrap()),
+            ResourceType::Routes => ROUTE_MAP
+                .get(resource_id)
+                .map(|r| serde_json::to_value(&r.inner).unwrap()),
+            ResourceType::McpServices => MCP_SERVICE_MAP
+                .get(resource_id)
+                .map(|r| serde_json::to_value(&r.inner).unwrap()),
+            ResourceType::Ssls => SSL_MAP
+                .get(resource_id)
+                .map(|r| serde_json::to_value(&r.inner).unwrap()),
         }
     }
 
     /// List all resources of a type
     pub fn list_resources(&self, resource_type: ResourceType) -> Vec<Value> {
         match resource_type {
-            ResourceType::Upstreams => {
-                UPSTREAM_MAP.iter().map(|r| serde_json::to_value(&r.inner).unwrap()).collect()
-            }
-            ResourceType::Services => {
-                SERVICE_MAP.iter().map(|r| serde_json::to_value(&r.inner).unwrap()).collect()
-            }
-            ResourceType::GlobalRules => {
-                GLOBAL_RULE_MAP.iter().map(|r| serde_json::to_value(&r.inner).unwrap()).collect()
-            }
-            ResourceType::Routes => {
-                ROUTE_MAP.iter().map(|r| serde_json::to_value(&r.inner).unwrap()).collect()
-            }
-            ResourceType::McpServices => {
-                MCP_SERVICE_MAP.iter().map(|r| serde_json::to_value(&r.inner).unwrap()).collect()
-            }
-            ResourceType::Ssls => {
-                SSL_MAP.iter().map(|r| serde_json::to_value(&r.inner).unwrap()).collect()
-            }
+            ResourceType::Upstreams => UPSTREAM_MAP
+                .iter()
+                .map(|r| serde_json::to_value(&r.inner).unwrap())
+                .collect(),
+            ResourceType::Services => SERVICE_MAP
+                .iter()
+                .map(|r| serde_json::to_value(&r.inner).unwrap())
+                .collect(),
+            ResourceType::GlobalRules => GLOBAL_RULE_MAP
+                .iter()
+                .map(|r| serde_json::to_value(&r.inner).unwrap())
+                .collect(),
+            ResourceType::Routes => ROUTE_MAP
+                .iter()
+                .map(|r| serde_json::to_value(&r.inner).unwrap())
+                .collect(),
+            ResourceType::McpServices => MCP_SERVICE_MAP
+                .iter()
+                .map(|r| serde_json::to_value(&r.inner).unwrap())
+                .collect(),
+            ResourceType::Ssls => SSL_MAP
+                .iter()
+                .map(|r| serde_json::to_value(&r.inner).unwrap())
+                .collect(),
         }
     }
 
@@ -412,7 +411,11 @@ impl ResourceManager {
         // Validate batch operations
         let validation = ResourceValidator::validate_batch_operations(&request.operations);
         if !validation.valid {
-            let error_messages: Vec<String> = validation.errors.iter().map(|e| e.message.clone()).collect();
+            let error_messages: Vec<String> = validation
+                .errors
+                .iter()
+                .map(|e| e.message.clone())
+                .collect();
             return Ok(BatchOperationResponse {
                 success: false,
                 results: vec![],
@@ -431,38 +434,50 @@ impl ResourceManager {
                     OperationType::Create | OperationType::Update => {
                         if let Some(ref data) = operation.data {
                             let data_bytes = serde_json::to_vec(data).map_err(|e| e.to_string())?;
-                            self.validate_resource(operation.resource_type, &operation.resource_id, &data_bytes)
+                            self.validate_resource(
+                                operation.resource_type,
+                                &operation.resource_id,
+                                &data_bytes,
+                            )
                         } else {
                             ValidationResult {
                                 valid: false,
                                 errors: vec![super::resource_types::ValidationError {
                                     field: "data".to_string(),
-                                    message: "Data is required for create/update operations".to_string(),
-                                    error_type: super::resource_types::ValidationErrorType::InvalidFormat,
+                                    message: "Data is required for create/update operations"
+                                        .to_string(),
+                                    error_type:
+                                        super::resource_types::ValidationErrorType::InvalidFormat,
                                 }],
                                 warnings: vec![],
                             }
                         }
-                    },
+                    }
                     OperationType::Delete => {
                         self.validate_deletion(operation.resource_type, &operation.resource_id)
-                    },
-                    OperationType::Reload => {
-                        ValidationResult {
-                            valid: true,
-                            errors: vec![],
-                            warnings: vec![],
-                        }
+                    }
+                    OperationType::Reload => ValidationResult {
+                        valid: true,
+                        errors: vec![],
+                        warnings: vec![],
                     },
                 };
 
                 ResourceOperationResult {
                     success: validation.valid,
                     message: if validation.valid {
-                        format!("Dry run validation passed for {} operation on {}:{}",
-                               operation.operation_type, operation.resource_type, operation.resource_id)
+                        format!(
+                            "Dry run validation passed for {} operation on {}:{}",
+                            operation.operation_type,
+                            operation.resource_type,
+                            operation.resource_id
+                        )
                     } else {
-                        let error_messages: Vec<String> = validation.errors.iter().map(|e| e.message.clone()).collect();
+                        let error_messages: Vec<String> = validation
+                            .errors
+                            .iter()
+                            .map(|e| e.message.clone())
+                            .collect();
                         format!("Dry run validation failed: {}", error_messages.join(", "))
                     },
                     resource_type: operation.resource_type,
@@ -474,8 +489,14 @@ impl ResourceManager {
                 match operation.operation_type {
                     OperationType::Create => {
                         if let Some(data) = operation.data {
-                            let data_bytes = serde_json::to_vec(&data).map_err(|e| e.to_string())?;
-                            self.create_resource(operation.resource_type, operation.resource_id, &data_bytes).await?
+                            let data_bytes =
+                                serde_json::to_vec(&data).map_err(|e| e.to_string())?;
+                            self.create_resource(
+                                operation.resource_type,
+                                operation.resource_id,
+                                &data_bytes,
+                            )
+                            .await?
                         } else {
                             ResourceOperationResult {
                                 success: false,
@@ -485,11 +506,17 @@ impl ResourceManager {
                                 timestamp: SystemTime::now(),
                             }
                         }
-                    },
+                    }
                     OperationType::Update => {
                         if let Some(data) = operation.data {
-                            let data_bytes = serde_json::to_vec(&data).map_err(|e| e.to_string())?;
-                            self.update_resource(operation.resource_type, operation.resource_id, &data_bytes).await?
+                            let data_bytes =
+                                serde_json::to_vec(&data).map_err(|e| e.to_string())?;
+                            self.update_resource(
+                                operation.resource_type,
+                                operation.resource_id,
+                                &data_bytes,
+                            )
+                            .await?
                         } else {
                             ResourceOperationResult {
                                 success: false,
@@ -499,13 +526,14 @@ impl ResourceManager {
                                 timestamp: SystemTime::now(),
                             }
                         }
-                    },
+                    }
                     OperationType::Delete => {
-                        self.delete_resource(operation.resource_type, operation.resource_id).await?
-                    },
+                        self.delete_resource(operation.resource_type, operation.resource_id)
+                            .await?
+                    }
                     OperationType::Reload => {
                         self.reload_resource_type(operation.resource_type).await?
-                    },
+                    }
                 }
             };
 
@@ -517,7 +545,11 @@ impl ResourceManager {
 
         Ok(BatchOperationResponse {
             success: success_count == results.len(),
-            summary: format!("{}/{} operations completed successfully", success_count, results.len()),
+            summary: format!(
+                "{}/{} operations completed successfully",
+                success_count,
+                results.len()
+            ),
             results,
             dry_run,
         })
@@ -526,7 +558,10 @@ impl ResourceManager {
     /// Reload all resources of a specific type
     /// If config is available, reloads from the configuration source
     /// Otherwise, only triggers reload hooks for the resource type
-    pub async fn reload_resource_type(&self, resource_type: ResourceType) -> Result<ResourceOperationResult, String> {
+    pub async fn reload_resource_type(
+        &self,
+        resource_type: ResourceType,
+    ) -> Result<ResourceOperationResult, String> {
         let mut reloaded_from_config = false;
         let mut reload_count = 0;
 
@@ -546,7 +581,11 @@ impl ResourceManager {
 
                     reload_count = UPSTREAM_MAP.len();
                     reloaded_from_config = true;
-                    log::info!("Reloaded {} upstreams from config (was {})", reload_count, old_count);
+                    log::info!(
+                        "Reloaded {} upstreams from config (was {})",
+                        reload_count,
+                        old_count
+                    );
                 }
                 ResourceType::Services => {
                     // Clear existing services first
@@ -559,7 +598,11 @@ impl ResourceManager {
 
                     reload_count = SERVICE_MAP.len();
                     reloaded_from_config = true;
-                    log::info!("Reloaded {} services from config (was {})", reload_count, old_count);
+                    log::info!(
+                        "Reloaded {} services from config (was {})",
+                        reload_count,
+                        old_count
+                    );
                 }
                 ResourceType::GlobalRules => {
                     // Clear existing global rules first
@@ -575,7 +618,11 @@ impl ResourceManager {
 
                     // Trigger reload hook
                     reload_global_plugin();
-                    log::info!("Reloaded {} global rules from config (was {}) and triggered plugin reload", reload_count, old_count);
+                    log::info!(
+                        "Reloaded {} global rules from config (was {}) and triggered plugin reload",
+                        reload_count,
+                        old_count
+                    );
                 }
                 ResourceType::Routes => {
                     // Clear existing routes first
@@ -591,7 +638,11 @@ impl ResourceManager {
 
                     // Trigger reload hook
                     reload_global_route_match();
-                    log::info!("Reloaded {} routes from config (was {}) and triggered route match reload", reload_count, old_count);
+                    log::info!(
+                        "Reloaded {} routes from config (was {}) and triggered route match reload",
+                        reload_count,
+                        old_count
+                    );
                 }
                 ResourceType::McpServices => {
                     // Clear existing MCP services first
@@ -604,7 +655,11 @@ impl ResourceManager {
 
                     reload_count = MCP_SERVICE_MAP.len();
                     reloaded_from_config = true;
-                    log::info!("Reloaded {} MCP services from config (was {})", reload_count, old_count);
+                    log::info!(
+                        "Reloaded {} MCP services from config (was {})",
+                        reload_count,
+                        old_count
+                    );
                 }
                 ResourceType::Ssls => {
                     // Clear existing SSLs first
@@ -620,7 +675,11 @@ impl ResourceManager {
 
                     // Trigger reload hook
                     crate::proxy::ssl::reload_global_ssl_match();
-                    log::info!("Reloaded {} SSLs from config (was {}) and triggered SSL match reload", reload_count, old_count);
+                    log::info!(
+                        "Reloaded {} SSLs from config (was {}) and triggered SSL match reload",
+                        reload_count,
+                        old_count
+                    );
                 }
             }
         } else {
@@ -639,7 +698,10 @@ impl ResourceManager {
                     log::info!("Triggered SSL match reload (no config reload)");
                 }
                 _ => {
-                    log::warn!("No reload hooks available for resource type '{}' and no config access", resource_type);
+                    log::warn!(
+                        "No reload hooks available for resource type '{}' and no config access",
+                        resource_type
+                    );
                 }
             }
         }
@@ -651,12 +713,19 @@ impl ResourceManager {
             operation: OperationType::Reload,
             timestamp: SystemTime::now(),
             user: None,
-        }).await;
+        })
+        .await;
 
         let message = if reloaded_from_config {
-            format!("Resource type '{}' reloaded successfully from config ({} resources)", resource_type, reload_count)
+            format!(
+                "Resource type '{}' reloaded successfully from config ({} resources)",
+                resource_type, reload_count
+            )
         } else {
-            format!("Resource type '{}' reload hooks triggered successfully (no config reload)", resource_type)
+            format!(
+                "Resource type '{}' reload hooks triggered successfully (no config reload)",
+                resource_type
+            )
         };
 
         Ok(ResourceOperationResult {
@@ -671,7 +740,10 @@ impl ResourceManager {
     /// Reload configuration from file
     /// This method loads a new config from file and reloads all resources
     /// Note: This version works independently of whether ResourceManager has config access
-    pub async fn reload_config_from_file(&self, config_path: &str) -> Result<ResourceOperationResult, String> {
+    pub async fn reload_config_from_file(
+        &self,
+        config_path: &str,
+    ) -> Result<ResourceOperationResult, String> {
         // Load the new config from file
         let new_config = crate::config::Config::load_from_yaml(config_path)
             .map_err(|e| format!("Failed to load config from file '{}': {}", config_path, e))?;
@@ -696,10 +768,17 @@ impl ResourceManager {
                     match load_static_upstreams(&new_config) {
                         Ok(_) => {
                             let new_count = UPSTREAM_MAP.len();
-                            log::info!("Reloaded {} upstreams from config file (was {})", new_count, old_count);
+                            log::info!(
+                                "Reloaded {} upstreams from config file (was {})",
+                                new_count,
+                                old_count
+                            );
                             ResourceOperationResult {
                                 success: true,
-                                message: format!("Reloaded {} upstreams from config file", new_count),
+                                message: format!(
+                                    "Reloaded {} upstreams from config file",
+                                    new_count
+                                ),
                                 resource_type,
                                 resource_id: None,
                                 timestamp: SystemTime::now(),
@@ -720,10 +799,17 @@ impl ResourceManager {
                     match load_static_services(&new_config) {
                         Ok(_) => {
                             let new_count = SERVICE_MAP.len();
-                            log::info!("Reloaded {} services from config file (was {})", new_count, old_count);
+                            log::info!(
+                                "Reloaded {} services from config file (was {})",
+                                new_count,
+                                old_count
+                            );
                             ResourceOperationResult {
                                 success: true,
-                                message: format!("Reloaded {} services from config file", new_count),
+                                message: format!(
+                                    "Reloaded {} services from config file",
+                                    new_count
+                                ),
                                 resource_type,
                                 resource_id: None,
                                 timestamp: SystemTime::now(),
@@ -748,7 +834,10 @@ impl ResourceManager {
                             log::info!("Reloaded {} global rules from config file (was {}) and triggered plugin reload", new_count, old_count);
                             ResourceOperationResult {
                                 success: true,
-                                message: format!("Reloaded {} global rules from config file", new_count),
+                                message: format!(
+                                    "Reloaded {} global rules from config file",
+                                    new_count
+                                ),
                                 resource_type,
                                 resource_id: None,
                                 timestamp: SystemTime::now(),
@@ -794,10 +883,17 @@ impl ResourceManager {
                     match load_static_mcp_services(&new_config) {
                         Ok(_) => {
                             let new_count = MCP_SERVICE_MAP.len();
-                            log::info!("Reloaded {} MCP services from config file (was {})", new_count, old_count);
+                            log::info!(
+                                "Reloaded {} MCP services from config file (was {})",
+                                new_count,
+                                old_count
+                            );
                             ResourceOperationResult {
                                 success: true,
-                                message: format!("Reloaded {} MCP services from config file", new_count),
+                                message: format!(
+                                    "Reloaded {} MCP services from config file",
+                                    new_count
+                                ),
                                 resource_type,
                                 resource_id: None,
                                 timestamp: SystemTime::now(),
@@ -848,15 +944,20 @@ impl ResourceManager {
         // Notify listeners of the config reload event
         self.notify_listeners(ConfigChangeEvent {
             resource_type: ResourceType::Upstreams, // Placeholder for config reload
-            resource_id: "*".to_string(), // Indicates full config reload
+            resource_id: "*".to_string(),           // Indicates full config reload
             operation: OperationType::Reload,
             timestamp: SystemTime::now(),
             user: None,
-        }).await;
+        })
+        .await;
 
         let all_success = success_count == ResourceType::all().len();
         let message = if all_success {
-            format!("Configuration reloaded successfully from '{}' (all {} resource types)", config_path, ResourceType::all().len())
+            format!(
+                "Configuration reloaded successfully from '{}' (all {} resource types)",
+                config_path,
+                ResourceType::all().len()
+            )
         } else {
             format!("Configuration reload from '{}' completed with errors ({}/{} resource types successful)", config_path, success_count, ResourceType::all().len())
         };
@@ -902,8 +1003,9 @@ impl ResourceManager {
             .map_err(|e| format!("Invalid service data: {e}"))?;
         service.id = id.clone();
 
-        let proxy_service = ProxyService::new_with_upstream_and_plugins(service, self.work_stealing)
-            .map_err(|e| format!("Failed to create proxy service: {e}"))?;
+        let proxy_service =
+            ProxyService::new_with_upstream_and_plugins(service, self.work_stealing)
+                .map_err(|e| format!("Failed to create proxy service: {e}"))?;
 
         SERVICE_MAP.insert_resource(Arc::new(proxy_service));
         Ok(())
@@ -914,8 +1016,9 @@ impl ResourceManager {
             .map_err(|e| format!("Invalid service data: {e}"))?;
         service.id = id.clone();
 
-        let proxy_service = ProxyService::new_with_upstream_and_plugins(service, self.work_stealing)
-            .map_err(|e| format!("Failed to create proxy service: {e}"))?;
+        let proxy_service =
+            ProxyService::new_with_upstream_and_plugins(service, self.work_stealing)
+                .map_err(|e| format!("Failed to create proxy service: {e}"))?;
 
         SERVICE_MAP.insert_resource(Arc::new(proxy_service));
         Ok(())
@@ -978,8 +1081,9 @@ impl ResourceManager {
             .map_err(|e| format!("Invalid MCP service data: {e}"))?;
         mcp_service.id = id.clone();
 
-        let proxy_mcp_service = ProxyMCPService::new_with_routes_upstream_and_plugins(mcp_service, self.work_stealing)
-            .map_err(|e| format!("Failed to create proxy MCP service: {e}"))?;
+        let proxy_mcp_service =
+            ProxyMCPService::new_with_routes_upstream_and_plugins(mcp_service, self.work_stealing)
+                .map_err(|e| format!("Failed to create proxy MCP service: {e}"))?;
 
         MCP_SERVICE_MAP.insert_resource(Arc::new(proxy_mcp_service));
         Ok(())
@@ -990,16 +1094,17 @@ impl ResourceManager {
             .map_err(|e| format!("Invalid MCP service data: {e}"))?;
         mcp_service.id = id.clone();
 
-        let proxy_mcp_service = ProxyMCPService::new_with_routes_upstream_and_plugins(mcp_service, self.work_stealing)
-            .map_err(|e| format!("Failed to create proxy MCP service: {e}"))?;
+        let proxy_mcp_service =
+            ProxyMCPService::new_with_routes_upstream_and_plugins(mcp_service, self.work_stealing)
+                .map_err(|e| format!("Failed to create proxy MCP service: {e}"))?;
 
         MCP_SERVICE_MAP.insert_resource(Arc::new(proxy_mcp_service));
         Ok(())
     }
 
     async fn create_ssl(&self, id: String, data: &[u8]) -> Result<(), String> {
-        let mut ssl = json_to_resource::<config::SSL>(data)
-            .map_err(|e| format!("Invalid SSL data: {e}"))?;
+        let mut ssl =
+            json_to_resource::<config::SSL>(data).map_err(|e| format!("Invalid SSL data: {e}"))?;
         ssl.id = id.clone();
 
         let proxy_ssl = ProxySSL::from(ssl);
@@ -1010,8 +1115,8 @@ impl ResourceManager {
     }
 
     async fn update_ssl(&self, id: String, data: &[u8]) -> Result<(), String> {
-        let mut ssl = json_to_resource::<config::SSL>(data)
-            .map_err(|e| format!("Invalid SSL data: {e}"))?;
+        let mut ssl =
+            json_to_resource::<config::SSL>(data).map_err(|e| format!("Invalid SSL data: {e}"))?;
         ssl.id = id.clone();
 
         let proxy_ssl = ProxySSL::from(ssl);
@@ -1034,14 +1139,16 @@ mod tests {
 
         let mut nodes: HashMap<String, u32> = HashMap::new();
         nodes.insert("127.0.0.1:8080".to_string(), 1);
-        let upstream = Upstream { id: "test-upstream".to_string(), nodes, ..Default::default() };
+        let upstream = Upstream {
+            id: "test-upstream".to_string(),
+            nodes,
+            ..Default::default()
+        };
 
         let data = serde_json::to_vec(&upstream).unwrap();
-        let result = manager.create_resource(
-            ResourceType::Upstreams,
-            "test-upstream".to_string(),
-            &data,
-        ).await;
+        let result = manager
+            .create_resource(ResourceType::Upstreams, "test-upstream".to_string(), &data)
+            .await;
 
         assert!(result.is_ok());
         let operation_result = result.unwrap();
@@ -1056,14 +1163,14 @@ mod tests {
     async fn test_validate_resource() {
         let manager = ResourceManager::new(false);
 
-        let upstream = Upstream { id: "test-upstream".to_string(), nodes: HashMap::new(), ..Default::default() };
+        let upstream = Upstream {
+            id: "test-upstream".to_string(),
+            nodes: HashMap::new(),
+            ..Default::default()
+        };
 
         let data = serde_json::to_vec(&upstream).unwrap();
-        let validation = manager.validate_resource(
-            ResourceType::Upstreams,
-            "test-upstream",
-            &data,
-        );
+        let validation = manager.validate_resource(ResourceType::Upstreams, "test-upstream", &data);
 
         assert!(!validation.valid);
         assert!(!validation.errors.is_empty());

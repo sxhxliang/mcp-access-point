@@ -1,3 +1,6 @@
+use crate::config::UpstreamHashOn;
+use http::header::{CONTENT_LENGTH, TRANSFER_ENCODING};
+use http::StatusCode;
 use http::{HeaderName, Uri};
 use once_cell::sync::Lazy;
 use pingora::http::{RequestHeader, ResponseHeader};
@@ -7,9 +10,6 @@ use serde_json::Value;
 use std::{collections::HashMap, str::FromStr};
 use url::form_urlencoded;
 use urlencoding::encode;
-use crate::config::UpstreamHashOn;
-use http::header::{CONTENT_LENGTH, TRANSFER_ENCODING};
-use http::StatusCode;
 
 #[derive(Debug, PartialEq)]
 pub enum PathMatch {
@@ -362,13 +362,19 @@ fn status_allows_body(status: StatusCode) -> bool {
 /// if the status allows a body.
 pub fn apply_chunked_encoding(upstream_response: &mut ResponseHeader) {
     if status_allows_body(upstream_response.status) {
-        log::info!("Setting chunked encoding for status: {}", upstream_response.status);
+        log::info!(
+            "Setting chunked encoding for status: {}",
+            upstream_response.status
+        );
         upstream_response.remove_header(&CONTENT_LENGTH);
         upstream_response
             .insert_header(TRANSFER_ENCODING, "chunked")
             .unwrap();
     } else {
-        log::info!("Skipping chunked encoding for no-body status: {}", upstream_response.status);
+        log::info!(
+            "Skipping chunked encoding for no-body status: {}",
+            upstream_response.status
+        );
     }
 }
 
@@ -397,8 +403,8 @@ fn test_extract_tenant_id() {
 
 #[test]
 fn query_to_map_handles_keys_without_values() {
-    use std::str::FromStr;
     use http::Uri;
+    use std::str::FromStr;
 
     let uri = Uri::from_str("http://example.com/path?foo=bar&baz&empty=").unwrap();
     let map = query_to_map(&uri);
@@ -487,9 +493,8 @@ fn test_mixed_path_and_query() {
     params.insert("sort".to_string(), "desc".to_string());
 
     let url = build_uri_with_path_and_query("/users/{id}/posts/{postId}", &params);
-    assert!(url == "/users/42/posts/99?sort=desc"); 
+    assert!(url == "/users/42/posts/99?sort=desc");
 }
-
 
 #[test]
 fn test_url_encoding() {
@@ -500,7 +505,7 @@ fn test_url_encoding() {
     assert_eq!(url, "/hello?name=John%20Doe");
 }
 
- #[test]
+#[test]
 fn sets_chunked_and_removes_cl_for_200_with_cl() {
     let mut resp = ResponseHeader::build(StatusCode::OK, None).unwrap();
     resp.insert_header(CONTENT_LENGTH, "123").unwrap();
@@ -508,13 +513,10 @@ fn sets_chunked_and_removes_cl_for_200_with_cl() {
     apply_chunked_encoding(&mut resp);
 
     assert!(resp.headers.get(CONTENT_LENGTH).is_none());
-    assert_eq!(
-        resp.headers.get(TRANSFER_ENCODING).unwrap(),
-        "chunked"
-    );
+    assert_eq!(resp.headers.get(TRANSFER_ENCODING).unwrap(), "chunked");
 }
 
- #[test]
+#[test]
 fn skips_for_204_no_content_without_cl() {
     let mut resp = ResponseHeader::build(StatusCode::NO_CONTENT, None).unwrap();
 

@@ -13,7 +13,7 @@ use crate::{
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct OpenApiSpec {
-    // OpenAPI 3.0 
+    // OpenAPI 3.0
     pub openapi: Option<String>,
     pub swagger: Option<String>,
     pub paths: HashMap<String, PathItem>,
@@ -122,13 +122,12 @@ struct ParamInfo {
 
 impl OpenApiSpec {
     pub fn new(content: String) -> Result<Self, Box<dyn std::error::Error>> {
-        
         serde_json::from_str(&content)
-        .or_else(|_| serde_yaml::from_str(&content))
-        .map_err(|e| {
-            log::warn!("Failed to parse OpenAPI spec as JSON or YAML: {e}");
-            e.into()
-        })
+            .or_else(|_| serde_yaml::from_str(&content))
+            .map_err(|e| {
+                log::warn!("Failed to parse OpenAPI spec as JSON or YAML: {e}");
+                e.into()
+            })
     }
 
     pub fn set_mcp_config(&mut self, mcp_config: MCPService) {
@@ -142,7 +141,6 @@ impl OpenApiSpec {
         &self,
     ) -> Result<(ListToolsResult, DashMap<String, Arc<MCPRouteMetaInfo>>), Box<dyn std::error::Error>>
     {
-
         if let Some(openapi_version) = &self.openapi {
             if !openapi_version.starts_with("3.") {
                 log::warn!("Expected OpenAPI 3.x version, found: {openapi_version}");
@@ -159,7 +157,7 @@ impl OpenApiSpec {
             // Handle path parameters
             let default_params: Vec<Parameter> = Vec::new();
             let path_params: &Vec<Parameter> = item.parameters.as_ref().unwrap_or(&default_params);
-            
+
             log::debug!("Processing path: {path}");
             self.process_method(
                 &item.get,
@@ -167,7 +165,7 @@ impl OpenApiSpec {
                 Method::GET,
                 &mut tools,
                 &mut mcp_route_metas,
-                path_params
+                path_params,
             );
             self.process_method(
                 &item.post,
@@ -175,7 +173,7 @@ impl OpenApiSpec {
                 Method::POST,
                 &mut tools,
                 &mut mcp_route_metas,
-                path_params
+                path_params,
             );
             self.process_method(
                 &item.put,
@@ -183,7 +181,7 @@ impl OpenApiSpec {
                 Method::PUT,
                 &mut tools,
                 &mut mcp_route_metas,
-                path_params
+                path_params,
             );
             self.process_method(
                 &item.delete,
@@ -191,7 +189,7 @@ impl OpenApiSpec {
                 Method::DELETE,
                 &mut tools,
                 &mut mcp_route_metas,
-                path_params
+                path_params,
             );
             self.process_method(
                 &item.patch,
@@ -199,7 +197,7 @@ impl OpenApiSpec {
                 Method::PATCH,
                 &mut tools,
                 &mut mcp_route_metas,
-                path_params
+                path_params,
             );
         }
         Ok((
@@ -249,7 +247,7 @@ impl OpenApiSpec {
                 });
             }
         }
-                
+
         if let Some(parameters) = &op.parameters {
             for param in parameters {
                 let param_type = param
@@ -391,9 +389,9 @@ impl OpenApiSpec {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::MCPService;
     use std::fs;
     use std::path::Path;
-    use crate::config::MCPService;
 
     fn load_file(path: &str) -> String {
         fs::read_to_string(Path::new(path)).expect("Failed to read OpenAPI file")
@@ -408,13 +406,44 @@ mod tests {
         spec.set_mcp_config(mcp_config);
         let (tools_result, route_metas) = spec.load_openapi().expect("Failed to load OpenAPI");
         let expected_tools = vec![
-            "uploadFile", "addPet", "updatePet", "findPetsByStatus", "findPetsByTags", "getPetById", "updatePetWithForm", "deletePet", "getInventory", "placeOrder", "getOrderById", "deleteOrder", "createUsersWithListInput", "getUserByName", "updateUser", "deleteUser", "loginUser", "logoutUser", "createUsersWithArrayInput", "createUser"
+            "uploadFile",
+            "addPet",
+            "updatePet",
+            "findPetsByStatus",
+            "findPetsByTags",
+            "getPetById",
+            "updatePetWithForm",
+            "deletePet",
+            "getInventory",
+            "placeOrder",
+            "getOrderById",
+            "deleteOrder",
+            "createUsersWithListInput",
+            "getUserByName",
+            "updateUser",
+            "deleteUser",
+            "loginUser",
+            "logoutUser",
+            "createUsersWithArrayInput",
+            "createUser",
         ];
         let tool_names: Vec<_> = tools_result.tools.iter().map(|t| t.name.clone()).collect();
-        assert_eq!(tool_names.len(), expected_tools.len(), "Tool count mismatch");
+        assert_eq!(
+            tool_names.len(),
+            expected_tools.len(),
+            "Tool count mismatch"
+        );
         for name in &expected_tools {
-            assert!(tool_names.contains(&name.to_string()), "Tool '{}' not found", name);
-            assert!(route_metas.contains_key(*name), "Route meta for '{}' not found", name);
+            assert!(
+                tool_names.contains(&name.to_string()),
+                "Tool '{}' not found",
+                name
+            );
+            assert!(
+                route_metas.contains_key(*name),
+                "Route meta for '{}' not found",
+                name
+            );
         }
     }
 
@@ -434,6 +463,9 @@ mod tests {
     fn test_openapi_invalid_content_returns_error() {
         let invalid_content = "not a valid openapi spec";
         let result = OpenApiSpec::new(invalid_content.to_string());
-        assert!(result.is_err(), "Expected error for invalid OpenAPI content");
+        assert!(
+            result.is_err(),
+            "Expected error for invalid OpenAPI content"
+        );
     }
 }

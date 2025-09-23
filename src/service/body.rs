@@ -1,4 +1,4 @@
-use bytes::{Bytes, BytesMut, BufMut};
+use bytes::{BufMut, Bytes, BytesMut};
 use http::header::CONTENT_ENCODING;
 use pingora::protocols::http::compression::Algorithm;
 use pingora_proxy::ProxyHttp;
