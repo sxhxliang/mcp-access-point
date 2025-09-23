@@ -367,9 +367,9 @@ impl ProxyHttp for MCPProxyService {
 
     async fn request_body_filter(
         &self,
-        session: &mut Session,
+        _session: &mut Session,
         body: &mut Option<Bytes>,
-        end_of_stream: bool,
+        _end_of_stream: bool,
         ctx: &mut Self::CTX,
     ) -> Result<()> {
         // Replace the body with the new body from ctx.vars[NEW_BODY] if present
@@ -403,7 +403,7 @@ impl ProxyHttp for MCPProxyService {
 
     fn upstream_response_filter(
         &self,
-        session: &mut Session,
+        _session: &mut Session,
         upstream_response: &mut ResponseHeader,
         ctx: &mut Self::CTX,
     ) -> Result<()> {

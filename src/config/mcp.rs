@@ -119,7 +119,7 @@ impl Default for MCPMetaInfo {
 /// implement PartialEq for MCPMetaInfo
 /// alaways return true, because we don't need to compare the meta info.
 impl PartialEq for MCPMetaInfo {
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(&self, _other: &Self) -> bool {
         true
     }
 }

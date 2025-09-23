@@ -209,6 +209,7 @@ impl ::std::convert::From<&BlobResourceContents> for BlobResourceContents {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct CallToolRequest {
     pub method: ::std::string::String,
     pub params: CallToolRequestParams,
@@ -412,6 +413,7 @@ impl ::std::convert::From<EmbeddedResource> for CallToolResultContentItem {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct CancelledNotification {
     pub method: ::std::string::String,
     pub params: CancelledNotificationParams,
@@ -444,6 +446,7 @@ impl ::std::convert::From<&CancelledNotification> for CancelledNotification {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
+#[allow(dead_code)]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
 pub struct CancelledNotificationParams {
     #[doc = "An optional string describing the reason for the cancellation. This MAY be logged or presented to the user."]
@@ -495,6 +498,7 @@ impl ::std::convert::From<&CancelledNotificationParams> for CancelledNotificatio
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
+#[allow(dead_code)]
 pub struct ClientCapabilities {
     #[doc = "Experimental, non-standard capabilities that the client supports."]
     #[serde(
@@ -534,6 +538,7 @@ impl ::std::convert::From<&ClientCapabilities> for ClientCapabilities {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
+#[allow(dead_code)]
 pub struct ClientCapabilitiesRoots {
     #[doc = "Whether the client supports notifications for changes to the roots list."]
     #[serde(
@@ -571,6 +576,7 @@ impl ::std::convert::From<&ClientCapabilitiesRoots> for ClientCapabilitiesRoots 
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
+#[allow(dead_code)]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
 #[serde(untagged)]
 pub enum ClientNotification {
@@ -656,6 +662,7 @@ impl ::std::convert::From<RootsListChangedNotification> for ClientNotification {
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
 #[serde(untagged)]
+#[allow(dead_code)]
 pub enum ClientRequest {
     InitializeRequest(InitializeRequest),
     PingRequest(PingRequest),
@@ -761,6 +768,7 @@ impl ::std::convert::From<CompleteRequest> for ClientRequest {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
+#[allow(dead_code)]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
 #[serde(untagged)]
 pub enum ClientResult {
@@ -901,6 +909,7 @@ impl ::std::convert::From<&CompleteRequest> for CompleteRequest {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct CompleteRequestParams {
     pub argument: CompleteRequestParamsArgument,
     #[serde(rename = "ref")]
@@ -937,6 +946,7 @@ impl ::std::convert::From<&CompleteRequestParams> for CompleteRequestParams {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct CompleteRequestParamsArgument {
     #[doc = "The name of the argument"]
     pub name: ::std::string::String,
@@ -966,6 +976,7 @@ impl ::std::convert::From<&CompleteRequestParamsArgument> for CompleteRequestPar
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 #[serde(untagged)]
 pub enum CompleteRequestParamsRef {
     PromptReference(PromptReference),
@@ -1168,6 +1179,7 @@ impl ::std::convert::From<&CompleteResultCompletion> for CompleteResultCompletio
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct CreateMessageRequest {
     pub method: ::std::string::String,
     pub params: CreateMessageRequestParams,
@@ -1306,6 +1318,7 @@ impl ::std::convert::From<&CreateMessageRequestParams> for CreateMessageRequestP
     PartialEq,
     PartialOrd,
 )]
+#[allow(dead_code)]
 pub enum CreateMessageRequestParamsIncludeContext {
     #[serde(rename = "allServers")]
     AllServers,
@@ -1699,6 +1712,7 @@ impl ::std::convert::From<Result> for EmptyResult {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct GetPromptRequest {
     pub method: ::std::string::String,
     pub params: GetPromptRequestParams,
@@ -1735,6 +1749,7 @@ impl ::std::convert::From<&GetPromptRequest> for GetPromptRequest {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct GetPromptRequestParams {
     #[doc = "Arguments to use for templating the prompt."]
     #[serde(
@@ -1928,6 +1943,7 @@ impl ::std::convert::From<&Implementation> for Implementation {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct InitializeRequest {
     pub method: ::std::string::String,
     pub params: InitializeRequestParams,
@@ -1965,6 +1981,7 @@ impl ::std::convert::From<&InitializeRequest> for InitializeRequest {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct InitializeRequestParams {
     pub capabilities: ClientCapabilities,
     #[serde(rename = "clientInfo")]
@@ -2433,6 +2450,7 @@ impl ::std::convert::From<&JsonrpcErrorError> for JsonrpcErrorError {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
+#[allow(dead_code)]
 pub struct JsonrpcMessage {
     #[serde(
         flatten,
@@ -2494,6 +2512,7 @@ impl ::std::convert::From<&JsonrpcMessage> for JsonrpcMessage {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 #[serde(untagged)]
 pub enum JsonrpcMessageSubtype2Item {
     Request(JsonrpcRequest),
@@ -2532,6 +2551,7 @@ impl ::std::convert::From<JsonrpcNotification> for JsonrpcMessageSubtype2Item {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 #[serde(untagged)]
 pub enum JsonrpcMessageSubtype5Item {
     Response(JsonrpcResponse),
@@ -2828,6 +2848,7 @@ impl ::std::convert::From<&JsonrpcResponse> for JsonrpcResponse {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct ListPromptsRequest {
     pub method: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -2855,6 +2876,7 @@ impl ::std::convert::From<&ListPromptsRequest> for ListPromptsRequest {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
+#[allow(dead_code)]
 pub struct ListPromptsRequestParams {
     #[doc = "An opaque token representing the current pagination position.\nIf provided, the server should return results starting after this cursor."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -2949,6 +2971,7 @@ impl ::std::convert::From<&ListPromptsResult> for ListPromptsResult {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct ListResourceTemplatesRequest {
     pub method: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -2976,6 +2999,7 @@ impl ::std::convert::From<&ListResourceTemplatesRequest> for ListResourceTemplat
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
+#[allow(dead_code)]
 pub struct ListResourceTemplatesRequestParams {
     #[doc = "An opaque token representing the current pagination position.\nIf provided, the server should return results starting after this cursor."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -3073,6 +3097,7 @@ impl ::std::convert::From<&ListResourceTemplatesResult> for ListResourceTemplate
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct ListResourcesRequest {
     pub method: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -3100,6 +3125,7 @@ impl ::std::convert::From<&ListResourcesRequest> for ListResourcesRequest {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
+#[allow(dead_code)]
 pub struct ListResourcesRequestParams {
     #[doc = "An opaque token representing the current pagination position.\nIf provided, the server should return results starting after this cursor."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -3200,6 +3226,7 @@ impl ::std::convert::From<&ListResourcesResult> for ListResourcesResult {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct ListRootsRequest {
     pub method: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -3233,6 +3260,7 @@ impl ::std::convert::From<&ListRootsRequest> for ListRootsRequest {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct ListRootsRequestParams {
     #[serde(
         rename = "_meta",
@@ -3265,6 +3293,7 @@ impl ::std::convert::From<&ListRootsRequestParams> for ListRootsRequestParams {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
+#[allow(dead_code)]
 pub struct ListRootsRequestParamsMeta {
     #[doc = "If specified, the caller is requesting out-of-band progress notifications for this request (as represented by notifications/progress). The value of this parameter is an opaque token that will be attached to any subsequent notifications. The receiver is not obligated to provide these notifications."]
     #[serde(
@@ -3352,6 +3381,7 @@ impl ::std::convert::From<&ListRootsResult> for ListRootsResult {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct ListToolsRequest {
     pub method: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -3379,6 +3409,7 @@ impl ::std::convert::From<&ListToolsRequest> for ListToolsRequest {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
+#[allow(dead_code)]
 pub struct ListToolsRequestParams {
     #[doc = "An opaque token representing the current pagination position.\nIf provided, the server should return results starting after this cursor."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -3630,6 +3661,7 @@ impl ::std::convert::From<&LoggingMessageNotification> for LoggingMessageNotific
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct LoggingMessageNotificationParams {
     #[doc = "The data to be logged, such as a string message or an object. Any JSON serializable type is allowed here."]
     pub data: ::serde_json::Value,
@@ -3711,6 +3743,7 @@ impl ::std::convert::From<&ModelHint> for ModelHint {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
+#[allow(dead_code)]
 pub struct ModelPreferences {
     #[serde(
         rename = "costPriority",
@@ -3769,6 +3802,7 @@ impl ::std::convert::From<&ModelPreferences> for ModelPreferences {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct Notification {
     pub method: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -3798,6 +3832,7 @@ impl ::std::convert::From<&Notification> for Notification {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct NotificationParams {
     #[doc = "This parameter name is reserved by MCP to allow clients and servers to attach additional metadata to their notifications."]
     #[serde(
@@ -3842,6 +3877,7 @@ impl ::std::convert::From<&NotificationParams> for NotificationParams {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct PaginatedRequest {
     pub method: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -3901,6 +3937,7 @@ impl ::std::convert::From<&PaginatedRequestParams> for PaginatedRequestParams {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
+#[allow(dead_code)]
 pub struct PaginatedResult {
     #[doc = "This result property is reserved by the protocol to allow clients and servers to attach additional metadata to their responses."]
     #[serde(
@@ -3958,6 +3995,7 @@ impl ::std::convert::From<&PaginatedResult> for PaginatedResult {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct PingRequest {
     pub method: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -3991,6 +4029,7 @@ impl ::std::convert::From<&PingRequest> for PingRequest {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct PingRequestParams {
     #[serde(
         rename = "_meta",
@@ -4023,6 +4062,7 @@ impl ::std::convert::From<&PingRequestParams> for PingRequestParams {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
+#[allow(dead_code)]
 pub struct PingRequestParamsMeta {
     #[doc = "If specified, the caller is requesting out-of-band progress notifications for this request (as represented by notifications/progress). The value of this parameter is an opaque token that will be attached to any subsequent notifications. The receiver is not obligated to provide these notifications."]
     #[serde(
@@ -4337,6 +4377,7 @@ impl ::std::convert::From<&PromptArgument> for PromptArgument {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct PromptListChangedNotification {
     pub method: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -4366,6 +4407,7 @@ impl ::std::convert::From<&PromptListChangedNotification> for PromptListChangedN
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct PromptListChangedNotificationParams {
     #[doc = "This parameter name is reserved by MCP to allow clients and servers to attach additional metadata to their notifications."]
     #[serde(
@@ -4421,6 +4463,7 @@ impl ::std::convert::From<&PromptListChangedNotificationParams>
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct PromptMessage {
     pub content: PromptMessageContent,
     pub role: Role,
@@ -4454,6 +4497,7 @@ impl ::std::convert::From<&PromptMessage> for PromptMessage {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 #[serde(untagged)]
 pub enum PromptMessageContent {
     TextContent(TextContent),
@@ -4512,6 +4556,7 @@ impl ::std::convert::From<EmbeddedResource> for PromptMessageContent {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct PromptReference {
     #[doc = "The name of the prompt or prompt template"]
     pub name: ::std::string::String,
@@ -4558,6 +4603,7 @@ impl ::std::convert::From<&PromptReference> for PromptReference {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct ReadResourceRequest {
     pub method: ::std::string::String,
     pub params: ReadResourceRequestParams,
@@ -4588,6 +4634,7 @@ impl ::std::convert::From<&ReadResourceRequest> for ReadResourceRequest {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct ReadResourceRequestParams {
     #[doc = "The URI of the resource to read. The URI can use any protocol; it is up to the server how to interpret it."]
     pub uri: ::std::string::String,
@@ -4719,6 +4766,7 @@ impl ::std::convert::From<BlobResourceContents> for ReadResourceResultContentsIt
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct Request {
     pub method: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -4824,6 +4872,7 @@ impl ::std::convert::From<i64> for RequestId {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct RequestParams {
     #[serde(
         rename = "_meta",
@@ -4856,6 +4905,7 @@ impl ::std::convert::From<&RequestParams> for RequestParams {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
+#[allow(dead_code)]
 pub struct RequestParamsMeta {
     #[doc = "If specified, the caller is requesting out-of-band progress notifications for this request (as represented by notifications/progress). The value of this parameter is an opaque token that will be attached to any subsequent notifications. The receiver is not obligated to provide these notifications."]
     #[serde(
@@ -4966,6 +5016,7 @@ impl ::std::convert::From<&Resource> for Resource {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct ResourceContents {
     #[doc = "The MIME type of this resource, if known."]
     #[serde(
@@ -5014,6 +5065,7 @@ impl ::std::convert::From<&ResourceContents> for ResourceContents {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct ResourceListChangedNotification {
     pub method: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -5043,6 +5095,7 @@ impl ::std::convert::From<&ResourceListChangedNotification> for ResourceListChan
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct ResourceListChangedNotificationParams {
     #[doc = "This parameter name is reserved by MCP to allow clients and servers to attach additional metadata to their notifications."]
     #[serde(
@@ -5088,6 +5141,7 @@ impl ::std::convert::From<&ResourceListChangedNotificationParams>
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct ResourceReference {
     #[serde(rename = "type")]
     pub type_: ::std::string::String,
@@ -5198,6 +5252,7 @@ impl ::std::convert::From<&ResourceTemplate> for ResourceTemplate {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct ResourceUpdatedNotification {
     pub method: ::std::string::String,
     pub params: ResourceUpdatedNotificationParams,
@@ -5503,6 +5558,7 @@ impl ::std::convert::From<&RootsListChangedNotificationParams>
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct SamplingMessage {
     pub content: SamplingMessageContent,
     pub role: Role,
@@ -5534,6 +5590,7 @@ impl ::std::convert::From<&SamplingMessage> for SamplingMessage {
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
 #[serde(untagged)]
+#[allow(dead_code)]
 pub enum SamplingMessageContent {
     TextContent(TextContent),
     ImageContent(ImageContent),
@@ -5788,8 +5845,10 @@ impl ::std::convert::From<&ServerCapabilitiesTools> for ServerCapabilitiesTools 
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
+
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
 #[serde(untagged)]
+#[allow(dead_code)]
 pub enum ServerNotification {
     CancelledNotification(CancelledNotification),
     ProgressNotification(ProgressNotification),
@@ -5860,6 +5919,7 @@ impl ::std::convert::From<LoggingMessageNotification> for ServerNotification {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 #[serde(untagged)]
 pub enum ServerRequest {
     PingRequest(PingRequest),
@@ -5927,6 +5987,7 @@ impl ::std::convert::From<ListRootsRequest> for ServerRequest {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
+#[allow(dead_code)]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
 #[serde(untagged)]
 pub enum ServerResult {
@@ -6030,6 +6091,7 @@ impl ::std::convert::From<CompleteResult> for ServerResult {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct SetLevelRequest {
     pub method: ::std::string::String,
     pub params: SetLevelRequestParams,
@@ -6058,6 +6120,7 @@ impl ::std::convert::From<&SetLevelRequest> for SetLevelRequest {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
+#[allow(dead_code)]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
 pub struct SetLevelRequestParams {
     #[doc = "The level of logging that the client wants to receive from the server. The server should send all logs at this level and higher (i.e., more severe) to the client as notifications/message."]
@@ -6103,6 +6166,7 @@ impl ::std::convert::From<&SetLevelRequestParams> for SetLevelRequestParams {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct SubscribeRequest {
     pub method: ::std::string::String,
     pub params: SubscribeRequestParams,
@@ -6133,6 +6197,7 @@ impl ::std::convert::From<&SubscribeRequest> for SubscribeRequest {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[allow(dead_code)]
 pub struct SubscribeRequestParams {
     #[doc = "The URI of the resource to subscribe to. The URI can use any protocol; it is up to the server how to interpret it."]
     pub uri: ::std::string::String,
@@ -6463,6 +6528,7 @@ impl ::std::convert::From<&ToolInputSchema> for ToolInputSchema {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
+#[allow(dead_code)]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
 pub struct ToolListChangedNotification {
     pub method: ::std::string::String,
@@ -6492,6 +6558,7 @@ impl ::std::convert::From<&ToolListChangedNotification> for ToolListChangedNotif
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
+#[allow(dead_code)]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
 pub struct ToolListChangedNotificationParams {
     #[doc = "This parameter name is reserved by MCP to allow clients and servers to attach additional metadata to their notifications."]
@@ -6545,6 +6612,7 @@ impl ::std::convert::From<&ToolListChangedNotificationParams>
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
+#[allow(dead_code)]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
 pub struct UnsubscribeRequest {
     pub method: ::std::string::String,
@@ -6575,6 +6643,7 @@ impl ::std::convert::From<&UnsubscribeRequest> for UnsubscribeRequest {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
+#[allow(dead_code)]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
 pub struct UnsubscribeRequestParams {
     #[doc = "The URI of the resource to unsubscribe from."]

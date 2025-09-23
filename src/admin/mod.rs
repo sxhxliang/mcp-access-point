@@ -2,7 +2,7 @@ pub mod http_admin;
 pub mod resource_manager;
 pub mod resource_types;
 pub mod resource_validator;
-pub mod validate;
+// pub mod validate;
 
 use std::error::Error;
 

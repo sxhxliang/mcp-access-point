@@ -750,7 +750,7 @@ impl ResourceManager {
 
         // Update the internal config if we have access
         if let Some(config_ref) = &self.config {
-            let config = config_ref.write().await;
+            let _config = config_ref.write().await;
             // We can't assign a new config directly due to clone limitations
             // Instead, we'll update individual fields that can be updated
             log::warn!("Internal config update skipped due to Config clone limitations");

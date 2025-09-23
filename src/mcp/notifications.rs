@@ -2,7 +2,7 @@ use pingora::Result;
 use pingora_proxy::{ProxyHttp, Session};
 
 use crate::{
-    jsonrpc::JSONRPCRequest, service::mcp::MCPProxyService, sse_event::SseEvent, types::RequestId,
+    jsonrpc::JSONRPCRequest, service::mcp::MCPProxyService, sse_event::SseEvent,
 };
 
 // Helper function to send an SseEvent and mark the response as accepted
@@ -27,7 +27,7 @@ pub async fn request_processing(
     stream: bool, // TODO: Implement stream handling if needed, currently unused in this cod
 ) -> Result<bool> {
     // Safely handle the request ID assignment
-    let request_id = request.id.clone().unwrap_or(RequestId::Integer(0));
+    // let request_id = request.id.clone().unwrap_or(RequestId::Integer(0));
 
     match request.method.as_str() {
         "ping" => {

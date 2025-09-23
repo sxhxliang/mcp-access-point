@@ -27,6 +27,7 @@ type ResponseResult = Result<Response<Vec<u8>>, String>;
 type HttpRouterHandler = Pin<Box<dyn Future<Output = ResponseResult> + Send + 'static>>;
 
 /// HTTP admin server for MCP Access Point
+#[allow(dead_code)]
 pub struct RequestData {
     etcd: Arc<Mutex<EtcdClientWrapper>>,
     params: RequestParams,
@@ -126,6 +127,7 @@ impl<Arg: 'static> AsyncHandlerWithArg<Arg> {
 }
 
 /// Enhanced request data with resource manager support
+#[allow(dead_code)]
 pub struct RequestDataEnhanced {
     etcd: Option<Arc<Mutex<EtcdClientWrapper>>>,
     resource_manager: Arc<ResourceManager>,
@@ -162,7 +164,7 @@ async fn list_resources_by_type(req: RequestDataEnhanced) -> Result<Response<Vec
         .get("type")
         .ok_or_else(|| "Missing resource type parameter".to_string())?;
 
-    let resource_type = ResourceType::from_str(resource_type_str)
+    let resource_type = ResourceType::from_type_str(resource_type_str)
         .ok_or_else(|| format!("Invalid resource type: {resource_type_str}"))?;
 
     let resources = req.resource_manager.list_resources(resource_type);
@@ -181,7 +183,7 @@ async fn get_resource(req: RequestDataEnhanced) -> Result<Response<Vec<u8>>, Str
         .get("id")
         .ok_or_else(|| "Missing resource id parameter".to_string())?;
 
-    let resource_type = ResourceType::from_str(resource_type_str)
+    let resource_type = ResourceType::from_type_str(resource_type_str)
         .ok_or_else(|| format!("Invalid resource type: {resource_type_str}"))?;
 
     match req
@@ -210,7 +212,7 @@ async fn create_resource(req: RequestDataEnhanced) -> Result<Response<Vec<u8>>, 
         .get("id")
         .ok_or_else(|| "Missing resource id parameter".to_string())?;
 
-    let resource_type = ResourceType::from_str(resource_type_str)
+    let resource_type = ResourceType::from_type_str(resource_type_str)
         .ok_or_else(|| format!("Invalid resource type: {resource_type_str}"))?;
 
     let result = req
@@ -242,7 +244,7 @@ async fn update_resource(req: RequestDataEnhanced) -> Result<Response<Vec<u8>>, 
         .get("id")
         .ok_or_else(|| "Missing resource id parameter".to_string())?;
 
-    let resource_type = ResourceType::from_str(resource_type_str)
+    let resource_type = ResourceType::from_type_str(resource_type_str)
         .ok_or_else(|| format!("Invalid resource type: {resource_type_str}"))?;
 
     let result = req
@@ -272,7 +274,7 @@ async fn delete_resource(req: RequestDataEnhanced) -> Result<Response<Vec<u8>>, 
         .get("id")
         .ok_or_else(|| "Missing resource id parameter".to_string())?;
 
-    let resource_type = ResourceType::from_str(resource_type_str)
+    let resource_type = ResourceType::from_type_str(resource_type_str)
         .ok_or_else(|| format!("Invalid resource type: {resource_type_str}"))?;
 
     let result = req
@@ -304,7 +306,7 @@ async fn validate_resource(req: RequestDataEnhanced) -> Result<Response<Vec<u8>>
         .get("id")
         .ok_or_else(|| "Missing resource id parameter".to_string())?;
 
-    let resource_type = ResourceType::from_str(resource_type_str)
+    let resource_type = ResourceType::from_type_str(resource_type_str)
         .ok_or_else(|| format!("Invalid resource type: {resource_type_str}"))?;
 
     let validation_result =
@@ -343,7 +345,7 @@ async fn reload_resource_type(req: RequestDataEnhanced) -> Result<Response<Vec<u
         .get("type")
         .ok_or_else(|| "Missing resource type parameter".to_string())?;
 
-    let resource_type = ResourceType::from_str(resource_type_str)
+    let resource_type = ResourceType::from_type_str(resource_type_str)
         .ok_or_else(|| format!("Invalid resource type: {resource_type_str}"))?;
 
     let result = req

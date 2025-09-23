@@ -44,7 +44,7 @@ impl ResourceType {
     }
 
     /// Parse string to ResourceType
-    pub fn from_str(s: &str) -> Option<ResourceType> {
+    pub fn from_type_str(s: &str) -> Option<ResourceType> {
         match s {
             "upstreams" => Some(ResourceType::Upstreams),
             "services" => Some(ResourceType::Services),

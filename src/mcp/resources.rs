@@ -13,12 +13,12 @@ use crate::{
         TextResourceContents,
     },
 };
-
+#[allow(dead_code)]
 pub struct ResourceManager {
     resources: Vec<Resource>,
     templates: Vec<ResourceTemplate>,
 }
-
+#[allow(dead_code)]
 impl ResourceManager {
     pub fn new() -> Self {
         ResourceManager {

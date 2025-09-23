@@ -7,7 +7,7 @@ use serde_json::Map;
 
 use crate::{
     config::{self, Identifiable, MCP_ROUTE_META_INFO_MAP},
-    openapi::OpenApiSpec,
+    openapi::{MCPRouteMetaInfoMap, OpenApiSpec},
     plugin::ProxyPlugin,
     proxy::upstream::upstream_fetch,
     types::{ListToolsResult, Tool},
@@ -59,7 +59,7 @@ pub fn reload_global_openapi_tools_from_service_config(
 ) -> Result<
     (
         ListToolsResult,
-        DashMap<String, Arc<config::MCPRouteMetaInfo>>,
+        MCPRouteMetaInfoMap,
     ),
     Box<dyn std::error::Error>,
 > {
@@ -173,8 +173,8 @@ impl ProxyMCPService {
 
                 match &cfg.meta {
                     config::MCPMetaInfo::ToolInfo(tool) => tools.push(tool.clone()),
-                    config::MCPMetaInfo::PromptInfo(prompt) => todo!(),
-                    config::MCPMetaInfo::ResourceInfo(resource) => todo!(),
+                    config::MCPMetaInfo::PromptInfo(_prompt) => todo!(),
+                    config::MCPMetaInfo::ResourceInfo(_resource) => todo!(),
                 };
                 tools_meta_info.insert(cfg.operation_id.clone(), Arc::new(cfg.clone()));
             }

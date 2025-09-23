@@ -1,3 +1,5 @@
+#![allow(clippy::enum_variant_names)]
+
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -11,11 +13,11 @@ use pingora::{Error, ErrorType, Result};
 pub const LATEST_PROTOCOL_VERSION: &str = "2024-11-05";
 pub const JSONRPC_VERSION: &str = "2.0";
 
-pub const PARSE_ERROR: i32 = -32700;
-pub const INVALID_REQUEST: i32 = -32600;
-pub const METHOD_NOT_FOUND: i32 = -32601;
-pub const INVALID_PARAMS: i32 = -32602;
-pub const INTERNAL_ERROR: i32 = -32603;
+// pub const PARSE_ERROR: i32 = -32700;
+// pub const INVALID_REQUEST: i32 = -32600;
+// pub const METHOD_NOT_FOUND: i32 = -32601;
+// pub const INVALID_PARAMS: i32 = -32602;
+// pub const INTERNAL_ERROR: i32 = -32603;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ErrorCode {
@@ -31,6 +33,7 @@ pub enum ErrorCode {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
+#[allow(dead_code)]
 pub enum ProgressToken {
     String(String),
     Number(i64),
@@ -39,6 +42,7 @@ pub enum ProgressToken {
 // JSON-RPC
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "jsonrpc", content = "content")]
+#[allow(dead_code)]
 pub enum JSONRPCMessage {
     // #[serde(rename = "2.0")]
     Request(JSONRPCRequest),
@@ -95,6 +99,7 @@ impl Default for JSONRPCResponse {
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct CallToolRequestParam {
     pub name: Cow<'static, str>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -109,6 +114,7 @@ impl JSONRPCResponse {
             result,
         }
     }
+    #[allow(dead_code)]
     pub fn new_without_id(result: Value) -> Self {
         Self {
             jsonrpc: default_jsonrpc_version(),
@@ -118,6 +124,7 @@ impl JSONRPCResponse {
     }
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct JSONRPCError {
     pub jsonrpc: String,
     pub id: RequestId,
@@ -125,6 +132,7 @@ pub struct JSONRPCError {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct JSONRPCErrorDetails {
     pub code: ErrorCode,
     pub message: String,

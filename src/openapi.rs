@@ -43,6 +43,7 @@ pub struct PathItem {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+#[allow(dead_code)]
 pub struct Operation {
     #[serde(rename = "operationId")]
     operation_id: Option<String>,
@@ -53,7 +54,7 @@ pub struct Operation {
     summary: Option<String>,
     tags: Option<Vec<String>>,
 }
-
+#[allow(dead_code)]
 #[derive(Debug, Deserialize, Clone)]
 pub struct Parameter {
     name: String,
@@ -65,14 +66,14 @@ pub struct Parameter {
     // OpenAPI 3.0  content
     content: Option<HashMap<String, MediaType>>,
 }
-
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 struct RequestBody {
     description: Option<String>,
     content: HashMap<String, MediaType>,
     required: Option<bool>,
 }
-
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 struct MediaType {
     schema: Option<Schema>,
@@ -80,6 +81,7 @@ struct MediaType {
     examples: Option<HashMap<String, Value>>,
     encoding: Option<HashMap<String, Encoding>>, // OpenAPI 3.0
 }
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 struct Encoding {
     #[serde(rename = "contentType")]
@@ -90,7 +92,7 @@ struct Encoding {
     #[serde(rename = "allowReserved")]
     allow_reserved: Option<bool>,
 }
-
+#[allow(dead_code)]
 #[derive(Debug, Deserialize, Clone)]
 struct Schema {
     #[serde(rename = "$ref")]
@@ -103,13 +105,14 @@ struct Schema {
     format: Option<String>,
     example: Option<Value>,
 }
+#[allow(dead_code)]
 #[derive(Debug, Deserialize, Clone)]
 struct RequestBodySchema {
     format: Option<String>,
     #[serde(rename = "type")]
     schema_type: Option<String>,
 }
-
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 struct ParamInfo {
     name: String,
@@ -119,6 +122,8 @@ struct ParamInfo {
     format: Option<String>,
     example: Option<Value>,
 }
+
+pub type MCPRouteMetaInfoMap = DashMap<String, Arc<MCPRouteMetaInfo>>;
 
 impl OpenApiSpec {
     pub fn new(content: String) -> Result<Self, Box<dyn std::error::Error>> {
@@ -139,7 +144,7 @@ impl OpenApiSpec {
     }
     pub fn load_openapi(
         &self,
-    ) -> Result<(ListToolsResult, DashMap<String, Arc<MCPRouteMetaInfo>>), Box<dyn std::error::Error>>
+    ) -> Result<(ListToolsResult, MCPRouteMetaInfoMap), Box<dyn std::error::Error>>
     {
         if let Some(openapi_version) = &self.openapi {
             if !openapi_version.starts_with("3.") {
