@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc};
+use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 use http::Uri;
 use pingora::Result;
@@ -15,7 +15,7 @@ use crate::{
     },
     service::mcp::MCPProxyService,
     types::{CallToolResult, CallToolResultContentItem, ListToolsResult, RequestId, TextContent},
-    utils::request::build_uri_with_path_and_query,
+    utils::request::{build_uri_with_path_and_query, flatten_json},
 };
 
 pub async fn request_processing(
@@ -124,7 +124,12 @@ pub async fn request_processing(
                     // log::debug!("new_path {new_path:?}");
                     // let query_params = json_to_uri_query(arguments);
                     // let path_and_query = merge_path_query(&new_path, "");
-                    let path_and_query = build_uri_with_path_and_query(route_meta_info.uri().path(), &arguments.as_object().unwrap().iter().map(|(k,v)| (k.clone(), v.as_str().unwrap_or("").to_string())).collect());
+
+                    let mut flattened_params = HashMap::new();
+                    flatten_json("", arguments, &mut flattened_params);
+
+                    log::debug!("Building URL with path and query params: {} with {:?}", route_meta_info.uri().path(), arguments);
+                    let path_and_query = build_uri_with_path_and_query(route_meta_info.uri().path(), &flattened_params);
                     log::debug!("new_path_and_query {path_and_query:?}");
 
                     // add headers from upstream config
