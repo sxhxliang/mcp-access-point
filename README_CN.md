@@ -8,6 +8,8 @@
   <a href="https://zread.ai/sxhxliang/mcp-access-point"><img alt="中文文档" src="https://img.shields.io/badge/中文文档-4578DA"></a>
 </p>
 
+![Admin Dashboard](assets/admin_dashboard.png)
+
 ## 简介
 本项目基于`Pingora`——一个超高性能的网关代理库，能够支撑超大规模的请求代理服务。Pingora已被用于构建支撑Cloudflare平台核心流量处理的服务体系，多年来持续为互联网提供每秒超过4000万次请求的服务能力，目前已成为Cloudflare平台上处理相当大比例流量的技术基石。
 
@@ -349,6 +351,14 @@ curl -X POST http://localhost:8081/admin/batch \
 ```bash
 curl http://localhost:8081/admin/resources
 ```
+### 管理面板（Admin Dashboard）
+
+![管理面板](assets/admin_dashboard.png)
+
+- 访问地址：`GET /admin`（内置页面 `static/admin_dashboard.html`）。
+- 概览卡片固定顺序渲染以下 6 类资源，避免刷新时位置变化：
+  1）`mcp_services`，2）`ssls`，3）`global_rules`，4）`routes`，5）`upstreams`，6）`services`。
+- 每张卡片展示 `count`，并将 `last_updated` 进行本地时间格式化显示。
 
 #### 从文件重载配置
 ```bash

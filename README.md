@@ -8,6 +8,8 @@
   <a href="https://zread.ai/sxhxliang/mcp-access-point"><img alt="中文文档" src="https://img.shields.io/badge/中文文档-4578DA"></a>
 </p>
 
+![Admin Dashboard](assets/admin_dashboard.png)
+
 ## Introduction  
 This project is built on `Pingora` - an ultra-high performance gateway proxy library capable of supporting massive-scale request proxy services. Pingora has been used to build services that handle core traffic for the Cloudflare platform, consistently serving over 40 million requests per second across the internet for years. It has become the technical cornerstone supporting a significant proportion of traffic on the Cloudflare platform.
 
@@ -351,6 +353,12 @@ curl -X POST http://localhost:8081/admin/batch \
 ```bash
 curl http://localhost:8081/admin/resources
 ```
+
+### Admin Dashboard UI
+
+- Route: `GET /admin` serves a built-in dashboard (`static/admin_dashboard.html`).
+  1) `mcp_services`, 2) `ssls`, 3) `global_rules`, 4) `routes`, 5) `upstreams`, 6) `services`.
+- Each card shows `count` and a formatted `last_updated` derived from the API response.
 
 #### Reload configuration from file
 ```bash

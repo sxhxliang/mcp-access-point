@@ -93,7 +93,7 @@ pub struct ValidationResult {
 
 ```bash
 # 创建上游配置
-curl -X PUT http://localhost:8080/admin/upstreams/backend-1 \
+curl -X PUT http://localhost:8081/admin/upstreams/backend-1 \
   -H "Content-Type: application/json" \
   -d '{
     "id": "backend-1",
@@ -111,7 +111,7 @@ curl -X PUT http://localhost:8080/admin/upstreams/backend-1 \
 
 ```bash
 # 创建服务配置
-curl -X PUT http://localhost:8080/admin/services/api-service \
+curl -X PUT http://localhost:8081/admin/services/api-service \
   -H "Content-Type: application/json" \
   -d '{
     "id": "api-service",
@@ -130,7 +130,7 @@ curl -X PUT http://localhost:8080/admin/services/api-service \
 
 ```bash
 # 创建路由配置
-curl -X PUT http://localhost:8080/admin/routes/api-route \
+curl -X PUT http://localhost:8081/admin/routes/api-route \
   -H "Content-Type: application/json" \
   -d '{
     "id": "api-route",
@@ -145,7 +145,7 @@ curl -X PUT http://localhost:8080/admin/routes/api-route \
 
 ```bash
 # 批量创建资源
-curl -X POST http://localhost:8080/admin/resources/batch \
+curl -X POST http://localhost:8081/admin/resources/batch \
   -H "Content-Type: application/json" \
   -d '{
     "dry_run": false,
@@ -174,7 +174,7 @@ curl -X POST http://localhost:8080/admin/resources/batch \
 
 ```bash
 # 验证配置（dry-run）
-curl -X POST http://localhost:8080/admin/resources/validate \
+curl -X POST http://localhost:8081/admin/resources/validate \
   -H "Content-Type: application/json" \
   -d '{
     "resource_type": "routes",
@@ -190,27 +190,51 @@ curl -X POST http://localhost:8080/admin/resources/validate \
 
 ```bash
 # 获取所有资源的统计信息
-curl http://localhost:8080/admin/resources
+curl http://localhost:8081/admin/resources
 ```
 
 响应示例：
 ```json
 {
   "stats": {
+    "mcp_services": {
+      "resource_type": "mcp_services",
+      "count": 3,
+      "last_updated": { "secs_since_epoch": 1759219032, "nanos_since_epoch": 410206700 }
+    },
+    "ssls": {
+      "resource_type": "ssls",
+      "count": 0,
+      "last_updated": { "secs_since_epoch": 1759219032, "nanos_since_epoch": 410210500 }
+    },
+    "global_rules": {
+      "resource_type": "global_rules",
+      "count": 0,
+      "last_updated": { "secs_since_epoch": 1759219032, "nanos_since_epoch": 410195700 }
+    },
+    "routes": {
+      "resource_type": "routes",
+      "count": 1,
+      "last_updated": { "secs_since_epoch": 1759219032, "nanos_since_epoch": 410200300 }
+    },
     "upstreams": {
       "resource_type": "upstreams",
-      "count": 10,
-      "last_updated": "2025-01-21T10:30:00Z"
+      "count": 3,
+      "last_updated": { "secs_since_epoch": 1759219032, "nanos_since_epoch": 410175400 }
     },
     "services": {
       "resource_type": "services",
-      "count": 5,
-      "last_updated": "2025-01-21T10:31:00Z"
+      "count": 0,
+      "last_updated": { "secs_since_epoch": 1759219032, "nanos_since_epoch": 410187600 }
     }
   },
-  "total_resources": 15
+  "total_resources": 7
 }
 ```
+Notes:
+
+- The `last_updated` field is serialized from Rust `SystemTime` as `{ secs_since_epoch, nanos_since_epoch }`.
+- The `stats` object keys are fixed resource types: `mcp_services`, `ssls`, `global_rules`, `routes`, `upstreams`, `services`.
 
 ## 配置热重载
 

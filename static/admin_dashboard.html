@@ -58,6 +58,24 @@
                 }
             };
 
+            // Format SystemTime-like objects from Rust serde into a readable date
+            const formatLastUpdated = (lu) => {
+                if (!lu) return 'N/A';
+                // Handle if backend returns a plain string or number
+                if (typeof lu === 'string' || typeof lu === 'number') {
+                    const d = new Date(lu);
+                    return isNaN(d) ? 'N/A' : d.toLocaleString();
+                }
+                const secs = lu.secs_since_epoch ?? lu.secs ?? lu.seconds ?? lu.secsSinceEpoch;
+                const nanos = lu.nanos_since_epoch ?? lu.nanos ?? lu.nanosSinceEpoch ?? 0;
+                if (typeof secs === 'number') {
+                    const ms = secs * 1000 + Math.floor((nanos || 0) / 1e6);
+                    const d = new Date(ms);
+                    return isNaN(d) ? 'N/A' : d.toLocaleString();
+                }
+                return 'N/A';
+            };
+
             const fetchResources = async (type) => {
                 setLoading(true);
                 try {
@@ -245,20 +263,83 @@
                         {/* Summary Cards */}
                         {summary && (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                                {Object.entries(summary).map(([type, data]) => (
-                                    <div
-                                        key={type}
-                                        onClick={() => fetchResources(type)}
-                                        className="resource-card bg-white rounded-xl shadow-sm p-6 cursor-pointer hover:shadow-lg"
-                                    >
-                                        <div className="flex items-center justify-between mb-4">
-                                            <ResourceTypeIcon type={type} />
-                                            <span className="text-3xl font-bold text-gray-900">{data.count}</span>
-                                        </div>
-                                        <h3 className="text-xl font-semibold text-gray-800 capitalize mb-2">{type}</h3>
-                                        <p className="text-sm text-gray-600">Last updated: {new Date(data.last_updated).toLocaleString()}</p>
+                                <div
+                                    key="mcp_services"
+                                    onClick={() => fetchResources('mcp_services')}
+                                    className="resource-card bg-white rounded-xl shadow-sm p-6 cursor-pointer hover:shadow-lg"
+                                >
+                                    <div className="flex items-center justify-between mb-4">
+                                        <ResourceTypeIcon type="mcp_services" />
+                                        <span className="text-3xl font-bold text-gray-900">{(summary.stats && summary.stats.mcp_services && summary.stats.mcp_services.count) || 0}</span>
                                     </div>
-                                ))}
+                                    <h3 className="text-xl font-semibold text-gray-800 capitalize mb-2">mcp_services</h3>
+                                    <p className="text-sm text-gray-600">Last updated: {formatLastUpdated(summary.stats && summary.stats.mcp_services && summary.stats.mcp_services.last_updated)}</p>
+                                </div>
+
+                                <div
+                                    key="ssls"
+                                    onClick={() => fetchResources('ssls')}
+                                    className="resource-card bg-white rounded-xl shadow-sm p-6 cursor-pointer hover:shadow-lg"
+                                >
+                                    <div className="flex items-center justify-between mb-4">
+                                        <ResourceTypeIcon type="ssls" />
+                                        <span className="text-3xl font-bold text-gray-900">{(summary.stats && summary.stats.ssls && summary.stats.ssls.count) || 0}</span>
+                                    </div>
+                                    <h3 className="text-xl font-semibold text-gray-800 capitalize mb-2">ssls</h3>
+                                    <p className="text-sm text-gray-600">Last updated: {formatLastUpdated(summary.stats && summary.stats.ssls && summary.stats.ssls.last_updated)}</p>
+                                </div>
+
+                                <div
+                                    key="global_rules"
+                                    onClick={() => fetchResources('global_rules')}
+                                    className="resource-card bg-white rounded-xl shadow-sm p-6 cursor-pointer hover:shadow-lg"
+                                >
+                                    <div className="flex items-center justify-between mb-4">
+                                        <ResourceTypeIcon type="global_rules" />
+                                        <span className="text-3xl font-bold text-gray-900">{(summary.stats && summary.stats.global_rules && summary.stats.global_rules.count) || 0}</span>
+                                    </div>
+                                    <h3 className="text-xl font-semibold text-gray-800 capitalize mb-2">global_rules</h3>
+                                    <p className="text-sm text-gray-600">Last updated: {formatLastUpdated(summary.stats && summary.stats.global_rules && summary.stats.global_rules.last_updated)}</p>
+                                </div>
+
+                                <div
+                                    key="routes"
+                                    onClick={() => fetchResources('routes')}
+                                    className="resource-card bg-white rounded-xl shadow-sm p-6 cursor-pointer hover:shadow-lg"
+                                >
+                                    <div className="flex items-center justify-between mb-4">
+                                        <ResourceTypeIcon type="routes" />
+                                        <span className="text-3xl font-bold text-gray-900">{(summary.stats && summary.stats.routes && summary.stats.routes.count) || 0}</span>
+                                    </div>
+                                    <h3 className="text-xl font-semibold text-gray-800 capitalize mb-2">routes</h3>
+                                    <p className="text-sm text-gray-600">Last updated: {formatLastUpdated(summary.stats && summary.stats.routes && summary.stats.routes.last_updated)}</p>
+                                </div>
+
+                                <div
+                                    key="upstreams"
+                                    onClick={() => fetchResources('upstreams')}
+                                    className="resource-card bg-white rounded-xl shadow-sm p-6 cursor-pointer hover:shadow-lg"
+                                >
+                                    <div className="flex items-center justify-between mb-4">
+                                        <ResourceTypeIcon type="upstreams" />
+                                        <span className="text-3xl font-bold text-gray-900">{(summary.stats && summary.stats.upstreams && summary.stats.upstreams.count) || 0}</span>
+                                    </div>
+                                    <h3 className="text-xl font-semibold text-gray-800 capitalize mb-2">upstreams</h3>
+                                    <p className="text-sm text-gray-600">Last updated: {formatLastUpdated(summary.stats && summary.stats.upstreams && summary.stats.upstreams.last_updated)}</p>
+                                </div>
+
+                                <div
+                                    key="services"
+                                    onClick={() => fetchResources('services')}
+                                    className="resource-card bg-white rounded-xl shadow-sm p-6 cursor-pointer hover:shadow-lg"
+                                >
+                                    <div className="flex items-center justify-between mb-4">
+                                        <ResourceTypeIcon type="services" />
+                                        <span className="text-3xl font-bold text-gray-900">{(summary.stats && summary.stats.services && summary.stats.services.count) || 0}</span>
+                                    </div>
+                                    <h3 className="text-xl font-semibold text-gray-800 capitalize mb-2">services</h3>
+                                    <p className="text-sm text-gray-600">Last updated: {formatLastUpdated(summary.stats && summary.stats.services && summary.stats.services.last_updated)}</p>
+                                </div>
                             </div>
                         )}
 
