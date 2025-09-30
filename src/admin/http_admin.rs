@@ -341,6 +341,12 @@ async fn reload_config_from_file(req: RequestDataEnhanced) -> Result<Response<Ve
     Ok(ResponseHelper::json_response(result))
 }
 
+// Handler for serving the admin dashboard
+async fn serve_dashboard(_req: RequestDataEnhanced) -> Result<Response<Vec<u8>>, String> {
+    let html = include_str!("../../static/admin_dashboard.html");
+    Ok(ResponseHelper::success(html.as_bytes().to_vec(), Some("text/html; charset=utf-8")))
+}
+
 // Helper to validate content type
 fn validate_content_type(req: &RequestDataEnhanced) -> Result<(), String> {
     match req.get_header(header::CONTENT_TYPE) {
@@ -379,6 +385,19 @@ impl AdminHttpApp {
     }
 
     fn register_routes(&mut self) {
+        // Dashboard UI
+        self.route(AsyncHandlerWithArg::new(
+            Method::GET,
+            "/admin".to_string(),
+            serve_dashboard,
+        ));
+
+        self.route(AsyncHandlerWithArg::new(
+            Method::GET,
+            "/admin/".to_string(),
+            serve_dashboard,
+        ));
+
         // Resource summary
         self.route(AsyncHandlerWithArg::new(
             Method::GET,

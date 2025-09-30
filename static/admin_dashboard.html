@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Access Point - Admin Dashboard</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .resource-card {
+            transition: all 0.3s ease;
+        }
+        .resource-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        .modal-backdrop {
+            backdrop-filter: blur(4px);
+        }
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const API_BASE = window.location.origin;
+
+        const Dashboard = () => {
+            const [summary, setSummary] = useState(null);
+            const [selectedType, setSelectedType] = useState(null);
+            const [resources, setResources] = useState([]);
+            const [selectedResource, setSelectedResource] = useState(null);
+            const [showModal, setShowModal] = useState(false);
+            const [modalMode, setModalMode] = useState('view');
+            const [editData, setEditData] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [notification, setNotification] = useState(null);
+
+            useEffect(() => {
+                fetchSummary();
+            }, []);
+
+            const fetchSummary = async () => {
+                try {
+                    const response = await fetch(`${API_BASE}/admin/resources`);
+                    const data = await response.json();
+                    setSummary(data);
+                } catch (error) {
+                    showNotification('Failed to fetch summary', 'error');
+                }
+            };
+
+            const fetchResources = async (type) => {
+                setLoading(true);
+                try {
+                    const response = await fetch(`${API_BASE}/admin/resources/${type}`);
+                    const data = await response.json();
+                    setResources(data);
+                    setSelectedType(type);
+                } catch (error) {
+                    showNotification('Failed to fetch resources', 'error');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const fetchResourceDetail = async (type, id) => {
+                try {
+                    const response = await fetch(`${API_BASE}/admin/resources/${type}/${id}`);
+                    const data = await response.json();
+                    setSelectedResource(data);
+                    setEditData(JSON.stringify(data, null, 2));
+                    setModalMode('view');
+                    setShowModal(true);
+                } catch (error) {
+                    showNotification('Failed to fetch resource details', 'error');
+                }
+            };
+
+            const createResource = async () => {
+                if (!selectedType) return;
+
+                const id = prompt('Enter resource ID:');
+                if (!id) return;
+
+                try {
+                    const response = await fetch(`${API_BASE}/admin/resources/${selectedType}/${id}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: editData
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        showNotification('Resource created successfully', 'success');
+                        fetchResources(selectedType);
+                        setShowModal(false);
+                    } else {
+                        showNotification(data.message || 'Failed to create resource', 'error');
+                    }
+                } catch (error) {
+                    showNotification('Failed to create resource', 'error');
+                }
+            };
+
+            const updateResource = async () => {
+                if (!selectedResource || !selectedType) return;
+
+                try {
+                    const response = await fetch(`${API_BASE}/admin/resources/${selectedType}/${selectedResource.id || selectedResource.name}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: editData
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        showNotification('Resource updated successfully', 'success');
+                        fetchResources(selectedType);
+                        setShowModal(false);
+                    } else {
+                        showNotification(data.message || 'Failed to update resource', 'error');
+                    }
+                } catch (error) {
+                    showNotification('Failed to update resource', 'error');
+                }
+            };
+
+            const deleteResource = async (type, id) => {
+                if (!confirm(`Are you sure you want to delete ${id}?`)) return;
+
+                try {
+                    const response = await fetch(`${API_BASE}/admin/resources/${type}/${id}`, {
+                        method: 'DELETE'
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        showNotification('Resource deleted successfully', 'success');
+                        fetchResources(type);
+                    } else {
+                        showNotification(data.message || 'Failed to delete resource', 'error');
+                    }
+                } catch (error) {
+                    showNotification('Failed to delete resource', 'error');
+                }
+            };
+
+            const reloadResourceType = async (type) => {
+                try {
+                    const response = await fetch(`${API_BASE}/admin/reload/${type}`, {
+                        method: 'POST'
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        showNotification(`${type} reloaded successfully`, 'success');
+                        fetchResources(type);
+                        fetchSummary();
+                    } else {
+                        showNotification(data.message || 'Failed to reload', 'error');
+                    }
+                } catch (error) {
+                    showNotification('Failed to reload resource type', 'error');
+                }
+            };
+
+            const reloadConfig = async () => {
+                try {
+                    const response = await fetch(`${API_BASE}/admin/reload/config`, {
+                        method: 'POST'
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        showNotification('Configuration reloaded successfully', 'success');
+                        fetchSummary();
+                    } else {
+                        showNotification(data.message || 'Failed to reload config', 'error');
+                    }
+                } catch (error) {
+                    showNotification('Failed to reload configuration', 'error');
+                }
+            };
+
+            const showNotification = (message, type = 'info') => {
+                setNotification({ message, type });
+                setTimeout(() => setNotification(null), 3000);
+            };
+
+            const openCreateModal = () => {
+                setModalMode('create');
+                setEditData('{\n  \n}');
+                setShowModal(true);
+            };
+
+            const ResourceTypeIcon = ({ type }) => {
+                const icons = {
+                    upstream: '🌐',
+                    route: '🛣️',
+                    service: '⚙️',
+                    plugin: '🔌',
+                    consumer: '👤',
+                    certificate: '🔒'
+                };
+                return <span className="text-3xl">{icons[type] || '📦'}</span>;
+            };
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+                    {/* Header */}
+                    <header className="bg-white shadow-md">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h1 className="text-3xl font-bold text-gray-900">MCP Access Point</h1>
+                                    <p className="text-gray-600 mt-1">Admin Dashboard</p>
+                                </div>
+                                <button
+                                    onClick={reloadConfig}
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                                >
+                                    <span>🔄</span>
+                                    Reload Config
+                                </button>
+                            </div>
+                        </div>
+                    </header>
+
+                    {/* Notification */}
+                    {notification && (
+                        <div className={`fixed top-4 right-4 z-50 px-6 py-4 rounded-lg shadow-lg transition-all ${
+                            notification.type === 'success' ? 'bg-green-500' :
+                            notification.type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+                        } text-white`}>
+                            {notification.message}
+                        </div>
+                    )}
+
+                    {/* Main Content */}
+                    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                        {/* Summary Cards */}
+                        {summary && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                                {Object.entries(summary).map(([type, data]) => (
+                                    <div
+                                        key={type}
+                                        onClick={() => fetchResources(type)}
+                                        className="resource-card bg-white rounded-xl shadow-sm p-6 cursor-pointer hover:shadow-lg"
+                                    >
+                                        <div className="flex items-center justify-between mb-4">
+                                            <ResourceTypeIcon type={type} />
+                                            <span className="text-3xl font-bold text-gray-900">{data.count}</span>
+                                        </div>
+                                        <h3 className="text-xl font-semibold text-gray-800 capitalize mb-2">{type}</h3>
+                                        <p className="text-sm text-gray-600">Last updated: {new Date(data.last_updated).toLocaleString()}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Resource List */}
+                        {selectedType && (
+                            <div className="bg-white rounded-xl shadow-sm p-6">
+                                <div className="flex items-center justify-between mb-6">
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-gray-900 capitalize">{selectedType} Resources</h2>
+                                        <p className="text-gray-600 mt-1">{resources.length} items</p>
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={() => reloadResourceType(selectedType)}
+                                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                                        >
+                                            🔄 Reload
+                                        </button>
+                                        <button
+                                            onClick={openCreateModal}
+                                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                        >
+                                            ➕ Create New
+                                        </button>
+                                        <button
+                                            onClick={() => setSelectedType(null)}
+                                            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                                        >
+                                            ← Back
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {loading ? (
+                                    <div className="text-center py-12">
+                                        <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                                        <p className="text-gray-600 mt-4">Loading...</p>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {resources.map((resource, index) => {
+                                            const id = resource.id || resource.name || `resource-${index}`;
+                                            return (
+                                                <div
+                                                    key={id}
+                                                    className="border border-gray-200 rounded-lg p-4 hover:border-blue-400 transition-colors"
+                                                >
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <h3 className="font-semibold text-gray-900 truncate">{id}</h3>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            onClick={() => fetchResourceDetail(selectedType, id)}
+                                                            className="flex-1 px-3 py-1.5 text-sm bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors"
+                                                        >
+                                                            View
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                fetchResourceDetail(selectedType, id);
+                                                                setModalMode('edit');
+                                                            }}
+                                                            className="flex-1 px-3 py-1.5 text-sm bg-yellow-50 text-yellow-600 rounded hover:bg-yellow-100 transition-colors"
+                                                        >
+                                                            Edit
+                                                        </button>
+                                                        <button
+                                                            onClick={() => deleteResource(selectedType, id)}
+                                                            className="px-3 py-1.5 text-sm bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors"
+                                                        >
+                                                            Delete
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </main>
+
+                    {/* Modal */}
+                    {showModal && (
+                        <div className="fixed inset-0 z-40 flex items-center justify-center p-4 modal-backdrop bg-black bg-opacity-50">
+                            <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+                                <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                                    <h3 className="text-xl font-bold text-gray-900">
+                                        {modalMode === 'view' ? 'View Resource' : modalMode === 'edit' ? 'Edit Resource' : 'Create Resource'}
+                                    </h3>
+                                    <button
+                                        onClick={() => setShowModal(false)}
+                                        className="text-gray-400 hover:text-gray-600 text-2xl"
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+
+                                <div className="flex-1 overflow-auto p-6">
+                                    {modalMode === 'view' ? (
+                                        <pre className="bg-gray-50 p-4 rounded-lg text-sm overflow-x-auto">
+{editData}
+                                        </pre>
+                                    ) : (
+                                        <textarea
+                                            value={editData}
+                                            onChange={(e) => setEditData(e.target.value)}
+                                            className="w-full h-96 p-4 border border-gray-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            placeholder="Enter JSON data..."
+                                        />
+                                    )}
+                                </div>
+
+                                <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+                                    {modalMode === 'view' ? (
+                                        <>
+                                            <button
+                                                onClick={() => setModalMode('edit')}
+                                                className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
+                                            >
+                                                Edit
+                                            </button>
+                                            <button
+                                                onClick={() => setShowModal(false)}
+                                                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                                            >
+                                                Close
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <button
+                                                onClick={() => setShowModal(false)}
+                                                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                onClick={modalMode === 'create' ? createResource : updateResource}
+                                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                            >
+                                                {modalMode === 'create' ? 'Create' : 'Update'}
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        ReactDOM.render(<Dashboard />, document.getElementById('root'));
+    </script>
+</body>
+</html>

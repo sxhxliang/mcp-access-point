@@ -149,7 +149,7 @@ pub struct Route {
 }
 
 impl Route {
-    fn validate(&self) -> Result<(), ValidationError> {
+    pub fn validate(&self) -> Result<(), ValidationError> {
         if self.uri.is_none() && self.uris.is_empty() {
             return Err(ValidationError::new("uri_or_uris_required"));
         }
