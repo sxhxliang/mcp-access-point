@@ -33,7 +33,7 @@ pub async fn send_json_response(
     if stream {
         let event =
             SseEvent::new_event(session_id, "message", &serde_json::to_string(res).unwrap());
-        let _ = mcp_proxy.tx.send(event);
+        let _ = mcp_proxy.event_sender().send(event);
         mcp_proxy.response_accepted(session).await?;
     } else {
         mcp_proxy
@@ -86,7 +86,7 @@ pub async fn request_processing(
             let event =
                 SseEvent::new_event(session_id, "message", &serde_json::to_string(&res).unwrap());
 
-            let _ = mcp_proxy.tx.send(event);
+            let _ = mcp_proxy.event_sender().send(event);
             mcp_proxy.response_accepted(session).await?;
             Ok(true)
         }

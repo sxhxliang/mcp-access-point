@@ -13,7 +13,7 @@ async fn process_response(
     mcp_proxy: &MCPProxyService,
     session: &mut Session,
 ) -> Result<()> {
-    let _ = mcp_proxy.tx.send(SseEvent::new(session_id, event_message));
+    let _ = mcp_proxy.event_sender().send(SseEvent::new(session_id, event_message));
     mcp_proxy.response_accepted(session).await?;
     Ok(())
 }
