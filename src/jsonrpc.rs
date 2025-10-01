@@ -5,8 +5,11 @@ use std::borrow::Cow;
 
 use crate::{
     config::ERROR_MESSAGE,
-    types::{CallToolResult, CallToolResultContentItem, RequestId, TextContent},
+    types::{CallToolResult, CallToolResultContentItem, TextContent},
 };
+
+// Re-export RequestId for convenience
+pub use crate::types::RequestId;
 use pingora::{Error, ErrorType, Result};
 pub const LATEST_PROTOCOL_VERSION: &str = "2024-11-05";
 pub const JSONRPC_VERSION: &str = "2.0";

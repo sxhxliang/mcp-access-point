@@ -49,7 +49,6 @@
     clippy::must_use_candidate,
     clippy::enum_variant_names,
     clippy::inherent_to_string,
-    clippy::enum_variant_names,
 )]
 // Restrictions
 // #![deny(clippy::question_mark_used)]
