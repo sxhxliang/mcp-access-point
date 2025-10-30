@@ -1,4 +1,4 @@
-FROM rust:latest as builder
+FROM rust:1.85-bookworm AS builder
 
 WORKDIR /app
 
@@ -21,6 +21,9 @@ FROM debian:bookworm-slim
 # 安装必要的依赖
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
+    libssl3 \
+    libgcc-s1 \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
