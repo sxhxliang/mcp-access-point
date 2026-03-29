@@ -65,6 +65,10 @@ use `IP:PORT/mcp` for `Streamable HTTP`
 - **Runtime Configuration Management**: Dynamic configuration updates without service restart
 - **Admin API**: RESTful API for real-time configuration management
 
+## Hosted deployment
+
+A hosted deployment is available on [Fronteir AI](https://fronteir.ai/mcp/sxhxliang-mcp-access-point).
+
 ## Quick Start  
 
 ### Installation  
